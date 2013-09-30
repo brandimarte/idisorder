@@ -1,0 +1,9 @@
+*.o
+*.mod
+loop_prof*
+*.a
+arch.make
+Makefile
+i-disorder.*
+!.gitignore
+

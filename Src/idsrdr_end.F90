@@ -17,12 +17,9 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                         MODULE btree_generic                          !
+!                           MODULE idsrdr_end                           !
 !  *******************************************************************  !
-!  Description: abstract symble-table managed by a key-indexed B-Tree.  !
-!                                                                       !
-!  Based on P. Lignelet, "Structures de Donnees en Fortran 90/95",      !
-!  Masson  (1996).                                                      !
+!  Description: closes the program properly                             !
 !                                                                       !
 !  Written by Pedro Brandimarte, Sep 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -32,37 +29,20 @@
 !  Original version:    September 2013                                  !
 !  *******************************************************************  !
 
-MODULE btree_generic
-
+MODULE idsrdr_end
 
   implicit none
 
-  integer, parameter :: ORDER = 2 ! B-Tree order
+  PUBLIC ! default is public
 
-  integer, parameter :: n_long = 20
-
-! The 'keys' are given by the matrix index '(i,j)'.
-  TYPE keys
-     integer :: ij
-  END TYPE keys
-
-! The value 'values' of a give key is double complex number.
-  TYPE values
-     double complex :: na
-  END TYPE values
-
-! Order relation between the keys.  
-  INTERFACE operator (<)
-     MODULE procedure LT
-  END INTERFACE operator (<)
 
 CONTAINS
 
 
 !  *******************************************************************  !
-!                                  LT                                   !
+!                               finalize                                !
 !  *******************************************************************  !
-!  Description: Order relation between the keys.                        !
+!  Description: closes the program properly.                            !
 !                                                                       !
 !  Written by Pedro Brandimarte, Sep 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -70,22 +50,48 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
-!  ****************************** INPUT ******************************  !
-!  TYPE(keys) k1       : First key to be compared                       !
-!  TYPE(keys) k2       : Seconde key to be compared                     !
 !  *******************************************************************  !
-  logical function LT (k1, k2)
+  subroutine finalize
 
-!   Input variables.
-    TYPE(keys), intent(in) :: k1, k2
+!
+! Modules
+!
+    use parallel,        only: IOnode
+    use idsrdr_init,     only: slabel, label_length
 
-    LT = k1%ij < k2%ij
+    include "mpif.h"
+
+!   Local variables.
+    character(len=label_length+4), external :: paste
+    external :: timer
+#ifdef MPI
+    integer :: MPIerror ! Return error code in MPI routines
+#endif
+
+    call MPI_Barrier (MPI_Comm_World, MPIerror)
+
+!   Free memory.
 
 
-  end function LT
+    if (IOnode) then
+       write (6,'(/,a)') "End of program I-Disorder"
+       write (6,'(/,a,a)') "Total transmission written to file: ",      &
+            paste (slabel,'.TRC') 
+    endif
+
+!   Stop time counter.
+    call timer ('i-disorder', 1)
+
+!   Finalizes MPI.
+#ifdef MPI
+    call MPI_Finalize (MPIerror)
+#endif
+
+
+  end subroutine finalize
 
 
 !  *******************************************************************  !
 
 
-END MODULE btree_generic
+END MODULE idsrdr_end
