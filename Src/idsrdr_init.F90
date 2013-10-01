@@ -19,8 +19,7 @@
 !  *******************************************************************  !
 !                          MODULE idsrdr_init                           !
 !  *******************************************************************  !
-!  Description: electron transport in disordered systems with           !
-!  electron-phonon interaction.                                         !
+!  Description: intialize the program properly and read input options.  !
 !                                                                       !
 !  Written by Pedro Brandimarte, Sep 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -36,15 +35,16 @@ MODULE idsrdr_init
 ! Modules
 !
   use parallel,        only:
+  use idsrdr_options,  only: 
   use fdf
 
   implicit none
 
   PUBLIC ! default is public
 
-! System Label (to name output files).
-  integer, parameter :: label_length = 60
-  character(len=label_length), save :: slabel
+! Program working variables.
+  integer :: nsc(2)
+  real*8, dimension (3) :: kpoint
 
 
 CONTAINS
@@ -69,6 +69,7 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: Node, Nodes, IOnode
+    use idsrdr_options,  only: readopt
 
     include "mpif.h"
 
@@ -106,15 +107,14 @@ CONTAINS
     call timer ('i-disorder', 0)
 
 !   Initialize some variables.
-!!$    kpoint = 0.d0
-!!$    nsc = 1
-    slabel = ""
+    kpoint = 0.d0
+    nsc = 1
 
 !   Initialise read.
     call initread
 
 !   Read simulation data.
-!!$    call read_options
+    call readopt
 
 
   end subroutine init
@@ -142,20 +142,13 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: IOnode
-    use fdf
-
-    include "mpif.h"
 
 !   Local variables.
     character string*20
     character filein*20, fileout*20, line*150 
-    character slabel_default*59
     integer :: count, length, lun, lun_tmp
     logical :: debug_input, file_exists
     external :: io_assign, io_close
-#ifdef MPI
-    integer :: MPIerror
-#endif
 
 !   Print welcome and presentation.
     if (IOnode) then
@@ -192,7 +185,7 @@ CONTAINS
           rewind (lun_tmp)
        endif
 
-       write (6,'(a,23(1h*),a,28(1h*))') '***',                         &
+       write (6,'(a,24(1h*),a,27(1h*))') '***',                         &
             ' Dump of input data file '
 
 10     continue
@@ -205,7 +198,7 @@ CONTAINS
        goto 10
 20     continue
 
-       write (6,'(a,23(1h*),a,29(1h*))') '***',                         &
+       write (6,'(a,24(1h*),a,28(1h*))') '***',                         &
             ' End of input data file '
 
 !      Choose proper file for fdf processing.
@@ -219,20 +212,7 @@ CONTAINS
        fileout = 'fdf.log'
        call fdf_init (filein, fileout)
 
-!      Defile System Label (short name to label files).
-       slabel_default = 'i-disorder'
-       slabel = fdf_string ('SystemLabel', slabel_default)
-!!$       label_length = size (slabel)
-       write (6,'(a,a)') 'initread: System Label: ', slabel
-       write (6,'(a,71(1h-))') 'initread: '
-
     endif
-
-!   Global broadcast of system label.
-#ifdef MPI
-    call MPI_Bcast (slabel, label_length, MPI_Character, 0,             &
-         MPI_Comm_World, MPIerror)
-#endif
 
 
   end subroutine initread

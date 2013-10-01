@@ -31,6 +31,12 @@
 
 MODULE idsrdr_end
 
+!
+! Modules
+!
+  use parallel,        only: IOnode
+  use idsrdr_options,  only: slabel, label_length
+
   implicit none
 
   PUBLIC ! default is public
@@ -53,12 +59,6 @@ CONTAINS
 !  *******************************************************************  !
   subroutine finalize
 
-!
-! Modules
-!
-    use parallel,        only: IOnode
-    use idsrdr_init,     only: slabel, label_length
-
     include "mpif.h"
 
 !   Local variables.
@@ -74,9 +74,9 @@ CONTAINS
 
 
     if (IOnode) then
-       write (6,'(/,a)') "End of program I-Disorder"
        write (6,'(/,a,a)') "Total transmission written to file: ",      &
             paste (slabel,'.TRC') 
+       write (6,'(/,a,/)') "End of program I-Disorder"
     endif
 
 !   Stop time counter.

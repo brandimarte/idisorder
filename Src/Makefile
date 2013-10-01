@@ -61,7 +61,7 @@ what:
 
 # All objects.
 OBJS =  parallel.o paste.o pxf.o sys.o io.o m_walltime.o timer.o \
-	idsrdr_init.o idsrdr_end.o idisorder.o
+	idsrdr_options.o idsrdr_init.o idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -72,7 +72,7 @@ $(FDF):
 	(cd fdf ; $(MAKE) "VPATH=$(VPATH)/fdf" module)
 
 # Routines using fdf calls.
-idsrdr_init.o : $(FDF)
+idsrdr_init.o idsrdr_options.o : $(FDF)
 
 #  *******************************************************************  #
 
@@ -108,7 +108,8 @@ clean:
 
 #idsorder.o : idsrdr_ini.o
 #idsrdr_end.o : parallel.o idsrdr_ini.o paste.o timer.o
-#idsrdr_ini.o : parallel.o timer.o io.o
+#idsrdr_ini.o : parallel.o timer.o io.o idsrdr_options.o
+#idsrdr_options.o : parallel.o
 #io.o : sys.o
 #sys.o : parallel.o
 #timer.o : parallel.o sys.o io.o m_walltime.o
