@@ -44,7 +44,6 @@ MODULE idsrdr_init
 
 ! Program working variables.
   integer :: nsc(2)
-  real*8, dimension (3) :: kpoint
 
 
 CONTAINS
@@ -53,8 +52,7 @@ CONTAINS
 !  *******************************************************************  !
 !                                 init                                  !
 !  *******************************************************************  !
-!  Description: returns the address at 'B_Fdat' of a given 'key' or     !
-!  returns 'KEY_MISSING' (through the global variable 'Koderr').        !
+!  Description: initializes timer and the MPI execution environment.    !
 !                                                                       !
 !  Written by Pedro Brandimarte, Sep 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -62,6 +60,10 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer Node                : Actual node (MPI_Comm_rank)            !
+!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
+!  logical IOnode              : True if it is the I/O node             !
 !  *******************************************************************  !
   subroutine init
 
@@ -70,6 +72,7 @@ CONTAINS
 !
     use parallel,        only: Node, Nodes, IOnode
     use idsrdr_options,  only: readopt
+    use idsrdr_zhs,      only: readzhs
 
     include "mpif.h"
 
@@ -83,16 +86,16 @@ CONTAINS
 !   Initialise MPI and set processor number.
 #ifdef MPI
     call MPI_Init (MPIerror)
-    call MPI_Comm_Rank (MPI_Comm_World, Node, MPIerror)
-    call MPI_Comm_Size (MPI_Comm_World, Nodes, MPIerror)
+    call MPI_Comm_rank (MPI_Comm_world, Node, MPIerror)
+    call MPI_Comm_size (MPI_Comm_world, Nodes, MPIerror)
 #endif
 
-    IOnode = Node .eq. 0
+    IOnode = (Node == 0)
 
 !   Print version information.
     if (IOnode) then
 #ifdef MPI
-       if (Nodes.gt.1) then
+       if (Nodes > 1) then
           write(6,'(/,a,i4,a)')                                         &
                '* Running on ', Nodes, ' nodes in parallel'
        else
@@ -106,15 +109,17 @@ CONTAINS
 !   Start time counter.
     call timer ('i-disorder', 0)
 
-!   Initialize some variables.
-    kpoint = 0.d0
-    nsc = 1
-
 !   Initialise read.
     call initread
 
 !   Read simulation data.
     call readopt
+
+!   Number of unit cells along parallel directions.
+    nsc = 1
+
+!   Read leads input data.
+    call readzhs (nsc)
 
 
   end subroutine init
@@ -123,7 +128,7 @@ CONTAINS
 !  *******************************************************************  !
 !                               initread                                !
 !  *******************************************************************  !
-!  Description: initialise the reading of the data for I-Disorder.      !
+!  Description: initialize the reading of the data for I-Disorder.      !
 !                                                                       !
 !  Uses FDF (Flexible Data Fromat) package of J.M.Soler and A.Garcia.   !
 !                                                                       !
@@ -135,6 +140,8 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
+!  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode              : True if it is the I/O node             !
 !  *******************************************************************  !
   subroutine initread
 
@@ -159,6 +166,8 @@ CONTAINS
        write (6,'(a)')                                                  &
             '                           ***************************     '
 
+       write (6,'(/,27(1h*),a,27(1h*))') ' Dump of input data file '
+
 !      Dump data file to output file and generate scratch file
 !      for FDF to read from (except if INPUT_DEBUG exists).
        inquire (file='INPUT_DEBUG', exist=debug_input)
@@ -171,7 +180,7 @@ CONTAINS
           open (lun, file='INPUT_DEBUG', form='formatted', status='old')
           rewind (lun)
        else
-          write (6,'(/a)') 'initread: Reading from standard input'
+          write (6,'(a,/)') 'initread: Reading from standard input'
           lun = 5
           call io_assign (lun_tmp)
           do
@@ -185,21 +194,17 @@ CONTAINS
           rewind (lun_tmp)
        endif
 
-       write (6,'(a,24(1h*),a,27(1h*))') '***',                         &
-            ' Dump of input data file '
-
 10     continue
        read (lun, err=20, end=20, fmt='(a)') line
        call chrlen (line, 0, length)
-       if (length .ne. 0) then
-          write(6,'(a)') line(1:length)
+       if (length /= 0) then
+          write(6,'(a,a)') 'initread: ', line(1:length)
           if (.not. debug_input) write (lun_tmp,'(a)') line(1:length)
        endif
        goto 10
 20     continue
 
-       write (6,'(a,24(1h*),a,28(1h*))') '***',                         &
-            ' End of input data file '
+       write (6,'(2a)') 'initread: ', repeat('*', 69)
 
 !      Choose proper file for fdf processing.
        if (debug_input) then

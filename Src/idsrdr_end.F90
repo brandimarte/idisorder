@@ -34,8 +34,10 @@ MODULE idsrdr_end
 !
 ! Modules
 !
-  use parallel,        only: IOnode
-  use idsrdr_options,  only: slabel, label_length
+  use parallel,        only: 
+  use idsrdr_options,  only: 
+  use idsrdr_zhs,      only: 
+  use idsrdr_engrid,   only: 
 
   implicit none
 
@@ -56,8 +58,20 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
+!  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode                 : True if it is the I/O node          !
+!  integer label_length           : Length of system label              !
+!  character(label_length) slabel : System Label (for output files)     !
 !  *******************************************************************  !
   subroutine finalize
+
+!
+! Modules
+!
+    use parallel,        only: IOnode
+    use idsrdr_options,  only: label_length, slabel, freeopt
+    use idsrdr_zhs,      only: freezhs
+    use idsrdr_engrid,   only: freegrid
 
     include "mpif.h"
 
@@ -68,13 +82,21 @@ CONTAINS
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
-    call MPI_Barrier (MPI_Comm_World, MPIerror)
+    call MPI_Barrier (MPI_Comm_world, MPIerror)
 
 !   Free memory.
+    if (IOnode) write (6,'(/,30("*"),a,30("*"))')                       &
+            ' Ending I-Disorder '
 
+    if (IOnode) write (6,'(/,a)', ADVANCE='no')                         &
+         'finalize: Freeing memory...'
+    call freegrid
+    call freezhs
+    call freeopt
 
     if (IOnode) then
-       write (6,'(/,a,a)') "Total transmission written to file: ",      &
+       write (6,'(a,/)') ' done!'
+       write (6,'(a,a)') "Total transmission written to file: ",        &
             paste (slabel,'.TRC') 
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif

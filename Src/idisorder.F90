@@ -36,12 +36,15 @@ PROGRAM IDISORDER
 ! Modules
 !
   use idsrdr_init
+  use idsrdr_engrid
   use idsrdr_end
 
   implicit none
 
 
   call init
+
+  call engrid
 
   call finalize
 

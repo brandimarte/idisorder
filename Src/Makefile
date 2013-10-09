@@ -61,7 +61,9 @@ what:
 
 # All objects.
 OBJS =  parallel.o paste.o pxf.o sys.o io.o m_walltime.o timer.o \
-	idsrdr_options.o idsrdr_init.o idsrdr_end.o idisorder.o
+	gensvd.o rank.o ranksvd.o zhsl.o zhsunits.o gauleg.o \
+	idsrdr_options.o idsrdr_zhs.o idsrdr_init.o idsrdr_engrid.o \
+	idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -106,10 +108,15 @@ clean:
 
 # DO NOT DELETE THIS LINE - used by make depend
 
-#idsorder.o : idsrdr_ini.o
-#idsrdr_end.o : parallel.o idsrdr_ini.o paste.o timer.o
-#idsrdr_ini.o : parallel.o timer.o io.o idsrdr_options.o
+#idsorder.o : idsrdr_init.o idsrdr_engrid.o idsrdr_end.o
+#idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_zhs.o idsrdr_engrid.o \
+#	paste.o timer.o
+#idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_zhs.o gauleg.o
+#idsrdr_init.o : parallel.o timer.o io.o idsrdr_options.o idsrdr_zhs.o
 #idsrdr_options.o : parallel.o
+#idsrdr_zhs.o : parallel.o paste.o io.o
 #io.o : sys.o
+#ranksvd.o : parallel.o rank.o gensvd.o
 #sys.o : parallel.o
 #timer.o : parallel.o sys.o io.o m_walltime.o
+#zhsunits.o : paste.o io.o zhsl.o

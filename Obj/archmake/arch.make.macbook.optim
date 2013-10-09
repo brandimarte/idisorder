@@ -104,15 +104,15 @@ FPPFLAGS_free_F90 =
 # We can make things a bit easier by grouping symbols, and maybe
 # using the -L flag to define search directories (see examples
 # in 'siesta-3.1/Src/Sys' directory).
-#MKL              = /opt/intel/composer_xe_2013.5.198/mkl
-#INTEL_LIBS       = $(MKL)/lib/libmkl_intel_lp64.a \
-#                   $(MKL)/lib/libmkl_sequential.a \
-#                   $(MKL)/lib/libmkl_core.a
-##                   $(MKL)/lib/libmkl_lapack95_lp64.a \
-##                   $(MKL)/lib/libmkl_blas95_lp64.a
-#SCALAPACK_LIBS   = /opt/local/lib/libscalapack.a
-#MKL_LIBS         = -Wl,--start-group $(INTEL_LIBS) $(SCALAPACK_LIBS) \
-#		  -Wl,--end-group -lpthread -lm
+MKL              = /opt/intel/composer_xe_2013.5.198/mkl
+INTEL_LIBS       = $(MKL)/lib/libmkl_intel_lp64.a \
+                   $(MKL)/lib/libmkl_sequential.a \
+                   $(MKL)/lib/libmkl_core.a
+#                   $(MKL)/lib/libmkl_lapack95_lp64.a \
+#                   $(MKL)/lib/libmkl_blas95_lp64.a
+SCALAPACK_LIBS   = /opt/local/lib/libscalapack.a
+MKL_LIBS         = -Wl,--start-group $(INTEL_LIBS) $(SCALAPACK_LIBS) \
+		  -Wl,--end-group -lpthread -lm
 
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
