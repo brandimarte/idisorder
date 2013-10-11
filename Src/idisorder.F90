@@ -35,9 +35,10 @@ PROGRAM IDISORDER
 !
 ! Modules
 !
-  use idsrdr_init
-  use idsrdr_engrid
-  use idsrdr_end
+  use idsrdr_init,     only: init
+  use idsrdr_engrid,   only: engrid
+  use idsrdr_units,    only: makeunits
+  use idsrdr_end,      only: finalize
 
   implicit none
 
@@ -45,6 +46,8 @@ PROGRAM IDISORDER
   call init
 
   call engrid
+
+  call makeunits
 
   call finalize
 

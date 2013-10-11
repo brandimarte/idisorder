@@ -64,6 +64,9 @@ CONTAINS
 !  integer Node                : Actual node (MPI_Comm_rank)            !
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  logical IOnode              : True if it is the I/O node             !
+!  ***************************** OUTPUT ******************************  !
+!  integer nsc(2)              : Number of unit cells along parallel    !
+!                                directions                             !
 !  *******************************************************************  !
   subroutine init
 
@@ -72,7 +75,7 @@ CONTAINS
 !
     use parallel,        only: Node, Nodes, IOnode
     use idsrdr_options,  only: readopt
-    use idsrdr_zhs,      only: readzhs
+    use idsrdr_leads,    only: readleads
 
     include "mpif.h"
 
@@ -119,7 +122,7 @@ CONTAINS
     nsc = 1
 
 !   Read leads input data.
-    call readzhs (nsc)
+    call readleads (nsc)
 
 
   end subroutine init

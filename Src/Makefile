@@ -62,8 +62,9 @@ what:
 # All objects.
 OBJS =  parallel.o paste.o pxf.o sys.o io.o m_walltime.o timer.o \
 	gensvd.o rank.o ranksvd.o zhsl.o zhsunits.o gauleg.o \
-	idsrdr_options.o idsrdr_zhs.o idsrdr_init.o idsrdr_engrid.o \
-	idsrdr_end.o idisorder.o
+	hsl.o hsunits.o random_d.o \
+	idsrdr_options.o idsrdr_leads.o idsrdr_init.o idsrdr_engrid.o \
+	idsrdr_units.o idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -74,7 +75,7 @@ $(FDF):
 	(cd fdf ; $(MAKE) "VPATH=$(VPATH)/fdf" module)
 
 # Routines using fdf calls.
-idsrdr_init.o idsrdr_options.o : $(FDF)
+idsrdr_init.o idsrdr_options.o idsrdr_units.o : $(FDF)
 
 #  *******************************************************************  #
 
@@ -108,14 +109,19 @@ clean:
 
 # DO NOT DELETE THIS LINE - used by make depend
 
-#idsorder.o : idsrdr_init.o idsrdr_engrid.o idsrdr_end.o
-#idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_zhs.o idsrdr_engrid.o \
+#hsunits.o : paste.o io.o hsl.o
+#idsorder.o : idsrdr_init.o idsrdr_engrid.o idsrdr_units.o idsrdr_end.o
+#idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o timer.o
-#idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_zhs.o gauleg.o
-#idsrdr_init.o : parallel.o timer.o io.o idsrdr_options.o idsrdr_zhs.o
+#idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
+#idsrdr_init.o : parallel.o timer.o io.o idsrdr_options.o idsrdr_leads.o
+#idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o \
+#	idsrdr_options.o
 #idsrdr_options.o : parallel.o
-#idsrdr_zhs.o : parallel.o paste.o io.o
+#idsrdr_units.o : parallel.o idsrdr_options.o idsrdr_leads.o \
+#	idsrdr_init.o randon_d.o io.o hsunits.o
 #io.o : sys.o
+#randon_d.o : parallel.o
 #ranksvd.o : parallel.o rank.o gensvd.o
 #sys.o : parallel.o
 #timer.o : parallel.o sys.o io.o m_walltime.o

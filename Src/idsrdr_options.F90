@@ -42,11 +42,14 @@ MODULE idsrdr_options
   PUBLIC ! default is public
 
   logical :: calcdos             ! Calculate total DOS?
+  logical :: readunitstf         ! Read 'UnitIndex' block?
 
   integer :: NDeffects           ! Number of deffects blocks
   integer :: NTenerg             ! Number of transmission energy points
   integer :: nspin               ! Number of spin components
   integer :: ntypeunits          ! Number of unit types
+  integer :: nunits              ! Number of units
+
   integer :: symmetry            ! 
   integer :: norbitals           ! Number of orbitals
   integer :: numberrings         ! 
@@ -85,10 +88,12 @@ CONTAINS
 !  logical IOnode              : True if it is the I/O node             !
 !  ***************************** OUTPUT ******************************  !
 !  logical calcdos              : Calculate total DOS?                  !
+!  logical readunitstf          : Read 'UnitIndex' block?               !
 !  integer NDeffects            : Number of deffects blocks             !
 !  integer NTenerg              : Number of transmission energy points  !
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
+!  integer nunits               : Number of units                       !
 !  integer symmetry             :                                       !
 !  integer norbitals            : Number of orbitals                    !
 !  integer numberrings          :                                       !
@@ -160,6 +165,28 @@ CONTAINS
             'readopt: Number of unit types                          =', &
             ntypeunits
 
+!      Read 'UnitIndex' block?
+       readunitstf = fdf_boolean ('ReadUnits', .false.)
+       write (6,1)                                                      &
+            'readopt: Read UnitIndex and SegmentLengths blocks?     =', &
+            readunitstf
+
+!      Number of units.
+       nunits = 0
+       nunits = fdf_integer ('NumberUnits', 0)
+       if (readunitstf) then
+          if (nunits == 0) then
+#ifdef MPI
+             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+#else
+             stop 'readopt: ERROR: Number of units is zero!'
+#endif
+          endif
+          write (6,4)                                                   &
+               'readopt: Number of units                          ' //  &
+               '     =', nunits
+       endif
+
 !      
        symmetry = fdf_integer ('Symmetry', 1)
        write (6,4)                                                      &
@@ -216,7 +243,7 @@ CONTAINS
           do j = 1,numberrings
              read (iu,*) atoms_per_ring(j)
           enddo
-          write(6,'(a,i7,a,i3)') 'readopt: Atoms per ring        ' //   &
+          write (6,'(a,i7,a,i3)') 'readopt: Atoms per ring        ' //  &
                '                        =', 1, ' - ', atoms_per_ring(1)
           do j = 2,numberrings
              write (6,'(a,i8,a,i3)') '                            ' //  &
@@ -274,6 +301,9 @@ CONTAINS
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (integraltype, 14, MPI_Character, 0,                 &
                     MPI_Comm_world, MPIerror)
+    call MPI_Bcast (readunitstf, 1, MPI_Logical, 0,                     &
+                    MPI_Comm_world, MPIerror)
+!   It is not necessary to broadcast 'nunits' here.
 #endif
 
 1   format(a,6x,l1)

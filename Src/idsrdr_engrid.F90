@@ -36,7 +36,7 @@ MODULE idsrdr_engrid
 !
   use parallel,        only: 
   use idsrdr_options,  only: 
-  use idsrdr_zhs,      only: 
+  use idsrdr_leads,    only: 
 
   implicit none
   
@@ -84,10 +84,9 @@ CONTAINS
 !
     use parallel,        only: IOnode, Nodes
     use idsrdr_options,  only: NTenerg, TEnergI, TEnergF, temp
-    use idsrdr_zhs,      only: EfLead
+    use idsrdr_leads,    only: EfLead
 
-    if (IOnode) write (6,'(/,a)')                                       &
-         'engrid: Computing energy grid...'
+    if (IOnode) write (6,'(/,a)') 'engrid: Computing energy grid...'
 
 #ifdef MPI
     NTenerg_div = NTenerg / Nodes
@@ -97,7 +96,7 @@ CONTAINS
     NTenerg_div = NTenerg
 #endif
 
-!   Allocates the energy grid points and weights arrays.
+!   Allocate the energy grid points and weights arrays.
     allocate (Ei(NTenerg_div), gweight(NTenerg_div))
 
 !   Compute the energy grid.

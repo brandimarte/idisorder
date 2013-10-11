@@ -17,7 +17,7 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                           MODULE idsrdr_zhs                           !
+!                          MODULE idsrdr_leads                          !
 !  *******************************************************************  !
 !  Description: read the dimensions of electrodes, the principal layer  !
 !  (PL) hamiltonians and overlaps, and the coupling hamiltonians and    !
@@ -31,7 +31,7 @@
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
 
-MODULE idsrdr_zhs
+MODULE idsrdr_leads
 
 !
 !   Modules
@@ -73,7 +73,7 @@ CONTAINS
 
 
 !  *******************************************************************  !
-!                                readzhs                                !
+!                               readleads                               !
 !  *******************************************************************  !
 !  Description: subroutine to read the dimensions of electrodes and     !
 !  principal layer (PL) hamiltonians from 'bulklft.DAT' and             !
@@ -117,7 +117,7 @@ CONTAINS
 !  character(1) side_rankL(nspin) :                                     !
 !  character(1) side_rankR(nspin) :                                     !
 !  *******************************************************************  !
-  subroutine readzhs (nsc)
+  subroutine readleads (nsc)
 
 !
 !   Modules
@@ -149,11 +149,11 @@ CONTAINS
        open (iu, file=paste(directory,'bulklft.DAT'), status='old')
        read (iu,*) slabeli, NL, nspinu, maxnh, EfLead
        write (6,2)                                                      &
-            'readzhs: Left lead system label                  ' //      &
+            'readleads: Left lead system label                  ' //    &
             '      =  ', slabeli
        write (6,4)                                                      &
-            'readzhs: Number of left lead orbitals                  =', &
-            NL
+            'readleads: Number of left lead orbitals            ' //    &
+            '      =', NL
        if (nspinu /= nspin) then
           write (6,'(a)') 'WARNING: spin components from left lead ' // &
                'differs from input option!'
@@ -167,21 +167,21 @@ CONTAINS
                'differs from input option! (using the input option...)'
        endif
        write (6,2)                                                      &
-            'readzhs: Right lead system label                 ' //      &
+            'readleads: Right lead system label                 ' //    &
             '      =  ', slabeli
        write (6,4)                                                      &
-            'readzhs: Number of right lead orbitals                 =', &
-            NR
+            'readleads: Number of right lead orbitals           ' //    &
+            '      =', NR
        if (EfLead /= EfLeadR) then
           write (6,'(a)') 'WARNING: the Fermi energy from leads ' //    &
                'differs! (using the left lead Fermi energy...)'
        endif
        write (6,6)                                                      &
-            'readzhs: Lead Fermi energy                             =', &
-            EfLead, ' Ry'
+            'readleads: Lead Fermi energy                       ' //    &
+            '      =', EfLead, ' Ry'
        call io_close (iu)
 
-       write (6,'(2a)') 'readzhs: ', repeat('*', 70)
+       write (6,'(2a)') 'readleads: ', repeat('*', 68)
 
     endif
 
@@ -249,11 +249,11 @@ CONTAINS
 6   format(a,f12.4,a)
 
 
-  end subroutine readzhs
+  end subroutine readleads
 
 
 !  *******************************************************************  !
-!                                freezhs                                !
+!                               freeleads                               !
 !  *******************************************************************  !
 !  Description: free allocated matrices and vectors.                    !
 !                                                                       !
@@ -266,7 +266,7 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  integer nspin                : Number of spin components             !
 !  *******************************************************************  !
-  subroutine freezhs
+  subroutine freeleads
 
 !
 !   Modules
@@ -285,10 +285,10 @@ CONTAINS
     deallocate (QR, VHR, VSR)
 
 
-  end subroutine freezhs
+  end subroutine freeleads
 
 
 !  *******************************************************************  !
 
 
-END MODULE idsrdr_zhs
+END MODULE idsrdr_leads

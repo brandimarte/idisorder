@@ -36,8 +36,9 @@ MODULE idsrdr_end
 !
   use parallel,        only: 
   use idsrdr_options,  only: 
-  use idsrdr_zhs,      only: 
+  use idsrdr_leads,    only: 
   use idsrdr_engrid,   only: 
+  use idsrdr_units,    only: 
 
   implicit none
 
@@ -70,8 +71,9 @@ CONTAINS
 !
     use parallel,        only: IOnode
     use idsrdr_options,  only: label_length, slabel, freeopt
-    use idsrdr_zhs,      only: freezhs
+    use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
+    use idsrdr_units,    only: freeunits
 
     include "mpif.h"
 
@@ -91,8 +93,9 @@ CONTAINS
     if (IOnode) write (6,'(/,a)', ADVANCE='no')                         &
          'finalize: Freeing memory...'
     call freegrid
-    call freezhs
+    call freeleads
     call freeopt
+    call freeunits
 
     if (IOnode) then
        write (6,'(a,/)') ' done!'
