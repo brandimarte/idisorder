@@ -49,6 +49,10 @@ PROGRAM IDISORDER
 
   call makeunits
 
+! loop na energia
+!   loop no spin
+
+
   call finalize
 
 

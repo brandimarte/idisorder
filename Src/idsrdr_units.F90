@@ -47,22 +47,18 @@ MODULE idsrdr_units
   PUBLIC ! default is public
   PRIVATE :: readunits, buildunits
 
-  integer :: N1 ! 
+  integer :: N1 ! Leads total number of orbitals (left + right)
+  integer, allocatable, dimension (:) :: unit_type ! Units types
   integer, allocatable, dimension (:) :: unitdimensions ! Units number
                                                         ! of orbitals
-  integer, allocatable, dimension (:) :: unit_type ! Units types
 
-  real(8), allocatable, dimension (:) :: dist ! Deffects distribution
   real(8), allocatable, dimension (:) :: theta ! 
-  real(8), allocatable, dimension (:) :: unitlength ! Units size (in z)
   real(8), allocatable, dimension (:) :: unitshift ! Units shift
-  real(8), allocatable, dimension (:) :: unitweight ! Units weight
   real(8), allocatable, dimension (:,:,:) :: Sunits ! Units overlap
   real(8), allocatable, dimension (:,:,:,:) :: Hunits ! Units hamiltonian
-  real(8), allocatable, dimension(:) :: total_length ! Segment length
-
-  character (len=30), dimension (:), allocatable :: fileunits ! Units
-                                                              ! files
+  real(8), allocatable, dimension (:,:) :: S1unit ! Coupling unit overlap
+  real(8), allocatable, dimension (:,:,:) :: H1unit ! Coupling unit
+                                                    ! hamiltonian
 
 
 CONTAINS
@@ -94,13 +90,11 @@ CONTAINS
 !  integer nsc(2)               : Number of unit cells along parallel   !
 !                                 directions                            !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 dist(NDeffects+1)             : Deffects random distribution  !
-!  real*8 theta(NDeffects+1)            :                               !
-!  character fileunits(30)              : Units files                   !
-!  real*8 unitlength(ntypeunits+2)      : Units size (in z direction)   !
-!  real*8 unitshift(ntypeunits+2)       : Units shift                   !
-!  real*8 unitweight(ntypeunits+2)      : Units weight                  !
+!  integer N1                           : Leads total number of         !
+!                                         orbitals (left + right)       !
 !  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
+!  real*8 theta(NDeffects+1)            :                               !
+!  real*8 unitshift(ntypeunits+2)       : Units shift                   !
 !  *******************************************************************  !
   subroutine makeunits
 
@@ -114,6 +108,11 @@ CONTAINS
     use idsrdr_init,     only: nsc
 
 !   Local variables.
+    real(8), allocatable, dimension (:) :: dist ! Deffects distribution
+    real(8), allocatable, dimension (:) :: unitlength ! Units size (in z)
+    real(8), allocatable, dimension (:) :: unitweight ! Units weight
+    character (len=30), dimension (:), allocatable :: fileunits ! Units
+                                                                ! files
     external :: randon_d
 
     if (IOnode) write (6,'(/,25("*"),a,26("*"),/)')                     &
@@ -149,9 +148,16 @@ CONTAINS
     if (IOnode) write (6,'(/,a,f15.10,/)')                              &
          'makeunits: temperature after = ', temp
 
+!   Leads total number of orbitals (left + right).
     N1 = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
    
     call buildunits (NDeffects, ntypeunits, unitlength, unitweight, dist)
+
+!   Free memory.
+    deallocate (dist)
+    deallocate (fileunits)
+    deallocate (unitlength)
+    deallocate (unitweight)
 
     if (IOnode) write (6,'(/,2a)') 'makeunits: ', repeat('*', 68)
 
@@ -243,7 +249,7 @@ CONTAINS
        Else
           write (6,'(a)') 'readunits: File names not present'
 #ifdef MPI
-          call MPI_Abort (MPI_Comm_world,1,MPIerror)
+          call MPI_Abort (MPI_Comm_world, 1, MPIerror)
 #else
           stop
 #endif
@@ -278,22 +284,31 @@ CONTAINS
 
 !   Allocate and initialize units hamiltonian and overlap matrices.
     allocate (Hunits(maxval(unitdimensions),                            &
-         maxval(unitdimensions)+unitdimensions(ntypeunits),             &
-         nspin,ntypeunits+2))
+         maxval(unitdimensions),nspin,ntypeunits+2))
+    allocate (H1unit(unitdimensions(ntypeunits),                        &
+         unitdimensions(ntypeunits),nspin))
     allocate (Sunits(maxval(unitdimensions),                            &
          maxval(unitdimensions)+unitdimensions(ntypeunits),ntypeunits+2))
+    allocate (S1unit(unitdimensions(ntypeunits),                        &
+         unitdimensions(ntypeunits)))
     Hunits = 0.d0
+    H1unit = 0.d0
     Sunits = 0.d0
+    S1unit = 0.d0
 
-!   Allocate auxiliary matrices.
-    allocate (H0aux(maxval(unitdimensions),maxval(unitdimensions),nspin))
-    allocate (H1aux(maxval(unitdimensions),maxval(unitdimensions),nspin))
-    allocate (S0aux(maxval(unitdimensions),maxval(unitdimensions)))
-    allocate (S1aux(maxval(unitdimensions),maxval(unitdimensions)))
+!   Read units on node 0.
+    if (IOnode) then
 
-!   Read hamiltonian and overlap matrices for each unit.
-    do I = 1,ntypeunits+2
-       if (IOnode) then
+!      Allocate auxiliary matrices.
+       allocate (H0aux(maxval(unitdimensions),maxval(unitdimensions),   &
+            nspin))
+       allocate (H1aux(maxval(unitdimensions),maxval(unitdimensions),   &
+            nspin))
+       allocate (S0aux(maxval(unitdimensions),maxval(unitdimensions)))
+       allocate (S1aux(maxval(unitdimensions),maxval(unitdimensions)))
+
+!      Read hamiltonian and overlap matrices for each unit.
+       do I = 1,ntypeunits+2
 
           write (6,'(/,a,i3,a,i5,a,a,a,a)') 'readunits: Unit ', I,      &
                ' - ', unitdimensions(I), '  ', trim(fileunits(I)),      &
@@ -321,30 +336,37 @@ CONTAINS
                S0aux(1:unitdimensions(I),1:unitdimensions(I))
 
           If (I == ntypeunits) Then
-             Hunits(1:unitdimensions(I),maxval(unitdimensions)+1:       &
-                  maxval(unitdimensions)+unitdimensions(I),:,I) =       &
+             H1unit(1:unitdimensions(I),1:unitdimensions(I),:) =        &
                   H1aux(1:unitdimensions(I),1:unitdimensions(I),:)
-             Sunits(1:unitdimensions(I),maxval(unitdimensions)+1:       &
-                  maxval(unitdimensions)+unitdimensions(I),I) =         &
+             S1unit(1:unitdimensions(I),1:unitdimensions(I)) =          &
                   S1aux(1:unitdimensions(I),1:unitdimensions(I))
           EndIf
 
-       endif
-    enddo
+       enddo
 
-!   Free memory.
-    deallocate (H0aux, H1aux, S0aux, S1aux)
+!      Free memory.
+       deallocate (H0aux, H1aux, S0aux, S1aux)
+
+    endif ! if (IOnode)
 
 #ifdef MPI
     do I = 1,ntypeunits+2
-       call MPI_Bcast (Hunits(:,:,:,I), maxval(unitdimensions)          &
-                       *(unitdimensions(ntypeunits)                     &
-                       +maxval(unitdimensions))*nspin,                  &
+       call MPI_Bcast (Hunits(1,1,1,I), maxval(unitdimensions)          &
+                       *maxval(unitdimensions)*nspin,                   &
                        MPI_Double_Precision, 0, MPI_Comm_world, MPIerror)
-       call MPI_Bcast (Sunits(:,:,I), maxval(unitdimensions)            &
-                       *(unitdimensions(ntypeunits)                     &
-                       +maxval(unitdimensions)), MPI_Double_Precision,  &
+       call MPI_Bcast (Sunits(1,1,I), maxval(unitdimensions)            &
+                       *maxval(unitdimensions), MPI_Double_Precision,   &
                        0, MPI_Comm_world, MPIerror)
+
+       If (I == ntypeunits) Then
+          call MPI_Bcast (H1unit(1,1,1), unitdimensions(I)              &
+               *unitdimensions(I)*nspin, MPI_Double_Precision, 0,       &
+               MPI_Comm_world, MPIerror)
+          call MPI_Bcast (S1unit(1,1), unitdimensions(I)                &
+               *unitdimensions(I)*nspin, MPI_Double_Precision, 0,       &
+               MPI_Comm_world, MPIerror)
+       EndIf
+
     enddo
 #endif
 
@@ -370,7 +392,7 @@ CONTAINS
 !  logical IOnode               : True if it is the I/O node            !
 !  logical readunitstf          : Read 'UnitIndex' block?               !
 !  ******************** INPUT/OUTPUT FROM MODULES ********************  !
-!  integer nunits               : Number of units                       !
+!  integer nunits               : Number of units of each type          !
 !  ****************************** INPUT ******************************  !
 !  integer NDeffects                    : Number of deffects blocks     !
 !  integer ntypeunits                   : Number of unit types          !
@@ -380,7 +402,6 @@ CONTAINS
 !  real*8 dist(NDeffects+1)             : Deffects random distribution  !
 !  ***************************** OUTPUT ******************************  !
 !  integer unit_type(nunits+2)          : Units types                   !
-!  real(8) total_length(NDeffects+1)    : (Real) Segment length         !
 !  *******************************************************************  !
   subroutine buildunits (NDeffects, ntypeunits, unitlength,             &
                          unitweight, dist)
@@ -402,13 +423,16 @@ CONTAINS
 
 !   Local variables.
     integer :: I, J, nunits_aux, iu, index
-    integer, dimension (NDeffects) :: randomdeffects
+    integer, allocatable, dimension (:) :: randomdeffects
     real(8) :: length
+    real(8), allocatable, dimension(:) :: total_length ! Segment length
     integer, external :: irandomizedeffects, irandomize_index
-
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
+
+!   Allocate arrays.
+    allocate (randomdeffects(NDeffects))
 
     IF (IOnode) THEN
        J = irandomizedeffects (ntypeunits-1,                            &
@@ -444,7 +468,8 @@ CONTAINS
 #endif
 
 !   Allocate arrays.
-    allocate (unit_type(nunits+2),total_length(NDeffects+1))
+    allocate (unit_type(nunits+2))
+    allocate (total_length(NDeffects+1))
     unit_type = 0
 
 !   Build units types and calcutates the 'total_length'.
@@ -558,9 +583,11 @@ CONTAINS
 #ifdef MPI
     call MPI_Bcast (unit_type, nunits+2, MPI_Integer, 0,                &
                     MPI_Comm_world, MPIerror)
-    call MPI_Bcast (total_length, NDeffects+1, MPI_Double_Precision, 0, &
-                    MPI_Comm_world, MPIerror)
 #endif
+
+!   Free memory.
+    deallocate (randomdeffects)
+    deallocate (total_length)
 
 
   end subroutine buildunits
@@ -582,17 +609,14 @@ CONTAINS
 
 
 !   Free memory.
-    deallocate (dist)
     deallocate (theta)
-    deallocate (fileunits)
-    deallocate (unitlength)
     deallocate (unitshift)
-    deallocate (unitweight)
-    deallocate (unitdimensions)
     deallocate (Sunits)
+    deallocate (S1unit)
     deallocate (Hunits)
+    deallocate (H1unit)
     deallocate (unit_type)
-    deallocate (total_length)
+    deallocate (unitdimensions)
 
 
   end subroutine freeunits
