@@ -43,7 +43,7 @@ C
 
       Pi=4.0d0*ATAN(1.0d0)
 
-      if (IOnode .eq. 0) then
+      if (IOnode) then
 
 #ifdef IBM
        now=0

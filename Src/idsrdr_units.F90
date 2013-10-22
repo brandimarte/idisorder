@@ -269,7 +269,7 @@ CONTAINS
           call io_assign (iu)
           open (iu, file=paste(directory, paste(fileunits(I),'.DAT')),  &
                 status='old')
-          write (6,'(a,a)') 'readunits: Readin file = ',                &
+          write (6,'(a,a)') 'readunits: Reading file = ',               &
                paste(fileunits(I),'.DAT')
           read (iu,*) slabel, nuo, nspinu, maxnh, efu,                  &
                       tempu, nscu(1), nscu(2), no
@@ -488,7 +488,7 @@ CONTAINS
           endif
        ElseIf (nunits == 0) Then
           unit_type(1) = -1
-          unit_type(nunits+2) = -2
+          unit_type(2) = -2
           nunits_aux = 0
 
           do I = 1,NDeffects+1
@@ -538,8 +538,8 @@ CONTAINS
              if (unit_type(index) /= -2) then
                 total_length(I) = total_length(I)                       &
                      + unitlength(unit_type(index))
-                index = index + 1
              endif
+             index = index + 1
           enddo
        EndIf ! If (readunitstf)
     ENDIF ! IF (IOnode)
@@ -570,8 +570,8 @@ CONTAINS
        write (6,'(a,i6)') 'buildunits: Number of segments', NDeffects+1
        do I = 1,NDeffects+1
           write (6,'(a,d16.8,a,d16.8)')                                 &
-               'buildunits: Desired/Real segment length', dist(I), '/', &
-               total_length(I)
+               'buildunits: Desired/Real segment length', dist(I),      &
+               ' /', total_length(I)
        enddo
        write (6,'(/,a,i8)') 'buildunits: Total number of units = ',     &
             nunits

@@ -83,17 +83,17 @@ C ****************************************************************
      &    U,n,Vmat,n,Q,n,Ipiv,RWORK,TAU,WORK,INFO)
 	    
 	number=n-K-L
-	write(6,'(/,a27)')    "   gensvd: Leads decimation   "
-	write(6,'(a27,i6)') "   gensvd: Dim of H1 and S1 : ",n
-	write(6,'(a27,i6)') "   gensvd: Rank of H1:        ",K
-	write(6,'(a27,i6)') "   gensvd: Rank of (H1,S1):   ",L
-	write(6,'(a27,i6)') 
-     &   "   gensvd: Decimated states:  ",number
+	write(6,'(/,a30)')  "   gensvd: Leads decimation   "
+	write(6,'(a30,i6)') "   gensvd: Dim of H1 and S1 : ", n
+	write(6,'(a30,i6)') "   gensvd: Rank of H1:        ", K
+	write(6,'(a30,i6)') "   gensvd: Rank of (H1,S1):   ", L
+	write(6,'(a30,i6)') 
+     &   "   gensvd: Decimated states:  ", number
 	if (side_rank .eq. "N") then
-	 write(6,'(a32)')   
+	 write(6,'(a35)')   
      &    "   gensvd: Decimation from the left"
 	else
-	 write(6,'(a33)') 
+	 write(6,'(a36)') 
      &    "   gensvd: Decimation from the right"
 	endif
 	 
