@@ -39,6 +39,7 @@ MODULE idsrdr_end
   use idsrdr_leads,    only: 
   use idsrdr_engrid,   only: 
   use idsrdr_units,    only: 
+  use inet_ephcoupl,   only: 
 
   implicit none
 
@@ -74,6 +75,7 @@ CONTAINS
     use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
     use idsrdr_units,    only: freeunits
+    use inet_ephcoupl,   only: EPHfree
 
     include "mpif.h"
 
@@ -96,6 +98,7 @@ CONTAINS
     call freeleads
     call freeopt
     call freeunits
+    call EPHfree
 
     if (IOnode) then
        write (6,'(a,/)') ' done!'

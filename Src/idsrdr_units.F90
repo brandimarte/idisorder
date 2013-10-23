@@ -40,6 +40,7 @@ MODULE idsrdr_units
   use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use idsrdr_init,     only: 
+  use inet_ephcoupl,   only: 
   use fdf
 
   implicit none
@@ -180,7 +181,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    --- 2007                                        !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode              : True if it is the I/O node             !
+!  logical IOnode               : True if it is the I/O node            !
 !  ****************************** INPUT ******************************  !
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
@@ -189,11 +190,11 @@ CONTAINS
 !  real*8 temp                  : Electronic temperature                !
 !  character(60) directory      : Working directory                     !
 !  ************************** INPUT/OUTPUT ***************************  !
-!  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
-!  real*8 unitlength(ntypeunits+2)      : Units size (in z direction)   !
-!  real*8 unitshift(ntypeunits+2)       : Units shift                   !
-!  real*8 unitweight(ntypeunits+2)      : Units weight                  !
-!  character fileunits(30)              : Units files                   !
+!  integer unitdimensions(ntypeunits+2)  : Units number of orbitals     !
+!  real*8 unitlength(ntypeunits+2)       : Units size (in z direction)  !
+!  real*8 unitshift(ntypeunits+2)        : Units shift                  !
+!  real*8 unitweight(ntypeunits+2)       : Units weight                 !
+!  character(30) fileunits(ntypeunits+2) : Units files                  !
 !  *******************************************************************  !
   subroutine readunits (nspin, ntypeunits, nsc, temp,                   &
                         unitdimensions, unitlength, unitshift,          &
@@ -203,6 +204,7 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
+    use inet_ephcoupl,   only: EPHread
     use fdf
 
     include "mpif.h"
@@ -221,6 +223,7 @@ CONTAINS
 !   Local variables.
     integer :: iu, I, nspinu, no, nuo, maxnh
     integer, dimension (2) :: nscu
+    integer, allocatable, dimension (:) :: ephIndic
     real(8) :: tempu, efu
     real(8), allocatable, dimension (:,:,:) :: H0aux, H1aux
     real(8), allocatable, dimension (:,:) :: S0aux, S1aux
@@ -232,17 +235,22 @@ CONTAINS
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
+!   Allocate electron-phonon interaction indicator array.
+    allocate (ephIndic(ntypeunits+2))
+
 !   Initialize arrays.  
     unitlength = 0.d0
     unitshift = 0.d0
+    ephIndic = 0
 
 !   Read 'UnitsFiles' block (length, shift, weight and file name).
     if (IOnode) then
        therearefiles = fdf_block ('UnitsFiles', iu)
        If (therearefiles) Then
+
           do I = 1,ntypeunits+2
              read (iu,*) unitlength(I), unitshift(I),                   &
-                  unitweight(I), fileunits(I)
+                  unitweight(I), ephIndic(I), fileunits(I) 
              write (6,'(a,i3,a,a)') 'readunits: Unit ', I, ' - ',       &
                   fileunits(I)
           enddo
@@ -349,6 +357,7 @@ CONTAINS
 
     endif ! if (IOnode)
 
+!   Broadcast read unit's hamiltonians and overlap matrices.
 #ifdef MPI
     do I = 1,ntypeunits+2
        call MPI_Bcast (Hunits(1,1,1,I), maxval(unitdimensions)          &
@@ -358,17 +367,24 @@ CONTAINS
                        *maxval(unitdimensions), MPI_Double_Precision,   &
                        0, MPI_Comm_world, MPIerror)
 
+
        If (I == ntypeunits) Then
-          call MPI_Bcast (H1unit(1,1,1), unitdimensions(I)              &
-               *unitdimensions(I)*nspin, MPI_Double_Precision, 0,       &
-               MPI_Comm_world, MPIerror)
-          call MPI_Bcast (S1unit(1,1), unitdimensions(I)                &
-               *unitdimensions(I)*nspin, MPI_Double_Precision, 0,       &
-               MPI_Comm_world, MPIerror)
+          call MPI_Bcast (H1unit, unitdimensions(I)*unitdimensions(I)   &
+                          *nspin, MPI_Double_Precision, 0,              &
+                          MPI_Comm_world, MPIerror)
+          call MPI_Bcast (S1unit, unitdimensions(I)*unitdimensions(I),  &
+                          MPI_Double_Precision, 0,                      &
+                          MPI_Comm_world, MPIerror)
        EndIf
 
     enddo
 #endif
+
+!   Read electron-phonon interaction data.
+    call EPHread (ntypeunits, fileunits, ephIndic, unitdimensions)
+
+!   Free memory.
+    deallocate (ephIndic)
 
 
   end subroutine readunits
@@ -392,7 +408,7 @@ CONTAINS
 !  logical IOnode               : True if it is the I/O node            !
 !  logical readunitstf          : Read 'UnitIndex' block?               !
 !  ******************** INPUT/OUTPUT FROM MODULES ********************  !
-!  integer nunits               : Number of units of each type          !
+!  integer nunits               : Total number of units                 !
 !  ****************************** INPUT ******************************  !
 !  integer NDeffects                    : Number of deffects blocks     !
 !  integer ntypeunits                   : Number of unit types          !

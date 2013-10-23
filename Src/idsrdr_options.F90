@@ -48,7 +48,7 @@ MODULE idsrdr_options
   integer :: NTenerg             ! Number of transmission energy points
   integer :: nspin               ! Number of spin components
   integer :: ntypeunits          ! Number of unit types
-  integer :: nunits              ! Number of units of each type
+  integer :: nunits              ! Total number of units
 
   integer :: symmetry            ! 
   integer :: norbitals           ! Number of orbitals
@@ -93,7 +93,7 @@ CONTAINS
 !  integer NTenerg              : Number of transmission energy points  !
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
-!  integer nunits               : Number of units of each type          !
+!  integer nunits               : Total number of units                 !
 !  integer symmetry             :                                       !
 !  integer norbitals            : Number of orbitals                    !
 !  integer numberrings          :                                       !
@@ -171,7 +171,7 @@ CONTAINS
             'readopt: Read UnitIndex and SegmentLengths blocks?     =', &
             readunitstf
 
-!      Number of units of each type.
+!      Total number of units.
        nunits = 0
        nunits = fdf_integer ('NumberUnits', 0)
        if (readunitstf) then
@@ -183,7 +183,7 @@ CONTAINS
 #endif
           endif
           write (6,4)                                                   &
-               'readopt: Number of units                          ' //  &
+               'readopt: Total number of units                    ' //  &
                '     =', nunits
        endif
 

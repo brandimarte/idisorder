@@ -63,8 +63,8 @@ what:
 OBJS =  parallel.o paste.o pxf.o sys.o io.o m_walltime.o timer.o \
 	gensvd.o rank.o ranksvd.o zhsl.o zhsunits.o gauleg.o \
 	hsl.o hsunits.o random_d.o \
-	idsrdr_options.o idsrdr_leads.o idsrdr_init.o idsrdr_engrid.o \
-	idsrdr_units.o idsrdr_end.o idisorder.o
+	idsrdr_options.o idsrdr_leads.o idsrdr_init.o inet_ephcoupl.o \
+	idsrdr_units.o idsrdr_engrid.o idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -112,15 +112,16 @@ clean:
 #hsunits.o : paste.o io.o hsl.o
 #idsorder.o : idsrdr_init.o idsrdr_engrid.o idsrdr_units.o idsrdr_end.o
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
-#	paste.o timer.o
+#	paste.o timer.o inet_ephcoupl.o
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
 #idsrdr_init.o : parallel.o timer.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o \
 #	idsrdr_options.o
 #idsrdr_options.o : parallel.o
 #idsrdr_units.o : parallel.o idsrdr_options.o idsrdr_leads.o \
-#	idsrdr_init.o randon_d.o io.o hsunits.o
+#	idsrdr_init.o randon_d.o io.o hsunits.o inet_ephcoupl.o
 #io.o : sys.o
+#inet_ephcoupl.o : parallel.o sys.o idsrdr_options.o paste.o io.o
 #randon_d.o : parallel.o
 #ranksvd.o : parallel.o rank.o gensvd.o
 #sys.o : parallel.o
