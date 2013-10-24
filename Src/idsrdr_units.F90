@@ -55,12 +55,21 @@ MODULE idsrdr_units
 
   real(8), allocatable, dimension (:) :: theta ! 
   real(8), allocatable, dimension (:) :: unitshift ! Units shift
-  real(8), allocatable, dimension (:,:,:) :: Sunits ! Units overlap
-  real(8), allocatable, dimension (:,:,:,:) :: Hunits ! Units hamiltonian
   real(8), allocatable, dimension (:,:) :: S1unit ! Coupling unit overlap
   real(8), allocatable, dimension (:,:,:) :: H1unit ! Coupling unit
                                                     ! hamiltonian
 
+  TYPE unitS
+     real(8), pointer :: S(:,:) ! pointer to units overlaps
+  END TYPE unitS
+
+  TYPE(unitS), allocatable, dimension (:) :: Sunits ! Units overlap
+
+  TYPE unitH
+     real(8), pointer :: H(:,:,:) ! pointer to units hamiltonians
+  END TYPE unitH
+
+  TYPE(unitH), allocatable, dimension (:) :: Hunits ! Units hamiltonian
 
 CONTAINS
 
@@ -254,6 +263,7 @@ CONTAINS
              write (6,'(a,i3,a,a)') 'readunits: Unit ', I, ' - ',       &
                   fileunits(I)
           enddo
+          write (6,'(/)',advance='no')
        Else
           write (6,'(a)') 'readunits: File names not present'
 #ifdef MPI
@@ -291,18 +301,20 @@ CONTAINS
 #endif
 
 !   Allocate and initialize units hamiltonian and overlap matrices.
-    allocate (Hunits(maxval(unitdimensions),                            &
-         maxval(unitdimensions),nspin,ntypeunits+2))
-    allocate (H1unit(unitdimensions(ntypeunits),                        &
-         unitdimensions(ntypeunits),nspin))
-    allocate (Sunits(maxval(unitdimensions),                            &
-         maxval(unitdimensions)+unitdimensions(ntypeunits),ntypeunits+2))
     allocate (S1unit(unitdimensions(ntypeunits),                        &
          unitdimensions(ntypeunits)))
-    Hunits = 0.d0
-    H1unit = 0.d0
-    Sunits = 0.d0
+    allocate (H1unit(unitdimensions(ntypeunits),                        &
+         unitdimensions(ntypeunits),nspin))
     S1unit = 0.d0
+    H1unit = 0.d0
+    allocate (Sunits(ntypeunits+2))
+    allocate (Hunits(ntypeunits+2))
+    do I = 1,ntypeunits+2
+       allocate (Sunits(I)%S(unitdimensions(I),unitdimensions(I)))
+       allocate (Hunits(I)%H(unitdimensions(I),unitdimensions(I),nspin))
+       Sunits(I)%S = 0.d0
+       Hunits(I)%H = 0.d0
+    enddo
 
 !   Read units on node 0.
     if (IOnode) then
@@ -338,16 +350,12 @@ CONTAINS
                       paste(directory,fileunits(I)))
 
 !         Assign hamiltonian and overlap matrices from auxiliaries.
-          Hunits(1:unitdimensions(I),1:unitdimensions(I),:,I) =         &
-               H0aux(1:unitdimensions(I),1:unitdimensions(I),:)
-          Sunits(1:unitdimensions(I),1:unitdimensions(I),I) =           &
-               S0aux(1:unitdimensions(I),1:unitdimensions(I))
+          Hunits(I)%H = H0aux(1:unitdimensions(I),1:unitdimensions(I),:)
+          Sunits(I)%S = S0aux(1:unitdimensions(I),1:unitdimensions(I))
 
           If (I == ntypeunits) Then
-             H1unit(1:unitdimensions(I),1:unitdimensions(I),:) =        &
-                  H1aux(1:unitdimensions(I),1:unitdimensions(I),:)
-             S1unit(1:unitdimensions(I),1:unitdimensions(I)) =          &
-                  S1aux(1:unitdimensions(I),1:unitdimensions(I))
+             H1unit = H1aux(1:unitdimensions(I),1:unitdimensions(I),:)
+             S1unit = S1aux(1:unitdimensions(I),1:unitdimensions(I))
           EndIf
 
        enddo
@@ -360,12 +368,12 @@ CONTAINS
 !   Broadcast read unit's hamiltonians and overlap matrices.
 #ifdef MPI
     do I = 1,ntypeunits+2
-       call MPI_Bcast (Hunits(1,1,1,I), maxval(unitdimensions)          &
-                       *maxval(unitdimensions)*nspin,                   &
+       call MPI_Bcast (Hunits(I)%H,                                     &
+                       unitdimensions(I)*unitdimensions(I)*nspin,       &
                        MPI_Double_Precision, 0, MPI_Comm_world, MPIerror)
-       call MPI_Bcast (Sunits(1,1,I), maxval(unitdimensions)            &
-                       *maxval(unitdimensions), MPI_Double_Precision,   &
-                       0, MPI_Comm_world, MPIerror)
+       call MPI_Bcast (Sunits(I)%S,                                     &
+                       unitdimensions(I)*unitdimensions(I),             &
+                       MPI_Double_Precision, 0, MPI_Comm_world, MPIerror)
 
 
        If (I == ntypeunits) Then
@@ -623,14 +631,26 @@ CONTAINS
 !  *******************************************************************  !
   subroutine freeunits
 
+!
+!   Modules
+!
+    use idsrdr_options,  only: ntypeunits
+
+!   Local variables.
+    integer :: I
 
 !   Free memory.
     deallocate (theta)
     deallocate (unitshift)
-    deallocate (Sunits)
     deallocate (S1unit)
-    deallocate (Hunits)
     deallocate (H1unit)
+!   First deallocates pointed matrices.
+    do I = 1,ntypeunits
+       deallocate (Sunits(I)%S)
+       deallocate (Hunits(I)%H)
+    enddo
+    deallocate (Sunits)
+    deallocate (Hunits)
     deallocate (unit_type)
     deallocate (unitdimensions)
 

@@ -135,7 +135,10 @@ CONTAINS
 #endif
 
 !   Number of units with e-ph interaction.
-    if (IOnode) neph = SUM (ephIndic)
+    if (IOnode) then
+       neph = SUM (ephIndic)
+       write (6,'(/)',advance='no')
+    endif
 
 #ifdef MPI
     call MPI_Bcast (neph, 1, MPI_Integer, 0, MPI_Comm_World, MPIerror)
@@ -168,7 +171,7 @@ CONTAINS
 
           if (IOnode) then
 
-             write(6,'(/,a,i3,a)',advance='no') "EPHread: Reading" //   &
+             write(6,'(a,i3,a)',advance='no') "EPHread: Reading"   //   &
                   " electron-phonon coupling matrix ", idx,  "..."
 
 !            Opens the file.
