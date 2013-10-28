@@ -137,7 +137,7 @@ CONTAINS
     allocate (unitweight(ntypeunits+2))
     allocate (unitdimensions(ntypeunits+2))
 
-!   Initialize arrays.  
+!   Initialize arrays.
     dist = 0.d0
     theta = 0.d0
     fileunits = ""
@@ -204,6 +204,12 @@ CONTAINS
 !  real*8 unitshift(ntypeunits+2)        : Units shift                  !
 !  real*8 unitweight(ntypeunits+2)       : Units weight                 !
 !  character(30) fileunits(ntypeunits+2) : Units files                  !
+!  ***************************** OUTPUT ******************************  !
+!  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
+!                                         [real*8] Units overlap        !
+!  TYPE(unitH)                                                          !
+!        Hunits(ntypeunits+2)%H(unitdimensions,unitdimensions,nspin) :  !
+!                                         [real*8] Units hamiltonian    !
 !  *******************************************************************  !
   subroutine readunits (nspin, ntypeunits, nsc, temp,                   &
                         unitdimensions, unitlength, unitshift,          &

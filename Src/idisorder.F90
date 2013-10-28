@@ -36,12 +36,18 @@ PROGRAM IDISORDER
 ! Modules
 !
   use idsrdr_init,     only: init
-  use idsrdr_engrid,   only: engrid
+  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
   use idsrdr_units,    only: makeunits
+  use idsrdr_options,  only: nspin
+  use idsrdr_leads,    only: leadsSelfEn
+  use idsrdr_green,    only: greenfunctions, gfHead, gfTail
   use idsrdr_end,      only: finalize
 
   implicit none
 
+! Local variables.
+  integer :: ienergy, ispin
+  integer, allocatable, dimension (:,:) :: INFO, NCHAN
 
   call init
 
@@ -49,9 +55,24 @@ PROGRAM IDISORDER
 
   call makeunits
 
-! loop na energia
-!   loop no spin
+! Allocate arrays.
+  allocate (INFO(NTenerg_div,nspin))
+  allocate (NCHAN(NTenerg_div,nspin))
 
+  call gfHead
+  do ienergy = 1,NTenerg_div ! over energy grid
+     do ispin = 1,nspin ! over spin components
+
+        call leadsSelfEn (Ei(ienergy), ispin, INFO(ienergy,ispin),      &
+                          NCHAN(ienergy,ispin))
+
+        call greenfunctions (Ei(ienergy), ispin)
+     enddo
+  enddo
+  call gfTail
+
+! Free memory.
+  deallocate (INFO, NCHAN)
 
   call finalize
 

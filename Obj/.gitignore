@@ -5,5 +5,6 @@ loop_prof*
 arch.make
 Makefile
 i-disorder.*
+*.h
 !.gitignore
 

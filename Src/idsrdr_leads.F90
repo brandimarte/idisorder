@@ -64,6 +64,8 @@ MODULE idsrdr_leads
   complex(8), allocatable, dimension (:,:,:) :: VSR !
   complex(8), allocatable, dimension (:,:,:) :: QL !
   complex(8), allocatable, dimension (:,:,:) :: QR !
+  complex(8), allocatable, dimension (:,:) :: Sigma_L ! Left self-energy
+  complex(8), allocatable, dimension (:,:) :: Sigma_R ! Right self-energy
 
   character, dimension (:), allocatable :: side_rankL ! 
   character, dimension (:), allocatable :: side_rankR ! 
@@ -243,6 +245,8 @@ CONTAINS
                   numberR, VHR, VSR, QR)
     if (IOnode) write(6,'(/,a)') 'ranksvd: done!'
 
+!   Allocate lead self-energies matrices.
+    allocate (Sigma_L(NL,NL), Sigma_R(NR,NR))
 
 2   format(a,a)
 4   format(a,i7)
@@ -250,6 +254,57 @@ CONTAINS
 
 
   end subroutine readleads
+
+
+!  *******************************************************************  !
+!                              leadsSelfEn                              !
+!  *******************************************************************  !
+!  Description: computes the leads self-energies for a given energy.    !
+!                                                                       !
+!  Use 'SELFENERGY' subroutine of A.R.Rocha (Smeagol - 2003).           !
+!                                                                       !
+!  Written by Pedro Brandimarte, Oct 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    October 2013                                    !
+!  ****************************** INPUT ******************************  !
+!  integer ispin                        : Spin component index          !
+!  real*8 Ei                            : Energy grid point             !
+!  ***************************** OUTPUT ******************************  !
+!  complex(8) Sigma_L(NL,NL)      : Left-lead self-energy               !
+!  complex(8) Sigma_R(NR,NR)      : Right-lead self-energy              !
+!  integer INFO                   : Is '0' if self-energy calculated    !
+!                                   with success, 'NOT 0' otherwise     !
+!  integer NCHAN                  : Number of open channels             !
+!  *******************************************************************  !
+  subroutine leadsSelfEn (Ei, ispin, INFO, NCHAN)
+
+
+!   Input variables.
+    integer, intent(in) :: ispin
+    integer, intent(out) :: INFO
+    integer, intent(out) :: NCHAN
+    real(8), intent(in) :: Ei
+
+!   Local variables.
+    external :: SELFENERGY
+
+    call SELFENERGY ('L', side_rankL(ispin), numberL(ispin), NL,        &
+                     DCMPLX(Ei), H0_L(:,:,ispin), VHL(:,:,ispin),       &
+                     S0_L, VSL(:,:,ispin), Sigma_L, QL(:,:,ispin),      &
+                     INFO, NCHAN)
+
+    if (info == 0) then
+       call SELFENERGY ('R', side_rankR(ispin), numberR(ispin), NR,     &
+                        DCMPLX(Ei), H0_R(:,:,ispin), VHR(:,:,ispin),    &
+                        S0_R, VSR(:,:,ispin), Sigma_R, QR(:,:,ispin),   &
+                        INFO, NCHAN)
+    endif
+
+
+  end subroutine leadsSelfEn
 
 
 !  *******************************************************************  !
@@ -283,6 +338,7 @@ CONTAINS
     deallocate (side_rankL, side_rankR)
     deallocate (QL, VHL, VSL)
     deallocate (QR, VHR, VSR)
+    deallocate (Sigma_L, Sigma_R)
 
 
   end subroutine freeleads
