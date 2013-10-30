@@ -62,8 +62,8 @@ what:
 # All objects.
 OBJS =  parallel.o paste.o pxf.o sys.o io.o m_walltime.o timer.o \
 	gensvd.o rank.o ranksvd.o zhsl.o zhsunits.o gauleg.o hsl.o \
-	hsunits.o random_d.o misc.o identify.o diagonal_alex.o \
-	decimate_leads.o leads_complex.o selfenergy.o \
+	hsunits.o random_d.o identify.o diagonal_alex.o \
+	decimate_leads.o leads_complex.o \
 	idsrdr_options.o idsrdr_leads.o idsrdr_init.o inet_ephcoupl.o \
 	idsrdr_engrid.o idsrdr_units.o idsrdr_green.o idsrdr_end.o \
 	idisorder.o
@@ -128,7 +128,7 @@ clean:
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o
 #idsrdr_init.o : parallel.o timer.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o \
-#	idsrdr_options.o
+#	idsrdr_options.o decimate_leads.o leads_complex.o
 #idsrdr_options.o : parallel.o
 #idsrdr_units.o : parallel.o idsrdr_options.o idsrdr_leads.o \
 #	idsrdr_init.o randon_d.o io.o hsunits.o inet_ephcoupl.o
@@ -136,14 +136,12 @@ clean:
 #inet_ephcoupl.o : parallel.o sys.o idsrdr_options.o paste.o io.o
 #leads_complex.o : identify.o diagonal_alex.o
 #m_walltime.o : 
-#misc.o : 
 #parallel.o :
 #paste.o : 
 #pxf.o : 
 #randon_d.o : parallel.o
 #rank.o : 
 #ranksvd.o : parallel.o rank.o gensvd.o
-#selfenergy.o : decimate_leads.o leads_complex.o misc.o
 #sys.o : parallel.o
 #timer.o : parallel.o sys.o io.o m_walltime.o
 #zhsl.o : 

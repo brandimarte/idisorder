@@ -42,6 +42,7 @@ MODULE idsrdr_leads
   implicit none
   
   PUBLIC ! default is public
+  PRIVATE :: selfenergy
 
   integer :: NL ! Number of left lead orbitals
   integer :: NR ! Number of right lead orbitals
@@ -288,16 +289,13 @@ CONTAINS
     integer, intent(out) :: NCHAN
     real(8), intent(in) :: Ei
 
-!   Local variables.
-    external :: SELFENERGY
-
-    call SELFENERGY ('L', side_rankL(ispin), numberL(ispin), NL,        &
+    call selfenergy ('L', side_rankL(ispin), numberL(ispin), NL,        &
                      DCMPLX(Ei), H0_L(:,:,ispin), VHL(:,:,ispin),       &
                      S0_L, VSL(:,:,ispin), Sigma_L, QL(:,:,ispin),      &
                      INFO, NCHAN)
 
     if (info == 0) then
-       call SELFENERGY ('R', side_rankR(ispin), numberR(ispin), NR,     &
+       call selfenergy ('R', side_rankR(ispin), numberR(ispin), NR,     &
                         DCMPLX(Ei), H0_R(:,:,ispin), VHR(:,:,ispin),    &
                         S0_R, VSR(:,:,ispin), Sigma_R, QR(:,:,ispin),   &
                         INFO, NCHAN)
@@ -305,6 +303,457 @@ CONTAINS
 
 
   end subroutine leadsSelfEn
+
+
+!  *******************************************************************  !
+!                              selfenergy                               !
+!  *******************************************************************  !
+!  Description: calculates the self-energies of the right and left      !
+!  hand-side leads.                                                     !
+!                                                                       !
+!  From SMEAGOL code - 2003.                                            !
+!                                                                       !
+!  Written by Alexandre Reily Rocha, Jun 2003.                          !
+!  Computational Spintronics Group                                      !
+!  Trinity College Dublin                                               !
+!  e-mail: reilya@ift.unesp.br                                          !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    June 2003                                       !
+!  ****************************** INPUT ******************************  !
+!  character(len=1) SIDE      : 'L' (left) or 'R' (right) depending on  !
+!                               the self-energy calculated              !
+!  character(len=1) side_rank : '0' or 'N' or 'C' depending on the      !
+!                               direction of decimation                 !
+!  integer number             : Number of decimated states              !
+!  integer N2                 : Number of basis orbitals on the lead    !
+!  complex*8 Ei               : Energy                                  !
+!  complex*8 H0(NL,NL)        : Hamiltonian of the lead lead            !
+!  complex*8 H1(N2,N2)        : Coupling Matrix                         !
+!  complex*8 S0(N2,N2)        : On-site Overlap Matrix                  !
+!  complex*8 S1(N2,N2)        : Neighbour Overlap Matrix                !
+!  complex*8 Q(N2,N2)         : Decimation matrix                       !
+!  ***************************** OUTPUT ******************************  !
+!  complex*8 Sigma            : Calculated self-energy                  !
+!  integer INFO               : If INFO=0, self-energy calculated       !
+!                               with success, NOT 0 otherwise           !
+!  integer nrchan             : Number of open channels                 !
+!  *******************************************************************  !
+  subroutine selfenergy (SIDE, side_rank, number, N2, Ei, H0, H1,       &
+                         S0, S1, Sigma, Q, INFO, nrchan)
+
+
+!   Input variables.
+    integer, intent(in) :: number, N2
+    integer, intent(out) :: INFO, nrchan
+    complex(8), intent(in) :: Ei
+    complex(8), dimension (N2,N2), intent(in) :: H0, H1, S0, S1, Q
+    complex(8), dimension (N2,N2), intent(out) :: Sigma
+    character(len=1), intent(in) :: SIDE, side_rank
+
+!   Local variables.
+    integer :: N3, nlchan, I, J
+    integer, allocatable, dimension (:) :: IPIV, IPIV2
+    complex(8), parameter :: smear = (0.d0,0.d0)
+    complex(8), allocatable, dimension (:) :: WRK, WRK2
+    complex(8), allocatable, dimension (:,:) :: T1_aux, T1_dag, T1,     &
+                                                H0_aux, H1_aux,         &
+                                                H1_dag_aux, h0corr,     &
+                                                Gr_2, Gr_square
+    complex(8), allocatable, dimension (:,:) :: Gr
+    complex(8), allocatable, dimension (:,:) :: Gr_1
+    complex(8), allocatable, dimension (:,:) :: foo23
+    complex(8), allocatable, dimension (:,:) :: foo32, aux32
+    external :: DECIMATE_LEADS, LEADS
+
+!   Allocate matrices and arrays.
+    allocate (T1_aux(N2,N2), H0_aux(N2,N2), H1_aux(N2,N2),              &
+              H1_dag_aux(N2,N2), h0corr(N2,N2))
+    allocate (Gr(2*(N2-number),2*(N2-number)))
+    allocate (Gr_1(N2-number,N2-number))
+    allocate (IPIV(n2-number))
+    allocate (IPIV2(n2))
+    allocate (WRK2(N2**2))
+    allocate (WRK((N2-number)**2))
+
+!   Initialize variables.
+    N3 = N2 - number
+    H0_aux = H0 - Ei*S0
+    Gr = (0.d0,0.d0)
+    nrchan = 0
+    nlchan = 0
+
+!   ('T1_aux = Q^dagger * H0_aux')
+    call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,               &
+                H0_aux, N2, (0.d0,0.d0), T1_aux, N2)
+!   ('H0_aux = T1_aux * Q')
+    call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,          &
+                Q, N2, (0.d0,0.d0), H0_aux, N2)
+
+    IF (side_rank /= '0') THEN
+
+!      Compute 'H1_dag_aux' according to the direction of decimation.
+       If (side_rank == 'N') Then
+
+          T1_aux = H1 - Ei*S1
+
+!         ('H1_aux = Q^dagger * T1_aux')
+          call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,         &
+                      T1_aux, N2, (0.d0,0.d0), H1_aux, N2)
+
+!         ('T1_aux = H1^dagger - Ei*S1^dagger')
+          do I = 1,N2
+             do J = 1,N2
+                T1_aux(I,J) = DCONJG(H1(J,I)) - Ei*DCONJG(S1(J,I))
+             enddo
+          enddo
+
+!         ('H1_dag_aux = T1_aux * Q')
+          call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,    &
+                      Q, N2, (0.d0,0.d0), H1_dag_aux, N2)
+
+       Else
+
+          T1_aux = H1 - Ei*S1
+
+!         ('H1_aux = T1_aux * Q')
+          call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,    &
+                      Q, N2, (0.d0,0.d0), H1_aux, N2)
+
+!         ('T1_aux = H1^dagger - Ei*S1^dagger')
+          do I = 1,N2
+             do J = 1,N2
+                T1_aux(I,J) = DCONJG(H1(J,I)) - Ei*DCONJG(S1(J,I))
+             enddo
+          enddo
+
+!         ('H1_dag_aux = Q^dagger * T1_aux')
+          call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,         &
+                      T1_aux, N2, (0.d0,0.d0), H1_dag_aux, N2)
+
+       EndIf
+
+!      Calculates the decimated Hamiltonian and the correction.
+       call DECIMATE_LEADS (side_rank, SIDE, N2, number, H0_aux,        &
+                            H1_aux, H1_dag_aux, h0corr)
+
+    ELSE
+
+       H0_aux = H0 - Ei*S0
+       H1_aux = H1 - Ei*S1
+       h0corr = 0.d0
+       do I = 1,N2
+          do J = 1,N2
+             H1_dag_aux(I,J) = DCONJG(H1(J,I)) - Ei*DCONJG(S1(J,I))
+          enddo
+       enddo
+
+    ENDIF ! IF (side_rank /= '0')
+
+!   Calculates the surface Green's function.
+    call LEADS (SIDE, N3, 2*N3, 4*N3, Ei,                               &
+                H0_aux(number+1:N2,number+1:N2),                        &
+                H1_aux(number+1:N2,number+1:N2),                        &
+                H1_dag_aux(number+1:N2,number+1:N2),                    &
+                Gr, nrchan, nlchan, INFO)
+
+!   Free memory.
+    deallocate (H0_aux)
+
+!   Allocate memory.
+    allocate (T1(N2,N2), T1_dag(N2,N2))
+    allocate (foo23(N2,N2-number))
+    allocate (foo32(N2-number,N2), aux32(N2-number,N2))
+
+    IF (info == 0) THEN
+       If (side == 'L') Then
+          if (side_rank == 'N') then
+
+!            Allocate matrix.
+             allocate (Gr_2(N2,N2))
+
+             T1(1:N3,:) = H1_aux(number+1:N2,:)
+             T1_dag(:,1:N3) = H1_dag_aux(:,number+1:N2)
+             Gr_1 = Gr(1:N3,1:N3)
+
+!            ('T1_aux = Gr_1 * T1')
+             foo32 = T1(1:N3,:)
+             call zgemm ('N', 'N', N3, N2, N3,( 1.d0,0.d0), Gr_1, N3,   &
+                         foo32, N3, (0.d0,0.d0), aux32, N3)
+
+!            ('Sigma = T1_dag * T1_aux')
+             foo23 = T1_dag(:,1:N3)
+             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
+                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+
+!            (Gr_2 = (-h0corr - Sigma)^-1')
+             Gr_2 = -h0corr - Sigma
+             call zgetrf (N2, N2, Gr_2, N2, IPIV2, INFO)
+             call zgetri (N2, Gr_2, N2, IPIV2, WRK2, N2**2, INFO)
+
+             if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
+                                            ! since 'smear'is set to 0?
+
+!               Allocate matrix.
+                allocate (Gr_square(N2,N2))
+
+!               ('Gr_square = Gr_2 * Gr_2')
+                call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2,    &
+                            N2, Gr_2, N2, (0.d0,0.d0), Gr_square, N2)
+
+                Gr_2 = Gr_2 - smear*Gr_square
+
+!               Free memory.
+                deallocate (Gr_square)
+
+             endif
+
+             T1 = H1 - Ei*S1
+
+!            ('T1_aux = T1 * Q^dagger')
+             call zgemm ('N', 'C', N2, N2, N2, (1.d0,0.d0), T1, N2,     &
+                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+!            ('T1 = Q^dagger * T1_aux')
+             call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
+                         T1_aux, N2, (0.d0,0.d0), T1, N2)     
+
+!            ('T1_dag = H1^dagger - Ei*S1^dagger')
+             do i = 1,N2
+                do j = 1,N2
+                   T1_dag(I,J) = DCONJG(H1(J,I)) - Ei*DCONJG(S1(J,I))
+                enddo
+             enddo
+
+!            ('T1_aux = T1_dag * Q')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_dag, N2, &
+                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+!            ('T1_dag = Q * T1_aux')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
+                         T1_aux, N2, (0.d0,0.d0), T1_dag, N2)     
+
+!            ('T1_aux = Gr_2 * T1')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2, N2,   &
+                         T1, N2, (0.d0,0.d0), T1_aux, N2)
+
+!            ('Sigma = T1_dag * T1_aux')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_dag, N2, &
+                         T1_aux, N2, (0.d0,0.d0), Sigma, N2)
+
+!            Free memory.
+             deallocate (Gr_2)
+
+          else ! side_rank /= 'N'
+
+             T1(1:N3,:) = H1(number+1:N2,:) - Ei*S1(number+1:N2,:)
+
+!            ('T1_dag = H1^dagger - Ei*S1^dagger')
+             do I = 1,N2
+                do J = 1,N3
+                   T1_dag(I,J) = DCONJG(H1(number+J,I))                 &
+                        - Ei*DCONJG(S1(number+J,I))
+                enddo
+             enddo
+        
+             Gr_1 = Gr(1:N3,1:N3)
+
+             if (side_rank /= '0') then
+
+!               (Gr_1 = (Gr(1:N3,1:N3))^-1')
+                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
+                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+
+!               (Gr_1 = (Gr_1 - h0corr)^-1')
+                Gr_1 = Gr_1 - h0corr(number+1:N2,number+1:N2)
+                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
+                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+
+             endif
+
+             if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
+                                            ! since 'smear'is set to 0?
+
+!               Allocate matrix.
+                allocate (Gr_square(N3,N3))
+
+!               ('Gr_square = Gr_1 * Gr_1')
+                call zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),          &
+                            Gr_1, N3, Gr_1,N3, (0.d0,0.d0),             &
+                            Gr_square, N3)
+
+                Gr_1 = Gr_1 - smear*Gr_square
+
+!               Free memory.
+                deallocate (Gr_square)
+
+             endif
+
+!            ('T1_aux = Gr_1 * T1')
+             foo32 = T1(1:N3,:)
+             call zgemm ('N', 'N', N3, N2, N3, (1.d0,0.d0), Gr_1, N3,   &
+                         foo32, N3, (0.d0,0.d0), aux32, N3)
+
+!            ('Sigma = T1_dag * T1_aux')
+             foo23 = T1_dag(:,1:N3)
+             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
+                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+ 
+          endif ! if (side_rank == 'N')
+        
+       Else ! side == 'R'
+
+          if (side_rank == 'C') then
+
+!            Allocate matrix.
+             allocate (Gr_2(N2,N2))
+
+             T1(:,1:N3) = H1_aux(:,number+1:N2)
+             T1_dag(1:N3,:) = H1_dag_aux(number+1:N2,:)
+             Gr_1 = Gr(N3+1:2*N3,N3+1:2*N3)
+          
+!            ('T1_aux = Gr_1 * T1_dag')
+             foo32 = T1_dag(1:N3,:)
+             call zgemm ('N', 'N', N3, N2, N3,( 1.d0,0.d0), Gr_1, N3,   &
+                         foo32, N3, (0.d0,0.d0), aux32, N3)
+
+!            ('Sigma = T1 * T1_aux')
+             foo23 = T1(:,1:N3)
+             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
+                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+
+!            (Gr_2 = (-h0corr - Sigma)^-1')
+             Gr_2 = -h0corr - Sigma
+             call zgetrf (N2, N2, Gr_2, N2, IPIV2, INFO)
+             call zgetri (N2, Gr_2, N2, IPIV2, WRK2, N2**2, INFO)
+
+             if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
+                                            ! since 'smear'is set to 0?
+
+!               Allocate matrix.
+                allocate (Gr_square(N2,N2))
+
+!               ('Gr_square = Gr_2 * Gr_2')
+                call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2,    &
+                            N2, Gr_2, N2, (0.d0,0.d0), Gr_square, N2)
+
+                Gr_2 = Gr_2 - smear*Gr_square
+
+!               Free memory.
+                deallocate (Gr_square)
+
+             endif
+                                               
+             T1 = H1 - Ei*S1
+
+!            ('T1_aux = T1 * Q')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1, N2,     &
+                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+!            ('T1 = Q * T1_aux')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
+                         T1_aux, N2, (0.d0,0.d0), T1, N2)     
+
+!            ('T1_dag = H1^dagger - Ei*S1^dagger')
+             do I = 1,N2
+                do J = 1,N2
+                   T1_dag(I,J) =  H1(J,I) - Ei*S1(J,I)
+                enddo
+             enddo
+
+!            ('T1_aux = T1_dag * Q^dagger')
+             call zgemm ('N', 'C', N2, N2, N2, (1.d0,0.d0), T1_dag, N2, &
+                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+!            ('T1_dag = Q^dagger * T1_aux')
+             call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
+                         T1_aux, N2, (0.d0,0.d0), T1_dag, N2)     
+
+!            ('T1_aux = Gr_2 * T1_dag')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2, N2,   &
+                         T1_dag, N2, (0.d0,0.d0), T1_aux, N2)
+
+!            ('Sigma = T1 * T1_aux')
+             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1, N2,     &
+                         T1_aux, N2, (0.d0,0.d0), Sigma, N2)
+
+!            Free memory.
+             deallocate (Gr_2)
+
+          else ! side_rank /= 'C'
+
+             T1(:,1:N3) = H1(:,number+1:N2) - Ei*S1(:,number+1:N2)
+
+!            ('T1_dag = H1^dagger - Ei*S1^dagger')
+             do I = 1,N3
+                do J = 1,N2
+                   T1_dag(I,J) = DCONJG(H1(J,number+I))                 &
+                        - Ei*DCONJG(S1(J,number+I))
+                enddo
+             enddo
+
+             Gr_1 = Gr(N3+1:2*N3,N3+1:2*N3)
+          
+             if (side_rank /= '0') then
+
+!               (Gr_1 = (Gr(1:N3,1:N3))^-1')
+                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
+                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+
+!               (Gr_1 = (Gr_1 - h0corr)^-1')
+                Gr_1 = Gr_1 - h0corr(number+1:N2,number+1:N2)
+                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
+                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+
+             endif
+
+             iF (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
+                                            ! since 'smear'is set to 0?
+
+!               Allocate matrix.
+                allocate (Gr_square(N3,N3))
+
+!               ('Gr_square = Gr_1 * Gr_1')
+                call zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),          &
+                            Gr_1, N3, Gr_1, N3, (0.d0,0.d0),            &
+                            Gr_square, N3)
+
+                Gr_1 = Gr_1 - smear*Gr_square
+
+!               Free memory.
+                deallocate (Gr_square)
+
+             endif
+
+!            ('T1_aux = Gr_1 * T1_dag')
+             foo32 = T1_dag(1:N3,:)
+             call zgemm ('N', 'N', N3, N2, N3, (1.d0,0.d0), Gr_1, N3,   &
+                         foo32, N3, (0.d0,0.d0), aux32, N3)
+
+!            ('Sigma = T1 * T1_aux')
+             foo23 = T1(:,1:N3)
+             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
+                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+
+          endif ! if (side_rank == 'C')
+
+       EndIf ! If (side == 'L')
+
+    ELSE
+
+       RETURN
+
+    ENDIF ! IF (info == 0)
+
+!   Free memory.
+    deallocate (T1_aux, H1_aux, H1_dag_aux, h0corr)
+    deallocate (Gr)
+    deallocate (Gr_1)
+    deallocate (IPIV)
+    deallocate (IPIV2)
+    deallocate (WRK2)
+    deallocate (WRK)
+    deallocate (foo23)
+    deallocate (foo32, aux32)
+    deallocate (T1, T1_dag)
+
+
+  end subroutine selfenergy
 
 
 !  *******************************************************************  !
