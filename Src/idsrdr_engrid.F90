@@ -144,7 +144,9 @@ CONTAINS
     use parallel,        only: IOnode, Node, Nodes
     use idsrdr_options,  only: integraltype
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Input variables.
     integer, intent(in) :: NTenerg, NTenerg_div

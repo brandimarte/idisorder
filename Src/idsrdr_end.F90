@@ -35,11 +35,13 @@ MODULE idsrdr_end
 ! Modules
 !
   use parallel,        only: 
+  use idsrdr_init,     only: 
   use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use idsrdr_engrid,   only: 
   use idsrdr_units,    only: 
-  use inet_ephcoupl,   only: 
+  use idsrdr_ephcoupl, only: 
+  use idsrdr_green,    only: 
 
   implicit none
 
@@ -62,6 +64,7 @@ CONTAINS
 !  Original version:    September 2013                                  !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                 : True if it is the I/O node          !
+!  real*8 time_begin              : Initial processor time in seconds   !
 !  integer label_length           : Length of system label              !
 !  character(label_length) slabel : System Label (for output files)     !
 !  *******************************************************************  !
@@ -71,15 +74,20 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: IOnode
+    use idsrdr_init,     only: time_begin
     use idsrdr_options,  only: label_length, slabel, freeopt
     use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
     use idsrdr_units,    only: freeunits
-    use inet_ephcoupl,   only: EPHfree
+    use idsrdr_ephcoupl, only: EPHfree
+    use idsrdr_green,    only: freegreen
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Local variables.
+    real(8) :: time_end
     character(len=label_length+4), external :: paste
     external :: timer
 #ifdef MPI
@@ -99,16 +107,20 @@ CONTAINS
     call freeopt
     call freeunits
     call EPHfree
+    call freegreen
 
     if (IOnode) then
+
+!      Final time.
+       call cpu_time (time_end)
+
        write (6,'(a,/)') ' done!'
        write (6,'(a,a)') "Total transmission written to file: ",        &
             paste (slabel,'.TRC') 
+       write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
+            time_end - time_begin, " seconds"
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif
-
-!   Stop time counter.
-    call timer ('i-disorder', 1)
 
 !   Finalizes MPI.
 #ifdef MPI

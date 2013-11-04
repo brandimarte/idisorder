@@ -41,9 +41,13 @@ MODULE idsrdr_init
   implicit none
 
   PUBLIC ! default is public
+  PRIVATE :: header, initread
 
 ! Program working variables.
   integer :: nsc(2)
+
+! Initial processor time in seconds (processor-dependent approximation).
+  real(8) :: time_begin
 
 
 CONTAINS
@@ -65,6 +69,7 @@ CONTAINS
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  logical IOnode              : True if it is the I/O node             !
 !  ***************************** OUTPUT ******************************  !
+!  real*8 time_begin              : Initial processor time in seconds   !
 !  integer nsc(2)              : Number of unit cells along parallel    !
 !                                directions                             !
 !  *******************************************************************  !
@@ -77,11 +82,10 @@ CONTAINS
     use idsrdr_options,  only: readopt
     use idsrdr_leads,    only: readleads
 
+#ifdef MPI
     include "mpif.h"
 
 !   Local variables.
-    external :: timer
-#ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
@@ -97,20 +101,14 @@ CONTAINS
 
 !   Print version information.
     if (IOnode) then
-#ifdef MPI
-       if (Nodes > 1) then
-          write(6,'(/,a,i4,a)')                                         &
-               '* Running on ', Nodes, ' nodes in parallel'
-       else
-          write(6,'(/,a,i4,a)') '* Running in serial mode with MPI'
-       endif
-#else
-       write(6,'(/,a,i4,a)') '* Running in serial mode'
-#endif
-    endif
 
-!   Start time counter.
-    call timer ('i-disorder', 0)
+!      Print header.
+       call header (Nodes)
+
+!      Initial time.
+       call cpu_time (time_begin)
+
+    endif
 
 !   Initialise read.
     call initread
@@ -162,12 +160,6 @@ CONTAINS
 
 !   Print welcome and presentation.
     if (IOnode) then
-       write (6,'(/a)')                                                 &
-            '                           ***************************     '
-       write (6,'(a)')                                                  &
-            '                           *  WELCOME TO I-DISORDER  *     '
-       write (6,'(a)')                                                  &
-            '                           ***************************     '
 
        write (6,'(/,27(1h*),a,27(1h*))') ' Dump of input data file '
 
@@ -224,6 +216,65 @@ CONTAINS
 
 
   end subroutine initread
+
+
+!  *******************************************************************  !
+!                                header                                 !
+!  *******************************************************************  !
+!  Description: prints welcome message, date and copyright.             !
+!                                                                       !
+!  Written by Pedro Brandimarte, Sep 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    September 2013                                  !
+!  ****************************** INPUT ******************************  !
+!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
+!  *******************************************************************  !
+  subroutine header (Nodes)
+
+!   Input variables.
+    integer, intent(in) :: Nodes
+
+!   Local variables.
+    integer, dimension(8) :: values
+
+    call date_and_time (VALUES=values)
+
+    write (6,'(/,a,73(1h*),/)') '   '
+    write (6,'(a,/)')                                                   &
+         '                         *  WELCOME TO I-DISORDER  *'
+    write (6,'(a,i4,a,i2,a,i2,a,i2,a,i2,a,i2)')                         &
+         '                            ',                                &
+         values(1), '.', values(2), '.', values(3), ' , ',              &
+         values(5), ':', values(6), ':', values(7)
+    write (6,'(/,a,a)') '      ', 'Written by Alexandre Reily Rocha' // &
+         ' and Pedro Brandimarte, 2007-2013'
+    write (6,'(/,a,a)') '      ', 'Copyright (c), All Rights Reserved'
+    write (6,'(/,a,a)') '      ', 'This program is free software. '  // &
+         'You can redistribute it and/or'
+    write (6,'(a,a)') '      ', 'modify it under the terms of the '  // &
+         'GNU General Public License'
+    write (6,'(a,a)') '      ', '(version 3 or later) as published ' // &
+         'by the Free Software Foundation'
+    write (6,'(a,a)') '      ', '<http://fsf.org/>. See the GNU '    // &
+         'General Public License for details.'
+    write (6,'(/,a,73(1h*))') '   '
+
+#ifdef MPI
+    if (Nodes > 1) then
+       write(6,'(/,a,i4,a)')                                         &
+            '* Running on ', Nodes, ' nodes in parallel'
+    else
+       write(6,'(/,a,i4,a)') '* Running in serial mode with MPI'
+    endif
+#else
+       write(6,'(/,a,i4,a)') '* Running in serial mode'
+#endif
+
+
+  end subroutine header
 
 
 !  *******************************************************************  !

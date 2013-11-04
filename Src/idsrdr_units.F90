@@ -40,7 +40,7 @@ MODULE idsrdr_units
   use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use idsrdr_init,     only: 
-  use inet_ephcoupl,   only: 
+  use idsrdr_ephcoupl, only: 
   use fdf
 
   implicit none
@@ -52,12 +52,14 @@ MODULE idsrdr_units
   integer, allocatable, dimension (:) :: unit_type ! Units types
   integer, allocatable, dimension (:) :: unitdimensions ! Units number
                                                         ! of orbitals
+  integer, allocatable, dimension (:) :: ephIndic ! E-ph interaction in
+                                                  ! unit type (0 or 1)
 
   real(8), allocatable, dimension (:) :: theta ! 
   real(8), allocatable, dimension (:) :: unitshift ! Units shift
-  real(8), allocatable, dimension (:,:) :: S1unit ! Coupling unit overlap
-  real(8), allocatable, dimension (:,:,:) :: H1unit ! Coupling unit
-                                                    ! hamiltonian
+  real(8), allocatable, dimension (:,:) :: S1unit ! Unit coupling overlap
+  real(8), allocatable, dimension (:,:,:) :: H1unit ! Unit coupling
+                                                    ! Hamiltonian
 
   TYPE unitS
      real(8), pointer :: S(:,:) ! pointer to units overlaps
@@ -205,11 +207,17 @@ CONTAINS
 !  real*8 unitweight(ntypeunits+2)       : Units weight                 !
 !  character(30) fileunits(ntypeunits+2) : Units files                  !
 !  ***************************** OUTPUT ******************************  !
+!  real*8 S1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits)) : Unit coupling overlap    !
+!  real*8 H1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits),nspin) : Unit coupling      !
+!                                                    Hamiltonian        !
 !  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
 !                                         [real*8] Units overlap        !
 !  TYPE(unitH)                                                          !
 !        Hunits(ntypeunits+2)%H(unitdimensions,unitdimensions,nspin) :  !
 !                                         [real*8] Units hamiltonian    !
+!  integer ephIndic(ntypeunits+2)        : E-ph interaction indicator   !
 !  *******************************************************************  !
   subroutine readunits (nspin, ntypeunits, nsc, temp,                   &
                         unitdimensions, unitlength, unitshift,          &
@@ -219,10 +227,12 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use inet_ephcoupl,   only: EPHread
+    use idsrdr_ephcoupl, only: EPHread
     use fdf
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Input variables.
     integer, intent(in) :: nspin, ntypeunits
@@ -238,7 +248,6 @@ CONTAINS
 !   Local variables.
     integer :: iu, I, nspinu, no, nuo, maxnh
     integer, dimension (2) :: nscu
-    integer, allocatable, dimension (:) :: ephIndic
     real(8) :: tempu, efu
     real(8), allocatable, dimension (:,:,:) :: H0aux, H1aux
     real(8), allocatable, dimension (:,:) :: S0aux, S1aux
@@ -284,6 +293,8 @@ CONTAINS
     call MPI_Bcast (fileunits, 30*(ntypeunits+2), MPI_Character, 0,     &
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (unitshift, ntypeunits+2, MPI_Double_Precision, 0,   &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (ephIndic, ntypeunits+2, MPI_Integer, 0,             &
                     MPI_Comm_world, MPIerror)
 #endif
 
@@ -395,10 +406,7 @@ CONTAINS
 #endif
 
 !   Read electron-phonon interaction data.
-    call EPHread (ntypeunits, fileunits, ephIndic, unitdimensions)
-
-!   Free memory.
-    deallocate (ephIndic)
+    call EPHread (ntypeunits, fileunits, unitdimensions, ephIndic)
 
 
   end subroutine readunits
@@ -443,7 +451,9 @@ CONTAINS
     use idsrdr_options,  only: readunitstf, nunits
     use fdf
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Input variables.
     integer, intent(in) :: NDeffects, ntypeunits
@@ -659,6 +669,7 @@ CONTAINS
     deallocate (Hunits)
     deallocate (unit_type)
     deallocate (unitdimensions)
+    deallocate (ephIndic)
 
 
   end subroutine freeunits

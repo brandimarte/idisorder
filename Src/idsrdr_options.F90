@@ -114,7 +114,9 @@ CONTAINS
 !
     use parallel,        only: IOnode
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Local variables.
     integer :: iu, j

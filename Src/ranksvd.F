@@ -12,7 +12,9 @@ C
 
       implicit none
 
+#ifdef MPI
       include "mpif.h"
+#endif
 
 !     Input variables.
       integer, intent(in) :: N, nspin

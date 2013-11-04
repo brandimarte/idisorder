@@ -40,7 +40,7 @@ PROGRAM IDISORDER
   use idsrdr_units,    only: makeunits
   use idsrdr_options,  only: nspin
   use idsrdr_leads,    only: leadsSelfEn
-  use idsrdr_green,    only: greenfunctions, gfHead, gfTail
+  use idsrdr_green,    only: greeninit, greenfunctions, gfHead, gfTail
   use idsrdr_end,      only: finalize
 
   implicit none
@@ -60,6 +60,7 @@ PROGRAM IDISORDER
   allocate (NCHAN(NTenerg_div,nspin))
 
   call gfHead
+  call greeninit
   do ienergy = 1,NTenerg_div ! over energy grid
      do ispin = 1,nspin ! over spin components
 
@@ -67,6 +68,7 @@ PROGRAM IDISORDER
                           NCHAN(ienergy,ispin))
 
         call greenfunctions (Ei(ienergy), ispin)
+
      enddo
   enddo
   call gfTail

@@ -22,14 +22,21 @@ c Now hybrid to comply with Siesta "die" interface.
 c---------------------------------------------------------------
 c
       subroutine io
-      use sys, only: die
+c$$$      use sys, only: die
 c
 c     Logical unit management. Units 0 to min_lun-1 are "reserved",
 c     since most of the "typical" files (output, etc) use them.
 c
 c     Logical units min_lun to min_max are managed by this module.
       
+      use parallel, only : IOnode
+
       implicit none
+
+#ifdef MPI
+      include "mpif.h"
+#endif
+
 c
 c----------------------------------------------------------------
 c     Module variables
@@ -40,6 +47,11 @@ c
       logical lun_is_free(min_lun:max_lun)
 
       save stdout, stderr, lun_is_free
+
+#ifdef MPI
+      integer MPIerror
+#endif
+
 c-----------------------------------------------------------------
 c
 c     Internal and dummy variables
@@ -89,7 +101,15 @@ c
             if (.not. used) return
          endif
       enddo
-      call die('No luns available in io_assign')
+      if (IOnode) then
+         write (6,'(/,a,/)') "ERROR: No luns available in io_assign"
+#ifdef MPI
+         call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+         stop
+#else
+         stop
+#endif
+      endif
 c
 c===
 c
@@ -105,7 +125,17 @@ c     open(15,....)
 c
       inquire(unit=lun, opened=used, iostat=iostat)
       if (iostat .ne. 0) used = .true.
-      if (used) call die('Cannot reserve unit. Already connected')
+      if (used) then
+         write (6,'(/,a,/)')
+     $        "ERROR: Cannot reserve unit. Already connected"
+#ifdef MPI
+         call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+         stop
+#else
+         stop
+#endif
+
+      endif
       if (lun .ge. min_lun .and. lun .le. max_lun)
      $                      lun_is_free(lun) = .false.
 

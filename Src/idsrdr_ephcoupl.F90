@@ -17,7 +17,7 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                         MODULE inet_ephcoupl                          !
+!                        MODULE idsrdr_ephcoupl                         !
 !  *******************************************************************  !
 !  Description: reads the electron-phonon coupling matrix, the          !
 !  vibrational frequencies (which is given in eV) and the dynamic       !
@@ -31,13 +31,12 @@
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
 
-MODULE inet_ephcoupl
+MODULE idsrdr_ephcoupl
 
 !
 !   Modules
 !
   use parallel,        only: 
-  use sys,             only: 
   use idsrdr_options,  only: 
 
   implicit none
@@ -107,21 +106,22 @@ CONTAINS
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nModes*nspin) :          !
 !                                   [complex*8] E-ph coupling matrices  !
 !  *******************************************************************  !
-  subroutine EPHread (ntypeunits, fileunits, ephIndic, unitdimensions)
+  subroutine EPHread (ntypeunits, fileunits, unitdimensions, ephIndic)
 
 !
 !   Modules
 !
     use parallel,        only: IOnode
-    use sys,             only: die
     use idsrdr_options,  only: nspin, directory
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Input variables.
     integer, intent(in) :: ntypeunits
-    integer, dimension (ntypeunits+2), intent(in) :: ephIndic
     integer, dimension (ntypeunits+2), intent(in) :: unitdimensions
+    integer, dimension (ntypeunits+2), intent(in) :: ephIndic
     character(len=30), dimension (ntypeunits+2), intent(in) :: fileunits
 
 !   Local variables.
@@ -187,15 +187,29 @@ CONTAINS
 
 !            Verifies spin number.
              if (sDyn /= nspin) then
-                call die ("EPHread: ERROR: Electron-phonon coupling" // &
-                     " calculated with different spin number.")
+                write (6,'(/,a,/)')                                     &
+                     "EPHread: ERROR: Electron-phonon coupling" //      &
+                     " calculated with different spin number."
+#ifdef MPI
+                call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+                stop
+#else
+                stop
+#endif
              endif
 
 !            Verifies orbital indexes.
              if (idxL(idx) > unitdimensions(nu)) then
-                call die ("EPHread: ERROR: Last orbital index from" //  &
+                write (6,'(/,a,/)')                                     &
+                     "EPHread: ERROR: Last orbital index from"     //   &
                      " electron-phonon coupling matrix is greater" //   &
-                     " than the total number of orbitals.")
+                     " than the total number of orbitals."
+#ifdef MPI
+                call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+                stop
+#else
+                stop
+#endif
              endif
 
 !            Total number of modes.
@@ -272,8 +286,14 @@ CONTAINS
     RETURN
 
 123 if (IOnode) then
-       call die ("EPHread: ERROR: Couldn't open " //                    &
-            "electron-phonon coupling file.")
+       write (6,'(/,a,/)') "EPHread: ERROR: Couldn't open " //          &
+            "electron-phonon coupling file."
+#ifdef MPI
+       call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+       stop
+#else
+       stop
+#endif
     else
        RETURN
     endif
@@ -321,6 +341,6 @@ CONTAINS
 !  *******************************************************************  !
 
 
-END MODULE inet_ephcoupl
+END MODULE idsrdr_ephcoupl
 
 

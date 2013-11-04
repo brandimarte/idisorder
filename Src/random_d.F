@@ -23,7 +23,9 @@ C
 
       implicit none
 
+#ifdef MPI
       include "mpif.h"
+#endif
 
       integer :: Ndeffects,I,MPIError
 

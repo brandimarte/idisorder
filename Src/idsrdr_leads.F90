@@ -38,6 +38,7 @@ MODULE idsrdr_leads
 !
   use parallel,        only: 
   use idsrdr_options,  only: 
+  use idsrdr_check,    only: 
 
   implicit none
   
@@ -128,7 +129,9 @@ CONTAINS
     use parallel,        only: IOnode
     use idsrdr_options,  only: nspin, temp, directory
 
+#ifdef MPI
     include "mpif.h"
+#endif
 
 !   Input variables.
     integer, intent(in) :: nsc(2)
@@ -282,7 +285,6 @@ CONTAINS
 !  *******************************************************************  !
   subroutine leadsSelfEn (Ei, ispin, INFO, NCHAN)
 
-
 !   Input variables.
     integer, intent(in) :: ispin
     integer, intent(out) :: INFO
@@ -341,6 +343,10 @@ CONTAINS
   subroutine selfenergy (SIDE, side_rank, number, N2, Ei, H0, H1,       &
                          S0, S1, Sigma, Q, INFO, nrchan)
 
+!
+!   Modules
+!
+    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
     integer, intent(in) :: number, N2
@@ -354,7 +360,6 @@ CONTAINS
     integer :: N3, nlchan, I, J
     integer, allocatable, dimension (:) :: IPIV, IPIV2
     complex(8), parameter :: smear = (0.d0,0.d0)
-    complex(8), allocatable, dimension (:) :: WRK, WRK2
     complex(8), allocatable, dimension (:,:) :: T1_aux, T1_dag, T1,     &
                                                 H0_aux, H1_aux,         &
                                                 H1_dag_aux, h0corr,     &
@@ -363,7 +368,7 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: Gr_1
     complex(8), allocatable, dimension (:,:) :: foo23
     complex(8), allocatable, dimension (:,:) :: foo32, aux32
-    external :: DECIMATE_LEADS, LEADS
+    external :: zgemm, DECIMATE_LEADS, LEADS
 
 !   Allocate matrices and arrays.
     allocate (T1_aux(N2,N2), H0_aux(N2,N2), H1_aux(N2,N2),              &
@@ -372,8 +377,6 @@ CONTAINS
     allocate (Gr_1(N2-number,N2-number))
     allocate (IPIV(n2-number))
     allocate (IPIV2(n2))
-    allocate (WRK2(N2**2))
-    allocate (WRK((N2-number)**2))
 
 !   Initialize variables.
     N3 = N2 - number
@@ -487,8 +490,8 @@ CONTAINS
 
 !            (Gr_2 = (-h0corr - Sigma)^-1')
              Gr_2 = -h0corr - Sigma
-             call zgetrf (N2, N2, Gr_2, N2, IPIV2, INFO)
-             call zgetri (N2, Gr_2, N2, IPIV2, WRK2, N2**2, INFO)
+             call CHECKzgetrf (N2, Gr_2, IPIV2)
+             call CHECKzgetri (N2, Gr_2, IPIV2)
 
              if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
                                             ! since 'smear'is set to 0?
@@ -558,13 +561,13 @@ CONTAINS
              if (side_rank /= '0') then
 
 !               (Gr_1 = (Gr(1:N3,1:N3))^-1')
-                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
-                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+                call CHECKzgetrf (N3, Gr_1, IPIV)
+                call CHECKzgetri (N3, Gr_1, IPIV)
 
 !               (Gr_1 = (Gr_1 - h0corr)^-1')
                 Gr_1 = Gr_1 - h0corr(number+1:N2,number+1:N2)
-                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
-                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+                call CHECKzgetrf (N3, Gr_1, IPIV)
+                call CHECKzgetri (N3, Gr_1, IPIV)
 
              endif
 
@@ -621,8 +624,8 @@ CONTAINS
 
 !            (Gr_2 = (-h0corr - Sigma)^-1')
              Gr_2 = -h0corr - Sigma
-             call zgetrf (N2, N2, Gr_2, N2, IPIV2, INFO)
-             call zgetri (N2, Gr_2, N2, IPIV2, WRK2, N2**2, INFO)
+             call CHECKzgetrf (N2, Gr_2, IPIV2)
+             call CHECKzgetri (N2, Gr_2, IPIV2)
 
              if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
                                             ! since 'smear'is set to 0?
@@ -692,13 +695,13 @@ CONTAINS
              if (side_rank /= '0') then
 
 !               (Gr_1 = (Gr(1:N3,1:N3))^-1')
-                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
-                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+                call CHECKzgetrf (N3, Gr_1, IPIV)
+                call CHECKzgetri (N3, Gr_1, IPIV)
 
 !               (Gr_1 = (Gr_1 - h0corr)^-1')
                 Gr_1 = Gr_1 - h0corr(number+1:N2,number+1:N2)
-                call zgetrf (N3, N3, Gr_1, N3, IPIV, INFO)
-                call zgetri (N3, Gr_1, N3, IPIV, WRK, N3**2, INFO)
+                call CHECKzgetrf (N3, Gr_1, IPIV)
+                call CHECKzgetri (N3, Gr_1, IPIV)
 
              endif
 
@@ -746,8 +749,6 @@ CONTAINS
     deallocate (Gr_1)
     deallocate (IPIV)
     deallocate (IPIV2)
-    deallocate (WRK2)
-    deallocate (WRK)
     deallocate (foo23)
     deallocate (foo32, aux32)
     deallocate (T1, T1_dag)
