@@ -86,6 +86,8 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  integer neph                        : Number of units with e-ph      !
 !                                        interaction                    !
+!  integer norbDyn(neph)               : Number of orbitals from        !
+!                                        dynamic atoms                  !
 !  *******************************************************************  !
   subroutine greeninit
 
@@ -96,7 +98,7 @@ CONTAINS
     use idsrdr_options,  only: nunits
     use idsrdr_units,    only: unit_type, unitdimensions, ephIndic
     use idsrdr_leads,    only: NL, NR
-    use idsrdr_ephcoupl, only: neph
+    use idsrdr_ephcoupl, only: neph, norbDyn
 
 !   Local variables.
     integer :: I, J, dim
@@ -119,6 +121,7 @@ CONTAINS
           allocate (GL_1m(J)%G(NL,dim))
           allocate (GR_pp(J)%G(dim,dim))
           allocate (GR_Mp(J)%G(NR,dim))
+          dim = norbDyn(J) ! dynamic atoms dimension
           allocate (Gr_nn(J)%G(dim,dim))
           allocate (Gr_1n(J)%G(NL,dim))
           allocate (Gr_Mn(J)%G(NR,dim))
@@ -564,6 +567,8 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  integer neph                        : Number of units with e-ph      !
 !                                        interaction                    !
+!  integer norbDyn(neph)               : Number of orbitals from        !
+!                                        dynamic atoms                  !
 !  ****************************** INPUT ******************************  !
 !  integer ispin                        : Spin component index          !
 !  real*8 Ei                            : Energy grid point             !
@@ -582,7 +587,7 @@ CONTAINS
     use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
                                ephIndic, S1unit, H1unit, Sunits, Hunits
     use idsrdr_leads,    only: NL, NR
-    use idsrdr_ephcoupl, only: neph
+    use idsrdr_ephcoupl, only: neph, norbDyn, idxF, idxL
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
 
 !   Input variables.
@@ -593,7 +598,7 @@ CONTAINS
     integer :: I, n, J, utype, dim
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
-    complex(8), allocatable, dimension (:,:) :: aux1, aux2
+    complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
     complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
     external :: zsymm, zgemm
 
@@ -621,9 +626,12 @@ CONTAINS
           utype = unit_type(I) ! current unit type
           dim = unitdimensions(utype) ! current type dimension
 
-!         ('Gr_nn = E*S - H + V^T*Gbfr*V')
-          Gr_nn(J)%G = (Ei-unitshift(utype))*Sunits(utype)%S            &
-                       - Hunits(utype)%H(:,:,ispin)
+!         Allocate auxiliary matrix.
+          allocate (aux3(dim,dim))
+
+!         ('aux3 = E*S - H + V^T*Gbfr*V')
+          aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                  &
+                 - Hunits(utype)%H(:,:,ispin)
 
 !         ('aux2 = GL_mm*V')
           aux1 = GL_mm(J)%G(dim-n+1:dim,dim-n+1:dim)
@@ -634,8 +642,8 @@ CONTAINS
           call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,             &
                aux2, n, (0.d0,0.d0), aux1, n)
 
-!         ('Gr_nn = Gr_nn + aux1')
-          Gr_nn(J)%G(1:n,1:n) = Gr_nn(J)%G(1:n,1:n) + aux1
+!         ('aux3 = aux3 + aux1')
+          aux3(1:n,1:n) = aux3(1:n,1:n) + aux1
 
 !         ('aux2 = V*GR_pp')
           aux1 = GR_pp(J)%G(1:n,1:n)
@@ -646,18 +654,21 @@ CONTAINS
           call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
                       V, n, (0.d0,0.d0), aux1, n)
 
-!         ('Gr_nn = Gr_nn + aux1')
-          Gr_nn(J)%G(dim-n+1:dim,dim-n+1:dim) =                         &
-               Gr_nn(J)%G(dim-n+1:dim,dim-n+1:dim) + aux1
+!         ('aux3 = aux3 + aux1')
+          aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim) &
+                                          + aux1
 
-!         ('Gr_nn = Gr_nn^-1)
+!         ('aux3 = aux3^-1')
           allocate (ipiv(dim))
-          call CHECKzsytrf (dim, 'L', Gr_nn(J)%G, ipiv)
-          call CHECKzsytri (dim, 'L', Gr_nn(J)%G, ipiv)
+          call CHECKzsytrf (dim, 'L', aux3, ipiv)
+          call CHECKzsytri (dim, 'L', aux3, ipiv)
           deallocate (ipiv)
 
-!         (Re-)Allocate matrices.
-          allocate (foo3(n,dim))
+!         ('Gr_nn = aux3')
+          Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
+
+!         Allocate auxiliary matrix.
+          allocate (foo3(n,norbDyn(J)))
 
 !         ('foo2 = GL_1m*V')
           foo1 = GL_1m(J)%G(1:NL,dim-n+1:dim)
@@ -665,9 +676,9 @@ CONTAINS
                       V, n, (0.d0,0.d0), foo2, NL)
 
 !         ('Gr_1n = foo2 * Gr_nn')
-          foo3 = Gr_nn(J)%G(1:n,:)
-          call zgemm ('N', 'N', NL, dim, n, (1.d0,0.d0), foo2, NL,      &
-                      foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+          foo3 = aux3(1:n,idxF(J):idxL(J))
+          call zgemm ('N', 'N', NL, norbDyn(J), n, (1.d0,0.d0),         &
+                      foo2, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
 
 !         ('foo2 = GR_Mp*V^dagger')
           foo1 = GR_Mp(J)%G(1:NR,1:n)
@@ -675,13 +686,13 @@ CONTAINS
                       V, n, (0.d0,0.d0), foo2, NR)
 
 !         ('Gr_Mn = foo2 * Gr_nn')
-          foo3 = Gr_nn(J)%G(dim-n+1:dim,:)
-          call zgemm ('N', 'N', NR, dim, n, (1.d0,0.d0), foo2, NR,      &
-                      foo3, n, (0.d0,0.d0), Gr_Mp(J)%G, NR)
+          foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
+          call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0),         &
+                      foo2, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
 
-
-!         (Re-)Free memory.
+!         Free memory.
           deallocate (foo3)
+          deallocate (aux3)
 
           J = J + 1
 
