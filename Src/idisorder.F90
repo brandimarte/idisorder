@@ -35,47 +35,62 @@ PROGRAM IDISORDER
 !
 ! Modules
 !
+  use parallel,        only: IOnode
   use idsrdr_init,     only: init
   use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
   use idsrdr_units,    only: makeunits
   use idsrdr_options,  only: nspin
   use idsrdr_leads,    only: leadsSelfEn
-  use idsrdr_green,    only: greeninit, greenfunctions, gfHead, gfTail
+  use idsrdr_green,    only: greeninit, greenfunctions
+  use idsrdr_current,  only: current
+  use idsrdr_spectral, only: spectralinit, spectral, writespectral
   use idsrdr_end,      only: finalize
 
   implicit none
 
 ! Local variables.
   integer :: ienergy, ispin
-  integer, allocatable, dimension (:,:) :: INFO, NCHAN
 
+! Proper initialization and reading of input options.
   call init
 
+! Create the energy grid and distribute over the nodes.
   call engrid
 
+! Read and build disorder units.
   call makeunits
 
-! Allocate arrays.
-  allocate (INFO(NTenerg_div,nspin))
-  allocate (NCHAN(NTenerg_div,nspin))
+! Initialize spectral function and DOS arrays.
+  call spectralinit
 
-  call gfHead
+! Initialize Green's functions structures.
   call greeninit
+
+  if (IOnode) write (6,'(/,28("*"),a,28("*"),/)')                     &
+       ' Transport Calculation '
+
   do ienergy = 1,NTenerg_div ! over energy grid
      do ispin = 1,nspin ! over spin components
 
-        call leadsSelfEn (Ei(ienergy), ispin, INFO(ienergy,ispin),      &
-                          NCHAN(ienergy,ispin))
+!       Calculate lead's self-energies.
+        call leadsSelfEn (Ei(ienergy), ispin)
 
+!       Calculate required Green's functions.
         call greenfunctions (Ei(ienergy), ispin)
+
+!       Compute spectral function and DOS for units with e-ph.
+        call spectral (ienergy, ispin)
+
+!       Calculate the current.
+        call current (Ei(ienergy), ispin)
 
      enddo
   enddo
-  call gfTail
 
-! Free memory.
-  deallocate (INFO, NCHAN)
+! Write spectral function and DOS to file.
+  call writespectral
 
+! Proper ending.
   call finalize
 
 

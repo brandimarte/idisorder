@@ -40,7 +40,7 @@ MODULE idsrdr_engrid
 
   implicit none
   
-  PUBLIC ! default is public
+  PUBLIC  :: engrid, freegrid
   PRIVATE :: energygrid
 
   integer :: NTenerg_div ! number of energy grid points per node

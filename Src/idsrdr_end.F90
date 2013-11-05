@@ -42,10 +42,12 @@ MODULE idsrdr_end
   use idsrdr_units,    only: 
   use idsrdr_ephcoupl, only: 
   use idsrdr_green,    only: 
+  use idsrdr_spectral, only: 
 
   implicit none
 
-  PUBLIC ! default is public
+  PUBLIC  :: finalize
+  PRIVATE ! default is private
 
 
 CONTAINS
@@ -81,6 +83,7 @@ CONTAINS
     use idsrdr_units,    only: freeunits
     use idsrdr_ephcoupl, only: EPHfree
     use idsrdr_green,    only: freegreen
+    use idsrdr_spectral, only: freespectral
 
 #ifdef MPI
     include "mpif.h"
@@ -108,6 +111,7 @@ CONTAINS
     call freeunits
     call EPHfree
     call freegreen
+    call freespectral
 
     if (IOnode) then
 

@@ -45,7 +45,8 @@ MODULE idsrdr_units
 
   implicit none
   
-  PUBLIC ! default is public
+  PUBLIC  :: N1, unit_type, unitdimensions, ephIndic, theta, unitshift, &
+             S1unit, H1unit, Sunits, Hunits, makeunits, freeunits
   PRIVATE :: readunits, buildunits
 
   integer :: N1 ! Leads total number of orbitals (left + right)

@@ -42,7 +42,10 @@ MODULE idsrdr_leads
 
   implicit none
   
-  PUBLIC ! default is public
+  PUBLIC  :: NL, NR, numberL, numberR, EfLead, S0_L, S0_R, S1_L, S1_R,  &
+             H0_L, H0_R, H1_L, H1_R, VHL, VHR, VSL, VSR, QL, QR,        &
+             Sigma_L, Sigma_R, side_rankL, side_rankR,                  &
+             readleads, leadsSelfEn, freeleads
   PRIVATE :: selfenergy
 
   integer :: NL ! Number of left lead orbitals
@@ -279,28 +282,43 @@ CONTAINS
 !  ***************************** OUTPUT ******************************  !
 !  complex(8) Sigma_L(NL,NL)      : Left-lead self-energy               !
 !  complex(8) Sigma_R(NR,NR)      : Right-lead self-energy              !
-!  integer INFO                   : Is '0' if self-energy calculated    !
-!                                   with success, 'NOT 0' otherwise     !
-!  integer NCHAN                  : Number of open channels             !
 !  *******************************************************************  !
-  subroutine leadsSelfEn (Ei, ispin, INFO, NCHAN)
+  subroutine leadsSelfEn (Ei, ispin)
+
+!
+!   Modules
+!
+    use parallel,        only: IOnode
 
 !   Input variables.
     integer, intent(in) :: ispin
-    integer, intent(out) :: INFO
-    integer, intent(out) :: NCHAN
     real(8), intent(in) :: Ei
+
+!   Local variables.
+    integer :: INFO, NCHAN
+
+    if (IOnode) then
+       write (6,'(/,a,f8.5,a,i1,a,/)') '[energy(Ry),spin] = [',         &
+            Ei, ',', ispin, ']'
+       write (6,'(a)', advance='no')                                    &
+            '      computing leads self-energies... '
+    endif
 
     call selfenergy ('L', side_rankL(ispin), numberL(ispin), NL,        &
                      DCMPLX(Ei), H0_L(:,:,ispin), VHL(:,:,ispin),       &
                      S0_L, VSL(:,:,ispin), Sigma_L, QL(:,:,ispin),      &
                      INFO, NCHAN)
 
-    if (info == 0) then
+    if (INFO == 0) then
        call selfenergy ('R', side_rankR(ispin), numberR(ispin), NR,     &
                         DCMPLX(Ei), H0_R(:,:,ispin), VHR(:,:,ispin),    &
                         S0_R, VSR(:,:,ispin), Sigma_R, QR(:,:,ispin),   &
                         INFO, NCHAN)
+    endif
+
+    if (INFO == 0 .and. IOnode) then
+       write(6,'(a)') ' ok!'
+       write(6,'(a,i3)') '        -> number of open channels = ', NCHAN
     endif
 
 

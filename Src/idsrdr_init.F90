@@ -36,11 +36,12 @@ MODULE idsrdr_init
 !
   use parallel,        only:
   use idsrdr_options,  only: 
+  use idsrdr_leads,    only: 
   use fdf
 
   implicit none
 
-  PUBLIC ! default is public
+  PUBLIC  :: init, nsc, time_begin
   PRIVATE :: header, initread
 
 ! Program working variables.

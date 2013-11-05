@@ -134,7 +134,6 @@ CONTAINS
        slabel = ""
        slabel_default = 'i-disorder'
        slabel = fdf_string ('SystemLabel', slabel_default)
-!!$       label_length = size (slabel)
        write (6,2) 'readopt: System label                         ' //  &
             '         =  ', slabel
 

@@ -34,7 +34,8 @@ MODULE idsrdr_check
 
   implicit none
   
-  PUBLIC ! default is public
+  PUBLIC  :: CHECKzsytrf, CHECKzsytri, CHECKzgetrf, CHECKzgetri,        &
+             CHECKzhetrf, CHECKzhetri
 
 
 CONTAINS

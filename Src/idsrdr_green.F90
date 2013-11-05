@@ -44,7 +44,7 @@ MODULE idsrdr_green
 
   implicit none
   
-  PUBLIC ! default is public
+  PUBLIC  :: greeninit, greenfunctions, freegreen
   PRIVATE :: LRsweep , RLsweep, GFfull
 
   TYPE green
@@ -58,9 +58,6 @@ MODULE idsrdr_green
   TYPE(green), allocatable, dimension (:) :: Gr_nn ! G^r_{n,n}
   TYPE(green), allocatable, dimension (:) :: Gr_1n ! G^r_{1,n}
   TYPE(green), allocatable, dimension (:) :: Gr_Mn ! G^r_{M,n}
-
-! TO DO: ainda da para reduzir o tamanho das GF porque ele eh
-!        dado pelo tamanho Meph (que varia para cada bloco)
 
 
 CONTAINS
@@ -94,7 +91,6 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: Node
     use idsrdr_options,  only: nunits
     use idsrdr_units,    only: unit_type, unitdimensions, ephIndic
     use idsrdr_leads,    only: NL, NR
@@ -171,7 +167,7 @@ CONTAINS
 !  *******************************************************************  !
 !                                LRsweep                                !
 !  *******************************************************************  !
-!  Description: Left-to-right sweep for computing 'G^L_{n-1,n-1}' and   !
+!  Description: left-to-right sweep for computing 'G^L_{n-1,n-1}' and   !
 !  'G^L_{1,n-1}'.                                                       !
 !                                                                       !
 !  Written by Pedro Brandimarte, Oct 2013.                              !
@@ -181,6 +177,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode                       : True if it is the I/O node    !
 !  integer ntypeunits                   : Number of unit types          !
 !  integer nunits                       : Total number of units         !
 !  integer unit_type(nunits+2)          : Units types                   !
@@ -213,6 +210,7 @@ CONTAINS
 !
 !   Modules
 !
+    use parallel,        only: IOnode
     use idsrdr_options,  only: ntypeunits, nunits
     use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
                                ephIndic, S1unit, H1unit, Sunits, Hunits
@@ -234,6 +232,9 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: aux1, aux2
     complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
     external :: zsymm, zgemm
+
+    if (IOnode) write (6,'(a)', advance='no')                           &
+            '      computing left-to-right sweep... '
 
 !   Initialize variables.
     utype = ntypeunits+1 ! current unit type (left lead)
@@ -346,6 +347,8 @@ CONTAINS
     deallocate (foo1)
     deallocate (foo2)
 
+    if (IOnode) write(6,'(a)') " ok!"
+
 
   end subroutine LRsweep
 
@@ -353,7 +356,7 @@ CONTAINS
 !  *******************************************************************  !
 !                                RLsweep                                !
 !  *******************************************************************  !
-!  Description: Right-to-left sweep for computing 'G^R_{n+1,n+1}' and   !
+!  Description: right-to-left sweep for computing 'G^R_{n+1,n+1}' and   !
 !  'G^R_{M,n+1}'.                                                       !
 !                                                                       !
 !  Written by Pedro Brandimarte, Oct 2013.                              !
@@ -363,6 +366,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode                       : True if it is the I/O node    !
 !  integer ntypeunits                   : Number of unit types          !
 !  integer nunits                       : Total number of units         !
 !  integer unit_type(nunits+2)          : Units types                   !
@@ -397,6 +401,7 @@ CONTAINS
 !
 !   Modules
 !
+    use parallel,        only: IOnode
     use idsrdr_options,  only: ntypeunits, nunits
     use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
                                ephIndic, S1unit, H1unit, Sunits, Hunits
@@ -419,6 +424,9 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: aux1, aux2
     complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
     external :: zsymm, zgemm
+
+    if (IOnode) write (6,'(a)', advance='no')                           &
+            '      computing right-to-left sweep... '
 
 !   Initialize variables.
     utype = ntypeunits+2 ! current unit type (right lead)
@@ -531,6 +539,8 @@ CONTAINS
     deallocate (foo1)
     deallocate (foo2)
 
+    if (IOnode) write(6,'(a)') " ok!"
+
 
   end subroutine RLsweep
 
@@ -547,6 +557,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode                       : True if it is the I/O node    !
 !  integer ntypeunits                   : Number of unit types          !
 !  integer nunits                       : Total number of units         !
 !  integer unit_type(nunits+2)          : Units types                   !
@@ -569,6 +580,8 @@ CONTAINS
 !                                        interaction                    !
 !  integer norbDyn(neph)               : Number of orbitals from        !
 !                                        dynamic atoms                  !
+!  integer idxF(neph)                  : First dynamic atom orbital     !
+!  integer idxL(neph)                  : Last dynamic atom orbital      !
 !  ****************************** INPUT ******************************  !
 !  integer ispin                        : Spin component index          !
 !  real*8 Ei                            : Energy grid point             !
@@ -583,6 +596,7 @@ CONTAINS
 !
 !   Modules
 !
+    use parallel,        only: IOnode
     use idsrdr_options,  only: ntypeunits, nunits
     use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
                                ephIndic, S1unit, H1unit, Sunits, Hunits
@@ -601,6 +615,9 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
     complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
     external :: zsymm, zgemm
+
+    if (IOnode) write (6,'(a)', advance='no')                           &
+            '      computing full Greens functions... '
 
 !   Initialize variables.
     utype = ntypeunits+1 ! current unit type (left lead)
@@ -706,59 +723,10 @@ CONTAINS
     deallocate (foo1)
     deallocate (foo2)
 
+    if (IOnode) write(6,'(a)') " ok!"
+
 
   end subroutine GFfull
-
-
-!  *******************************************************************  !
-!                                gfHead                                 !
-!  *******************************************************************  !
-!  Description: Prints an "begin" message.                              !
-!  Description: free allocated vectors.                                 !
-!                                                                       !
-!  Written by Pedro Brandimarte, Oct 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    October 2013                                    !
-!  *******************************************************************  !
-  subroutine gfHead
-
-!
-!   Modules
-!
-    use parallel,        only: IOnode
-
-    if (IOnode) write (6,'(/,25("*"),a,26("*"),/)')                     &
-         ' Computing Greens functions '
-
-  end subroutine gfHead
-
-
-!  *******************************************************************  !
-!                                gfTail                                 !
-!  *******************************************************************  !
-!  Description: Prints an "finish" message.                             !
-!                                                                       !
-!  Written by Pedro Brandimarte, Oct 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    October 2013                                    !
-!  *******************************************************************  !
-  subroutine gfTail
-
-!
-!   Modules
-!
-    use parallel,        only: IOnode
-
-    if (IOnode) write (6,'(/,2a)') 'greenfunctions: ', repeat('*', 63)
-
-
-  end subroutine gfTail
 
 
 !  *******************************************************************  !

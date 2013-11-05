@@ -171,7 +171,7 @@ CONTAINS
 
           if (IOnode) then
 
-             write(6,'(a,i3,a)',advance='no') "EPHread: Reading"   //   &
+             write(6,'(a,i3,a)', advance='no') "EPHread: Reading"   //  &
                   " electron-phonon coupling matrix ", idx,  "..."
 
 !            Opens the file.
