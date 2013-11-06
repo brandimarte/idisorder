@@ -40,7 +40,7 @@ MODULE idsrdr_engrid
 
   implicit none
   
-  PUBLIC  :: engrid, freegrid
+  PUBLIC  :: engrid, freegrid, NTenerg_div, Ei, gweight
   PRIVATE :: energygrid
 
   integer :: NTenerg_div ! number of energy grid points per node
@@ -210,7 +210,7 @@ CONTAINS
                 gweight(I) = 1.0d0/3.0d0                                &
                      * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
              elseif ((Node == Nodes-1) .and. (I == NTenerg_div-1)) then
-                gweight(I) = (1.0d0/3.0d0+1.0d0/2.0d0)                  &
+                gweight(I) = 5.0d0/6.0d0                                &
                      * (arctanhfim-arctanhinit) / DBLE(NTenerg-1) 
              elseif ((Node == Nodes-1) .and. (I == NTenerg_div)) then
                 gweight(I) = 1.0d0/2.0d0                                &
@@ -293,7 +293,7 @@ CONTAINS
                 gweight(I) = 1.0d0/3.0d0                                &
                      * (TEnergF-TEnergI) / DBLE(NTenerg-1)
              elseif ((Node == Nodes-1) .and. (I == NTenerg_div-1)) then
-                gweight(I) = (1.0d0/3.0d0+1.0d0/2.0d0)                  &
+                gweight(I) = 5.0d0/6.0d0                                &
                      * (TEnergF-TEnergI) / DBLE(NTenerg-1)
              elseif ((Node == Nodes-1) .and. (I == NTenerg_div)) then
                 gweight(I) = 1.0d0/2.0d0                                &

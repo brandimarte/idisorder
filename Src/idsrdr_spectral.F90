@@ -309,7 +309,7 @@ CONTAINS
                             MPI_Double_Precision, n, 3,                 &
                             MPI_Comm_world, MPIstatus, MPIerror)
           endif
-          if (n == 0) then
+          if (n /= 0) then
              call MPI_Barrier (MPI_Comm_world, MPIerror)
              if (Node == 0) then
                 do e = 1,NTenerg_div
