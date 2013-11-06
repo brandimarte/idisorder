@@ -45,7 +45,7 @@ MODULE idsrdr_green
   implicit none
   
   PUBLIC  :: greeninit, greenfunctions, freegreen
-  PRIVATE :: LRsweep , RLsweep, GFfull
+  PRIVATE :: LRsweep , RLsweep, GFfull, GFtest
 
   TYPE green
      complex(8), pointer :: G(:,:) ! pointer to Green's function matrix
@@ -159,6 +159,9 @@ CONTAINS
 
 !   Compute the required full Green's functions.
     call GFfull (Ei, ispin)
+
+!   Compute the entire Green's function of scattering region.
+    call GFtest (Ei, ispin)
 
 
   end subroutine greenfunctions
@@ -727,6 +730,171 @@ CONTAINS
 
 
   end subroutine GFfull
+
+
+!  *******************************************************************  !
+!                                GFtest                                 !
+!  *******************************************************************  !
+!  Description: build the full hamiltonian of the scattering region     !
+!  and invert it to obtain the entire Green's function in order to      !
+!  compare with the Green's function obtained with the recursive        !
+!  method.                                                              !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode                       : True if it is the I/O node    !
+!  integer ntypeunits                   : Number of unit types          !
+!  integer nunits                       : Total number of units         !
+!  integer unit_type(nunits+2)          : Units types                   !
+!  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
+!  real*8 unitshift(ntypeunits+2)       : Units shift                   !
+!  integer ephIndic(ntypeunits+2)       : E-ph interaction indicator    !
+!  real*8 S1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits)) : Unit coupling overlap    !
+!  real*8 H1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits),nspin) : Unit coupling      !
+!                                                    Hamiltonian        !
+!  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
+!                                         [real*8] Units overlap        !
+!  TYPE(unitH)                                                          !
+!        Hunits(ntypeunits+2)%H(unitdimensions,unitdimensions,nspin) :  !
+!                                         [real*8] Units hamiltonian    !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Sigma_L(NL,NL)           : Left-lead self-energy          !
+!  complex(8) Sigma_R(NR,NR)            : Right-lead self-energy        !
+!  integer idxF(neph)                  : First dynamic atom orbital     !
+!  integer idxL(neph)                  : Last dynamic atom orbital      !
+!  ****************************** INPUT ******************************  !
+!  integer ispin                        : Spin component index          !
+!  real*8 Ei                            : Energy grid point             !
+!  *******************************************************************  !
+  subroutine GFtest (Ei, ispin)
+
+!
+!   Modules
+!
+    use parallel,        only: IOnode
+    use idsrdr_options,  only: ntypeunits, nunits
+    use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
+                               ephIndic, S1unit, H1unit, Sunits, Hunits
+    use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
+    use idsrdr_ephcoupl, only: idxF, idxL
+    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+
+!   Input variables.
+    integer, intent(in) :: ispin
+    real(8), intent(in) :: Ei
+
+!   Local variables.
+    integer :: i, j, k, w, utype, dim, dimTot, dimCpl, idxAnt
+    integer, allocatable, dimension (:) :: ipiv
+    real(8), allocatable, dimension (:,:) :: Stot
+    complex(8), allocatable, dimension (:,:) :: Htot, Gtot
+
+    if (IOnode) write (6,'(a)', advance='no')                           &
+            '      computing TOTAL Greens function... '
+
+!   Get the total dimension.
+    dimTot = 0
+    do I = 2,nunits+1
+       utype = unit_type(I) ! current unit type
+       dimTot = dimTot + unitdimensions(utype)
+    enddo
+
+!   Allocate and initialize matrices.
+    allocate (Stot(dimTot,dimTot))
+    allocate (Htot(dimTot,dimTot))
+    allocate (Gtot(dimTot,dimTot))
+    allocate (ipiv(dimTot))
+    Stot = 0.d0
+    Htot = 0.d0
+
+!   Build total hamiltonian and overlap matrices.
+    dimCpl = unitdimensions(ntypeunits)
+    idxAnt = 1
+    do k = 2,nunits
+       utype = unit_type(k) ! current unit type
+       dim = unitdimensions(utype)
+
+       Stot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                  &
+            (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+       Htot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                  &
+            Hunits(utype)%H(:,:,ispin)
+       Stot(idxAnt+dim-dimCpl:idxAnt+dim-1,                             &
+            idxAnt+dim:idxAnt+dim+dimCpl-1) =                           &
+            (Ei-unitshift(ntypeunits))*S1unit
+       Htot(idxAnt+dim-dimCpl:idxAnt+dim-1,                             &
+            idxAnt+dim:idxAnt+dim+dimCpl-1) = H1unit(:,:,ispin)
+       Stot(idxAnt+dim:idxAnt+dim+dimCpl-1,                             &
+            idxAnt+dim-dimCpl:idxAnt+dim-1) =                           &
+            (Ei-unitshift(ntypeunits))*TRANSPOSE(S1unit)
+       Htot(idxAnt+dim:idxAnt+dim+dimCpl-1,                             &
+            idxAnt+dim-dimCpl:idxAnt+dim-1) =                           &
+            TRANSPOSE(H1unit(:,:,ispin))
+
+       idxAnt = idxAnt + dim
+
+    enddo
+    utype = unit_type(k) ! current unit type
+    dim = unitdimensions(utype)
+
+    Stot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
+         (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+    Htot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
+         Hunits(utype)%H(:,:,ispin)
+
+!   Green's function.
+    Gtot = Stot - Htot
+    Gtot(1:NL,1:NL) = Gtot(1:NL,1:NL) - Sigma_L
+    Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                       &
+         Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
+    call CHECKzsytrf (dimTot, 'U', Gtot, ipiv)
+    call CHECKzsytri (dimTot, 'U', Gtot, ipiv)
+
+!   Free memory.
+    deallocate (Htot)
+    deallocate (Stot)
+    deallocate (ipiv)
+
+    if (IOnode) write(6,'(a)') " ok!"
+
+    idxAnt = 0
+    w = 1
+    do k = 2,nunits+1
+
+       utype = unit_type(k) ! current unit type
+       dim = unitdimensions(utype)
+
+       if (ephIndic(utype) == 1) then
+
+          do j = idxF(w),idxL(w)
+             do i = idxF(w),idxL(w)
+                write (2013,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                     DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
+                     DREAL(Gr_nn(w)%G(i-idxF(w)+1,j-idxF(w)+1)),        &
+                     DIMAG(Gtot(idxAnt+i,idxAnt+j)),                    &
+                     DIMAG(Gr_nn(w)%G(i-idxF(w)+1,j-idxF(w)+1))
+             enddo
+          enddo
+
+       endif
+
+       idxAnt = idxAnt + dim
+       w = w + 1
+
+    enddo
+
+!   Free memory.
+    deallocate (Gtot)
+
+
+  end subroutine GFtest
 
 
 !  *******************************************************************  !
