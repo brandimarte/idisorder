@@ -59,6 +59,8 @@ MODULE idsrdr_green
   TYPE(green), allocatable, dimension (:) :: Gr_1n ! G^r_{1,n}
   TYPE(green), allocatable, dimension (:) :: Gr_Mn ! G^r_{M,n}
 
+!!$  complex(8), allocatable, dimension (:,:) :: Gr_1M ! G^r_{1,M}
+
 
 CONTAINS
 
@@ -240,7 +242,7 @@ CONTAINS
             '      computing left-to-right sweep... '
 
 !   Initialize variables.
-    utype = ntypeunits+1 ! current unit type (left lead)
+    utype = unit_type(2) ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     J = 1 ! Green's function store indexing
@@ -260,7 +262,8 @@ CONTAINS
 
 !   Compute the first step.
     Gbfr = (Ei-unitshift(utype))*Sunits(utype)%S                        &
-           - Hunits(utype)%H(:,:,ispin) - Sigma_L
+           - Hunits(utype)%H(:,:,ispin)
+    Gbfr(1:NL,1:NL) = Gbfr(1:NL,1:NL) - Sigma_L
     call CHECKzsytrf (dim, 'L', Gbfr, ipiv)
     call CHECKzsytri (dim, 'L', Gbfr, ipiv)
     Gbfr_1m = Gbfr
@@ -268,15 +271,15 @@ CONTAINS
 !   Free memory.
     deallocate (ipiv)
 
-!   Store matrix if required.
-    if (ephIndic(unit_type(2)) == 1) then
-       GL_mm(J)%G = Gbfr
-       GL_1m(J)%G = Gbfr_1m
-       J = J + 1
-    endif
-
 !   Loop over the blocks from left to right.
-    do I = 2,nunits
+    do I = 3,nunits
+
+!      Store matrix if required.
+       if (ephIndic(unit_type(I)) == 1) then
+          GL_mm(J)%G = Gbfr
+          GL_1m(J)%G = Gbfr_1m
+          J = J + 1
+       endif
 
 !      ('aux2 = Gbfr*V')
        aux1 = Gbfr(dim-n+1:dim,dim-n+1:dim)
@@ -326,13 +329,6 @@ CONTAINS
        Gbfr = Gaft
        Gbfr_1m = Gaft_1m
 
-!      Store matrix if required.
-       if (ephIndic(unit_type(I+1)) == 1) then
-          GL_mm(J)%G = Gbfr
-          GL_1m(J)%G = Gbfr_1m
-          J = J + 1
-       endif
-
 !      (Re-)Free memory.
        deallocate (Gaft)
        deallocate (Gaft_1m)
@@ -340,6 +336,12 @@ CONTAINS
        deallocate (ipiv)
 
     enddo
+
+!   Store matrix if required.
+    if (ephIndic(unit_type(I)) == 1) then
+       GL_mm(J)%G = Gbfr
+       GL_1m(J)%G = Gbfr_1m
+    endif
 
 !   Free memory.
     deallocate (V)
@@ -432,7 +434,7 @@ CONTAINS
             '      computing right-to-left sweep... '
 
 !   Initialize variables.
-    utype = ntypeunits+2 ! current unit type (right lead)
+    utype = unit_type(nunits+1) ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     J = neph ! Green's function store indexing
@@ -452,7 +454,9 @@ CONTAINS
 
 !   Compute the first step.
     Gbfr = (Ei-unitshift(utype))*Sunits(utype)%S                        &
-           - Hunits(utype)%H(:,:,ispin) - Sigma_R
+           - Hunits(utype)%H(:,:,ispin)
+    Gbfr(dim-NR+1:dim,dim-NR+1:dim) = Gbfr(dim-NR+1:dim,dim-NR+1:dim)   &
+                                      - Sigma_R
     call CHECKzsytrf (dim, 'L', Gbfr, ipiv)
     call CHECKzsytri (dim, 'L', Gbfr, ipiv)
     Gbfr_Mp = Gbfr
@@ -460,15 +464,15 @@ CONTAINS
 !   Free memory.
     deallocate (ipiv)
 
-!   Loop over the blocks from left to right.
-    do I = nunits+1,3,-1
+!   Store matrix if required.
+    if (ephIndic(unit_type(nunits)) == 1) then
+       GR_pp(J)%G = Gbfr
+       GR_Mp(J)%G = Gbfr_Mp
+       J = J - 1
+    endif
 
-!      Store matrix if required.
-       if (ephIndic(unit_type(I)) == 1) then
-          GR_pp(J)%G = Gbfr
-          GR_Mp(J)%G = Gbfr_Mp
-          J = J - 1
-       endif
+!   Loop over the blocks from left to right.
+    do I = nunits,3,-1
 
 !      ('aux2 = V*Gbfr')
        aux1 = Gbfr(1:n,1:n)
@@ -524,14 +528,14 @@ CONTAINS
        deallocate (foo3)
        deallocate (ipiv)
 
-    enddo
+!      Store matrix if required.
+       if (ephIndic(unit_type(I-1)) == 1) then
+          GR_pp(J)%G = Gbfr
+          GR_Mp(J)%G = Gbfr_Mp
+          J = J - 1
+       endif
 
-!   Store matrix if required.
-    if (ephIndic(unit_type(I)) == 1) then
-       GR_pp(J)%G = Gbfr
-       GR_Mp(J)%G = Gbfr_Mp
-       J = J - 1
-    endif
+    enddo
 
 !   Free memory.
     deallocate (V)
@@ -603,7 +607,7 @@ CONTAINS
     use idsrdr_options,  only: ntypeunits, nunits
     use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
                                ephIndic, S1unit, H1unit, Sunits, Hunits
-    use idsrdr_leads,    only: NL, NR
+    use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: neph, norbDyn, idxF, idxL
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
 
@@ -623,7 +627,7 @@ CONTAINS
             '      computing full Greens functions... '
 
 !   Initialize variables.
-    utype = ntypeunits+1 ! current unit type (left lead)
+    utype = unit_type(2) ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     J = 1 ! Green's function store indexing
@@ -638,8 +642,64 @@ CONTAINS
 !   Coupling matrix (pristine).
     V = (Ei-unitshift(ntypeunits))*S1unit - H1unit(:,:,ispin)
 
+    if (ephIndic(unit_type(2)) == 1) then
+
+!      Allocate auxiliary matrix.
+       allocate (aux3(dim,dim))
+
+!      ('aux3 = E*S - H - Sigma_L')
+       aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                     &
+              - Hunits(utype)%H(:,:,ispin)
+       aux3(1:NL,1:NL) = aux3(1:NL,1:NL) - Sigma_L
+
+!      ('aux2 = V*GR_pp')
+       aux1 = GR_pp(J)%G(1:n,1:n)
+       call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+                   V, n, (0.d0,0.d0), aux2, n)
+
+!      ('aux1 = aux2*V^dagger')
+       call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
+                   V, n, (0.d0,0.d0), aux1, n)
+
+!      ('aux3 = aux3 + aux1')
+       aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim)    &
+                                       + aux1
+
+!      ('aux3 = aux3^-1')
+       allocate (ipiv(dim))
+       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+       call CHECKzsytri (dim, 'L', aux3, ipiv)
+       deallocate (ipiv)
+
+!      ('Gr_nn = aux3')
+       Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
+
+!      ('Gr_1n = aux3')
+       Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
+
+!      Allocate auxiliary matrix.
+       allocate (foo3(n,norbDyn(J)))
+
+!      ('foo2 = GR_Mp*V^dagger')
+       foo1 = GR_Mp(J)%G(1:NR,1:n)
+       call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,           &
+                   V, n, (0.d0,0.d0), foo2, NR)
+
+!      ('Gr_Mn = foo2 * Gr_nn')
+       foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
+       call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0),            &
+                   foo2, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
+
+!      Free memory.
+       deallocate (foo3)
+       deallocate (aux3)
+
+       J = J + 1
+
+    endif
+
 !   Loop over the blocks from left to right.
-    do I = 2,nunits+1
+    do I = 3,nunits
        if (ephIndic(unit_type(I)) == 1) then
 
 !         Assign auxiliary variables.
@@ -649,7 +709,7 @@ CONTAINS
 !         Allocate auxiliary matrix.
           allocate (aux3(dim,dim))
 
-!         ('aux3 = E*S - H + V^T*Gbfr*V')
+!         ('aux3 = E*S - H')
           aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                  &
                  - Hunits(utype)%H(:,:,ispin)
 
@@ -660,7 +720,7 @@ CONTAINS
 
 !         ('aux1 = V^dagger*aux2')
           call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,             &
-               aux2, n, (0.d0,0.d0), aux1, n)
+                      aux2, n, (0.d0,0.d0), aux1, n)
 
 !         ('aux3 = aux3 + aux1')
           aux3(1:n,1:n) = aux3(1:n,1:n) + aux1
@@ -719,6 +779,64 @@ CONTAINS
        endif
     enddo
 
+    if (ephIndic(unit_type(nunits+1)) == 1) then
+
+!      Assign auxiliary variables.
+       utype = unit_type(nunits+1) ! current unit type (last unit)
+       dim = unitdimensions(utype) ! current type dimension
+
+!      Allocate auxiliary matrix.
+       allocate (aux3(dim,dim))
+
+!      ('aux3 = E*S - H')
+       aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                     &
+              - Hunits(utype)%H(:,:,ispin)
+       aux3(dim-NR+1:dim,dim-NR+1:dim) =                                &
+            aux3(dim-NR+1:dim,dim-NR+1:dim) - Sigma_R
+
+!      ('aux2 = GL_mm*V')
+       aux1 = GL_mm(J)%G(dim-n+1:dim,dim-n+1:dim)
+       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+                   V, n, (0.d0,0.d0), aux2, n)
+
+!      ('aux1 = V^dagger*aux2')
+       call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
+                   aux2, n, (0.d0,0.d0), aux1, n)
+
+!      ('aux3 = aux3 + aux1')
+       aux3(1:n,1:n) = aux3(1:n,1:n) + aux1
+
+!      ('aux3 = aux3^-1')
+       allocate (ipiv(dim))
+       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+       call CHECKzsytri (dim, 'L', aux3, ipiv)
+       deallocate (ipiv)
+
+!      ('Gr_nn = aux3')
+       Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
+
+!      ('Gr_nn = aux3')
+       Gr_Mn(J)%G = aux3(1:NR,idxF(J):idxL(J))
+
+!      Allocate auxiliary matrix.
+       allocate (foo3(n,norbDyn(J)))
+
+!      ('foo2 = GL_1m*V')
+       foo1 = GL_1m(J)%G(1:NL,dim-n+1:dim)
+       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1, NL,           &
+                   V, n, (0.d0,0.d0), foo2, NL)
+
+!      ('Gr_1n = foo2 * Gr_nn')
+       foo3 = aux3(1:n,idxF(J):idxL(J))
+       call zgemm ('N', 'N', NL, norbDyn(J), n, (1.d0,0.d0),            &
+                   foo2, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+
+!      Free memory.
+       deallocate (foo3)
+       deallocate (aux3)
+
+    endif
+
 !   Free memory.
     deallocate (V)
     deallocate (aux1)
@@ -739,6 +857,8 @@ CONTAINS
 !  and invert it to obtain the entire Green's function in order to      !
 !  compare with the Green's function obtained with the recursive        !
 !  method.                                                              !
+!                                                                       !
+!  ATENTION: this test only works in serial mode!
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -873,6 +993,7 @@ CONTAINS
 
        if (ephIndic(utype) == 1) then
 
+!         ATENTION: this test only works in serial mode!
           do j = idxF(w),idxL(w)
              do i = idxF(w),idxL(w)
                 write (2013,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
