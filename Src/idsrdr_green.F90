@@ -241,6 +241,8 @@ CONTAINS
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing left-to-right sweep... '
 
+    if (nunits == 1) go to 203
+
 !   Initialize variables.
     utype = unit_type(2) ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
@@ -352,7 +354,7 @@ CONTAINS
     deallocate (foo1)
     deallocate (foo2)
 
-    if (IOnode) write(6,'(a)') " ok!"
+203 if (IOnode) write(6,'(a)') " ok!"
 
 
   end subroutine LRsweep
@@ -432,6 +434,8 @@ CONTAINS
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing right-to-left sweep... '
+
+    if (nunits == 1) go to 302
 
 !   Initialize variables.
     utype = unit_type(nunits+1) ! current unit type (last unit)
@@ -546,7 +550,7 @@ CONTAINS
     deallocate (foo1)
     deallocate (foo2)
 
-    if (IOnode) write(6,'(a)') " ok!"
+302 if (IOnode) write(6,'(a)') " ok!"
 
 
   end subroutine RLsweep
@@ -652,49 +656,72 @@ CONTAINS
               - Hunits(utype)%H(:,:,ispin)
        aux3(1:NL,1:NL) = aux3(1:NL,1:NL) - Sigma_L
 
-!      ('aux2 = V*GR_pp')
-       aux1 = GR_pp(J)%G(1:n,1:n)
-       call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
-                   V, n, (0.d0,0.d0), aux2, n)
+       if (nunits > 1) then
 
-!      ('aux1 = aux2*V^dagger')
-       call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
-                   V, n, (0.d0,0.d0), aux1, n)
+!         ('aux2 = V*GR_pp')
+          aux1 = GR_pp(J)%G(1:n,1:n)
+          call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,             &
+                      V, n, (0.d0,0.d0), aux2, n)
 
-!      ('aux3 = aux3 + aux1')
-       aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim)    &
-                                       + aux1
+!         ('aux1 = aux2*V^dagger')
+          call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
+                      V, n, (0.d0,0.d0), aux1, n)
 
-!      ('aux3 = aux3^-1')
-       allocate (ipiv(dim))
-       call CHECKzsytrf (dim, 'L', aux3, ipiv)
-       call CHECKzsytri (dim, 'L', aux3, ipiv)
-       deallocate (ipiv)
+!         ('aux3 = aux3 + aux1')
+          aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim) &
+                                          + aux1
 
-!      ('Gr_nn = aux3')
-       Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
+!         ('aux3 = aux3^-1')
+          allocate (ipiv(dim))
+          call CHECKzsytrf (dim, 'L', aux3, ipiv)
+          call CHECKzsytri (dim, 'L', aux3, ipiv)
+          deallocate (ipiv)
 
-!      ('Gr_1n = aux3')
-       Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
+!         ('Gr_nn = aux3')
+          Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
 
-!      Allocate auxiliary matrix.
-       allocate (foo3(n,norbDyn(J)))
+!         ('Gr_1n = aux3')
+          Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
 
-!      ('foo2 = GR_Mp*V^dagger')
-       foo1 = GR_Mp(J)%G(1:NR,1:n)
-       call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,           &
-                   V, n, (0.d0,0.d0), foo2, NR)
 
-!      ('Gr_Mn = foo2 * Gr_nn')
-       foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
-       call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0),            &
-                   foo2, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
+!         Allocate auxiliary matrix.
+          allocate (foo3(n,norbDyn(J)))
 
-!      Free memory.
-       deallocate (foo3)
-       deallocate (aux3)
+!         ('foo2 = GR_Mp*V^dagger')
+          foo1 = GR_Mp(J)%G(1:NR,1:n)
+          call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,        &
+                      V, n, (0.d0,0.d0), foo2, NR)
 
-       J = J + 1
+!         ('Gr_Mn = foo2 * Gr_nn')
+          foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
+          call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0),         &
+                      foo2, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
+
+!         Free memory.
+          deallocate (foo3)
+          deallocate (aux3)
+
+          J = J + 1
+
+       else
+
+!         Right lead contribution.
+          aux3(dim-NR+1:dim,dim-NR+1:dim) =                             &
+               aux3(dim-NR+1:dim,dim-NR+1:dim) - Sigma_R
+
+
+!         ('Gr_nn = aux3')
+          Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
+
+!         ('Gr_1n = aux3')
+          Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
+
+!         ('Gr_Mn = aux3')
+          Gr_Mn(J)%G = aux3(dim-NR+1:dim,idxF(J):idxL(J))
+
+          go to 230
+
+       endif
 
     endif
 
@@ -816,7 +843,7 @@ CONTAINS
        Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
 
 !      ('Gr_nn = aux3')
-       Gr_Mn(J)%G = aux3(1:NR,idxF(J):idxL(J))
+       Gr_Mn(J)%G = aux3(dim-NR+1:dim,idxF(J):idxL(J))
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,norbDyn(J)))
@@ -836,6 +863,8 @@ CONTAINS
        deallocate (aux3)
 
     endif
+
+230 continue
 
 !   Free memory.
     deallocate (V)
@@ -1004,10 +1033,11 @@ CONTAINS
              enddo
           enddo
 
+          w = w + 1
+
        endif
 
        idxAnt = idxAnt + dim
-       w = w + 1
 
     enddo
 

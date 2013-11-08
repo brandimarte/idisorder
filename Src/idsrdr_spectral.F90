@@ -260,9 +260,9 @@ CONTAINS
           call io_assign (iuDos)
           open (iuDos, file=fnDos, form='formatted', status='unknown')
 
-          write (6,'(/,a,i3,a,a)', advance='no')                        &
-               ' Writing spectral function ', J, ' to: ', trim(fnSpc)
-          write (6,'(/,a,i3,a,a)') ' Writing DOS ', J, ' to: ',         &
+          write (6, '(/,a,i3,a,a)', advance='no')                       &
+               'Writing spectral function ', J, ' to: ', trim(fnSpc)
+          write (6, '(/,a,i3,a,a)') 'Writing DOS ', J, ' to: ',         &
                trim(fnDos)
 
 !         Allocate buffers arrays.
