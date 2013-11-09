@@ -77,6 +77,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *********************** INPUT FROM MODULES ************************  !
+!  integer ntypeunits                   : Number of unit types          !
 !  integer nunits                       : Total number of units         !
 !  integer unit_type(nunits+2)          : Units types                   !
 !  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
@@ -93,7 +94,7 @@ CONTAINS
 !
 !   Modules
 !
-    use idsrdr_options,  only: nunits
+    use idsrdr_options,  only: ntypeunits, nunits
     use idsrdr_units,    only: unit_type, unitdimensions, ephIndic
     use idsrdr_leads,    only: NL, NR
     use idsrdr_ephcoupl, only: neph, norbDyn
@@ -112,6 +113,20 @@ CONTAINS
 
 !   Allocate Green's functions matrices.
     J = 1
+
+    if (ephIndic(ntypeunits+1) == 1) then
+       dim = unitdimensions(ntypeunits+1) ! current unit dimension
+       allocate (GL_mm(J)%G(dim,dim))
+       allocate (GL_1m(J)%G(NL,dim))
+       allocate (GR_pp(J)%G(dim,dim))
+       allocate (GR_Mp(J)%G(NR,dim))
+       dim = norbDyn(J) ! dynamic atoms dimension
+       allocate (Gr_nn(J)%G(dim,dim))
+       allocate (Gr_1n(J)%G(NL,dim))
+       allocate (Gr_Mn(J)%G(NR,dim))
+       J = J + 1
+    endif
+
     do I = 2,nunits+1
        if (ephIndic(unit_type(I)) == 1) then
           dim = unitdimensions(unit_type(I)) ! current unit dimension
@@ -126,6 +141,18 @@ CONTAINS
           J = J + 1
        endif
     enddo
+
+    if (ephIndic(ntypeunits+2) == 1) then
+       dim = unitdimensions(ntypeunits+2) ! current unit dimension
+       allocate (GL_mm(J)%G(dim,dim))
+       allocate (GL_1m(J)%G(NL,dim))
+       allocate (GR_pp(J)%G(dim,dim))
+       allocate (GR_Mp(J)%G(NR,dim))
+       dim = norbDyn(J) ! dynamic atoms dimension
+       allocate (Gr_nn(J)%G(dim,dim))
+       allocate (Gr_1n(J)%G(NL,dim))
+       allocate (Gr_Mn(J)%G(NR,dim))
+    endif
 
 
   end subroutine greeninit
@@ -244,7 +271,7 @@ CONTAINS
     if (nunits == 1) go to 203
 
 !   Initialize variables.
-    utype = unit_type(2) ! current unit type (first unit)
+    utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     J = 1 ! Green's function store indexing
@@ -274,7 +301,7 @@ CONTAINS
     deallocate (ipiv)
 
 !   Loop over the blocks from left to right.
-    do I = 3,nunits
+    do I = 2,nunits+1
 
 !      Store matrix if required.
        if (ephIndic(unit_type(I)) == 1) then
@@ -303,8 +330,7 @@ CONTAINS
 !      ('Gaft = (E*S - H + V^T*Gbfr*V)^-1')
        Gaft = (Ei-unitshift(utype))*Sunits(utype)%S                     &
               - Hunits(utype)%H(:,:,ispin)
-       Gaft(dim-n+1:dim,dim-n+1:dim) = Gaft(dim-n+1:dim,dim-n+1:dim)    &
-                                       + aux1
+       Gaft(1:n,1:n) = Gaft(1:n,1:n) + aux1
        call CHECKzsytrf (dim, 'L', Gaft, ipiv)
        call CHECKzsytri (dim, 'L', Gaft, ipiv)
 
@@ -340,7 +366,7 @@ CONTAINS
     enddo
 
 !   Store matrix if required.
-    if (ephIndic(unit_type(I)) == 1) then
+    if (ephIndic(ntypeunits+2) == 1) then
        GL_mm(J)%G = Gbfr
        GL_1m(J)%G = Gbfr_1m
     endif
@@ -438,7 +464,7 @@ CONTAINS
     if (nunits == 1) go to 302
 
 !   Initialize variables.
-    utype = unit_type(nunits+1) ! current unit type (last unit)
+    utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     J = neph ! Green's function store indexing
@@ -468,15 +494,15 @@ CONTAINS
 !   Free memory.
     deallocate (ipiv)
 
-!   Store matrix if required.
-    if (ephIndic(unit_type(nunits)) == 1) then
-       GR_pp(J)%G = Gbfr
-       GR_Mp(J)%G = Gbfr_Mp
-       J = J - 1
-    endif
+!   Loop over the blocks from right to left.
+    do I = nunits+1,2,-1
 
-!   Loop over the blocks from left to right.
-    do I = nunits,3,-1
+!      Store matrix if required.
+       if (ephIndic(unit_type(I)) == 1) then
+          GR_pp(J)%G = Gbfr
+          GR_Mp(J)%G = Gbfr_Mp
+          J = J - 1
+       endif
 
 !      ('aux2 = V*Gbfr')
        aux1 = Gbfr(1:n,1:n)
@@ -532,14 +558,13 @@ CONTAINS
        deallocate (foo3)
        deallocate (ipiv)
 
-!      Store matrix if required.
-       if (ephIndic(unit_type(I-1)) == 1) then
-          GR_pp(J)%G = Gbfr
-          GR_Mp(J)%G = Gbfr_Mp
-          J = J - 1
-       endif
-
     enddo
+
+!   Store matrix if required.
+    if (ephIndic(ntypeunits+1) == 1) then
+       GR_pp(J)%G = Gbfr
+       GR_Mp(J)%G = Gbfr_Mp
+    endif
 
 !   Free memory.
     deallocate (V)
@@ -624,14 +649,15 @@ CONTAINS
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
-    complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
+    complex(8), allocatable, dimension (:,:) :: foo1L, foo2L,           &
+                                                foo1R, foo2R, foo3
     external :: zsymm, zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing full Greens functions... '
 
 !   Initialize variables.
-    utype = unit_type(2) ! current unit type (first unit)
+    utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     J = 1 ! Green's function store indexing
@@ -640,13 +666,15 @@ CONTAINS
     allocate (V(n,n))
     allocate (aux1(n,n))
     allocate (aux2(n,n))
-    allocate (foo1(NL,n))
-    allocate (foo2(NL,n))
+    allocate (foo1L(NL,n))
+    allocate (foo2L(NL,n))
+    allocate (foo1R(NR,n))
+    allocate (foo2R(NR,n))
 
 !   Coupling matrix (pristine).
     V = (Ei-unitshift(ntypeunits))*S1unit - H1unit(:,:,ispin)
 
-    if (ephIndic(unit_type(2)) == 1) then
+    if (ephIndic(ntypeunits+1) == 1) then
 
 !      Allocate auxiliary matrix.
        allocate (aux3(dim,dim))
@@ -656,77 +684,54 @@ CONTAINS
               - Hunits(utype)%H(:,:,ispin)
        aux3(1:NL,1:NL) = aux3(1:NL,1:NL) - Sigma_L
 
-       if (nunits > 1) then
+!      ('aux2 = V*GR_pp')
+       aux1 = GR_pp(J)%G(1:n,1:n)
+       call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+                   V, n, (0.d0,0.d0), aux2, n)
 
-!         ('aux2 = V*GR_pp')
-          aux1 = GR_pp(J)%G(1:n,1:n)
-          call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,             &
-                      V, n, (0.d0,0.d0), aux2, n)
+!      ('aux1 = aux2*V^dagger')
+       call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
+                   V, n, (0.d0,0.d0), aux1, n)
 
-!         ('aux1 = aux2*V^dagger')
-          call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
-                      V, n, (0.d0,0.d0), aux1, n)
+!      ('aux3 = aux3 - aux1')
+       aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim)    &
+                                       - aux1
 
-!         ('aux3 = aux3 + aux1')
-          aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim) &
-                                          + aux1
+!      ('aux3 = aux3^-1')
+       allocate (ipiv(dim))
+       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+       call CHECKzsytri (dim, 'L', aux3, ipiv)
+       deallocate (ipiv)
 
-!         ('aux3 = aux3^-1')
-          allocate (ipiv(dim))
-          call CHECKzsytrf (dim, 'L', aux3, ipiv)
-          call CHECKzsytri (dim, 'L', aux3, ipiv)
-          deallocate (ipiv)
+!      ('Gr_nn = aux3')
+       Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
 
-!         ('Gr_nn = aux3')
-          Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
+!      ('Gr_1n = aux3')
+       Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
 
-!         ('Gr_1n = aux3')
-          Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
+!      Allocate auxiliary matrix.
+       allocate (foo3(n,norbDyn(J)))
 
+!      ('foo2R = GR_Mp*V^dagger')
+       foo1R = GR_Mp(J)%G(1:NR,1:n)
+       call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,          &
+                   V, n, (0.d0,0.d0), foo2R, NR)
 
-!         Allocate auxiliary matrix.
-          allocate (foo3(n,norbDyn(J)))
+!      ('Gr_Mn = foo2R * Gr_nn')
+       foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
+       call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0), foo2R, NR, &
+                   foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
 
-!         ('foo2 = GR_Mp*V^dagger')
-          foo1 = GR_Mp(J)%G(1:NR,1:n)
-          call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,        &
-                      V, n, (0.d0,0.d0), foo2, NR)
+!      Free memory.
+       deallocate (foo3)
+       deallocate (aux3)
 
-!         ('Gr_Mn = foo2 * Gr_nn')
-          foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
-          call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0),         &
-                      foo2, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
-
-!         Free memory.
-          deallocate (foo3)
-          deallocate (aux3)
-
-          J = J + 1
-
-       else
-
-!         Right lead contribution.
-          aux3(dim-NR+1:dim,dim-NR+1:dim) =                             &
-               aux3(dim-NR+1:dim,dim-NR+1:dim) - Sigma_R
-
-
-!         ('Gr_nn = aux3')
-          Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
-
-!         ('Gr_1n = aux3')
-          Gr_1n(J)%G = aux3(1:NL,idxF(J):idxL(J))
-
-!         ('Gr_Mn = aux3')
-          Gr_Mn(J)%G = aux3(dim-NR+1:dim,idxF(J):idxL(J))
-
-          go to 230
-
-       endif
+       J = J + 1
 
     endif
 
 !   Loop over the blocks from left to right.
-    do I = 3,nunits
+    do I = 2,nunits+1
        if (ephIndic(unit_type(I)) == 1) then
 
 !         Assign auxiliary variables.
@@ -749,8 +754,8 @@ CONTAINS
           call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,             &
                       aux2, n, (0.d0,0.d0), aux1, n)
 
-!         ('aux3 = aux3 + aux1')
-          aux3(1:n,1:n) = aux3(1:n,1:n) + aux1
+!         ('aux3 = aux3 - aux1')
+          aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
 
 !         ('aux2 = V*GR_pp')
           aux1 = GR_pp(J)%G(1:n,1:n)
@@ -761,9 +766,9 @@ CONTAINS
           call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
                       V, n, (0.d0,0.d0), aux1, n)
 
-!         ('aux3 = aux3 + aux1')
+!         ('aux3 = aux3 - aux1')
           aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim) &
-                                          + aux1
+                                          - aux1
 
 !         ('aux3 = aux3^-1')
           allocate (ipiv(dim))
@@ -777,25 +782,25 @@ CONTAINS
 !         Allocate auxiliary matrix.
           allocate (foo3(n,norbDyn(J)))
 
-!         ('foo2 = GL_1m*V')
-          foo1 = GL_1m(J)%G(1:NL,dim-n+1:dim)
-          call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1, NL,        &
-                      V, n, (0.d0,0.d0), foo2, NL)
+!         ('foo2L = GL_1m*V')
+          foo1L = GL_1m(J)%G(1:NL,dim-n+1:dim)
+          call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,       &
+                      V, n, (0.d0,0.d0), foo2L, NL)
 
-!         ('Gr_1n = foo2 * Gr_nn')
+!         ('Gr_1n = foo2L * Gr_nn')
           foo3 = aux3(1:n,idxF(J):idxL(J))
           call zgemm ('N', 'N', NL, norbDyn(J), n, (1.d0,0.d0),         &
-                      foo2, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+                      foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
 
-!         ('foo2 = GR_Mp*V^dagger')
-          foo1 = GR_Mp(J)%G(1:NR,1:n)
-          call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,        &
-                      V, n, (0.d0,0.d0), foo2, NR)
+!         ('foo2R = GR_Mp*V^dagger')
+          foo1R = GR_Mp(J)%G(1:NR,1:n)
+          call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,       &
+                      V, n, (0.d0,0.d0), foo2R, NR)
 
-!         ('Gr_Mn = foo2 * Gr_nn')
+!         ('Gr_Mn = foo2R * Gr_nn')
           foo3 = aux3(dim-n+1:dim,idxF(J):idxL(J))
           call zgemm ('N', 'N', NR, norbDyn(J), n, (1.d0,0.d0),         &
-                      foo2, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
+                      foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
 
 !         Free memory.
           deallocate (foo3)
@@ -806,10 +811,10 @@ CONTAINS
        endif
     enddo
 
-    if (ephIndic(unit_type(nunits+1)) == 1) then
+    if (ephIndic(ntypeunits+2) == 1) then
 
 !      Assign auxiliary variables.
-       utype = unit_type(nunits+1) ! current unit type (last unit)
+       utype = ntypeunits + 2 ! current unit type (last unit)
        dim = unitdimensions(utype) ! current type dimension
 
 !      Allocate auxiliary matrix.
@@ -819,7 +824,8 @@ CONTAINS
        aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                     &
               - Hunits(utype)%H(:,:,ispin)
        aux3(dim-NR+1:dim,dim-NR+1:dim) =                                &
-            aux3(dim-NR+1:dim,dim-NR+1:dim) - Sigma_R
+                                        aux3(dim-NR+1:dim,dim-NR+1:dim) &
+                                        - Sigma_R
 
 !      ('aux2 = GL_mm*V')
        aux1 = GL_mm(J)%G(dim-n+1:dim,dim-n+1:dim)
@@ -830,8 +836,8 @@ CONTAINS
        call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
                    aux2, n, (0.d0,0.d0), aux1, n)
 
-!      ('aux3 = aux3 + aux1')
-       aux3(1:n,1:n) = aux3(1:n,1:n) + aux1
+!      ('aux3 = aux3 - aux1')
+       aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
 
 !      ('aux3 = aux3^-1')
        allocate (ipiv(dim))
@@ -842,21 +848,21 @@ CONTAINS
 !      ('Gr_nn = aux3')
        Gr_nn(J)%G = aux3(idxF(J):idxL(J),idxF(J):idxL(J))
 
-!      ('Gr_nn = aux3')
+!      ('Gr_Mn = aux3')
        Gr_Mn(J)%G = aux3(dim-NR+1:dim,idxF(J):idxL(J))
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,norbDyn(J)))
 
-!      ('foo2 = GL_1m*V')
-       foo1 = GL_1m(J)%G(1:NL,dim-n+1:dim)
-       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1, NL,           &
-                   V, n, (0.d0,0.d0), foo2, NL)
+!      ('foo2L = GL_1m*V')
+       foo1L = GL_1m(J)%G(1:NL,dim-n+1:dim)
+       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
+                   V, n, (0.d0,0.d0), foo2L, NL)
 
-!      ('Gr_1n = foo2 * Gr_nn')
+!      ('Gr_1n = foo2L * Gr_nn')
        foo3 = aux3(1:n,idxF(J):idxL(J))
        call zgemm ('N', 'N', NL, norbDyn(J), n, (1.d0,0.d0),            &
-                   foo2, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+                   foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
 
 !      Free memory.
        deallocate (foo3)
@@ -864,14 +870,14 @@ CONTAINS
 
     endif
 
-230 continue
-
 !   Free memory.
     deallocate (V)
     deallocate (aux1)
     deallocate (aux2)
-    deallocate (foo1)
-    deallocate (foo2)
+    deallocate (foo1L)
+    deallocate (foo2L)
+    deallocate (foo1R)
+    deallocate (foo2R)
 
     if (IOnode) write(6,'(a)') " ok!"
 
@@ -950,7 +956,7 @@ CONTAINS
             '      computing TOTAL Greens function... '
 
 !   Get the total dimension.
-    dimTot = 0
+    dimTot = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
     do I = 2,nunits+1
        utype = unit_type(I) ! current unit type
        dimTot = dimTot + unitdimensions(utype)
@@ -966,8 +972,22 @@ CONTAINS
 
 !   Build total hamiltonian and overlap matrices.
     dimCpl = unitdimensions(ntypeunits)
-    idxAnt = 1
-    do k = 2,nunits
+
+    utype = ntypeunits+1 ! current unit type (first unit)
+    dim = unitdimensions(utype)
+
+    Stot(1:dim,1:dim) = (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+    Htot(1:dim,1:dim) = Hunits(utype)%H(:,:,ispin)
+    Stot(dim-dimCpl+1:dim,dim+1:dim+dimCpl) =                           &
+         (Ei-unitshift(ntypeunits))*S1unit
+    Htot(dim-dimCpl+1:dim,dim+1:dim+dimCpl) = H1unit(:,:,ispin)
+    Stot(dim+1:dim+dimCpl,dim-dimCpl+1:dim) =                           &
+         (Ei-unitshift(ntypeunits))*TRANSPOSE(S1unit)
+    Htot(dim+1:dim+dimCpl,dim-dimCpl+1:dim) =                           &
+         TRANSPOSE(H1unit(:,:,ispin))
+
+    idxAnt = dim + 1
+    do k = 2,nunits+1
        utype = unit_type(k) ! current unit type
        dim = unitdimensions(utype)
 
@@ -990,7 +1010,8 @@ CONTAINS
        idxAnt = idxAnt + dim
 
     enddo
-    utype = unit_type(k) ! current unit type
+
+    utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype)
 
     Stot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
@@ -1013,8 +1034,30 @@ CONTAINS
 
     if (IOnode) write(6,'(a)') " ok!"
 
-    idxAnt = 0
+
+!   ATENTION: this test only works in serial mode!
+
     w = 1
+
+!   First unit.
+    if (ephIndic(ntypeunits+1) == 1) then
+
+       do j = idxF(w),idxL(w)
+          do i = idxF(w),idxL(w)
+             write (2013,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(i,j)),                                     &
+                  DREAL(Gr_nn(w)%G(i-idxF(w)+1,j-idxF(w)+1)),           &
+                  DIMAG(Gtot(i,j)),                                     &
+                  DIMAG(Gr_nn(w)%G(i-idxF(w)+1,j-idxF(w)+1))
+          enddo
+       enddo
+
+       w = w + 1
+
+    endif
+
+    idxAnt = unitdimensions(ntypeunits+1)
+
     do k = 2,nunits+1
 
        utype = unit_type(k) ! current unit type
@@ -1022,7 +1065,6 @@ CONTAINS
 
        if (ephIndic(utype) == 1) then
 
-!         ATENTION: this test only works in serial mode!
           do j = idxF(w),idxL(w)
              do i = idxF(w),idxL(w)
                 write (2013,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
@@ -1040,6 +1082,21 @@ CONTAINS
        idxAnt = idxAnt + dim
 
     enddo
+
+!   Last unit.
+    if (ephIndic(ntypeunits+2) == 1) then
+
+       do j = idxF(w),idxL(w)
+          do i = idxF(w),idxL(w)
+             write (2013,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                  DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
+                  DREAL(Gr_nn(w)%G(i-idxF(w)+1,j-idxF(w)+1)),        &
+                  DIMAG(Gtot(idxAnt+i,idxAnt+j)),                    &
+                  DIMAG(Gr_nn(w)%G(i-idxF(w)+1,j-idxF(w)+1))
+          enddo
+       enddo
+
+    endif
 
 !   Free memory.
     deallocate (Gtot)
