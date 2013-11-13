@@ -45,7 +45,7 @@ MODULE idsrdr_units
 
   implicit none
   
-  PUBLIC  :: N1, unit_type, unitdimensions, ephIndic, theta, unitshift, &
+  PUBLIC  :: N1, unit_type, unitdimensions, unitshift, theta,           &
              S1unit, H1unit, Sunits, Hunits, makeunits, freeunits
   PRIVATE :: readunits, buildunits
 
@@ -53,8 +53,6 @@ MODULE idsrdr_units
   integer, allocatable, dimension (:) :: unit_type ! Units types
   integer, allocatable, dimension (:) :: unitdimensions ! Units number
                                                         ! of orbitals
-  integer, allocatable, dimension (:) :: ephIndic ! E-ph interaction in
-                                                  ! unit type (0 or 1)
 
   real(8), allocatable, dimension (:) :: theta ! 
   real(8), allocatable, dimension (:) :: unitshift ! Units shift
@@ -218,7 +216,6 @@ CONTAINS
 !  TYPE(unitH)                                                          !
 !        Hunits(ntypeunits+2)%H(unitdimensions,unitdimensions,nspin) :  !
 !                                         [real*8] Units hamiltonian    !
-!  integer ephIndic(ntypeunits+2)        : E-ph interaction indicator   !
 !  *******************************************************************  !
   subroutine readunits (nspin, ntypeunits, nsc, temp,                   &
                         unitdimensions, unitlength, unitshift,          &
@@ -249,6 +246,8 @@ CONTAINS
 !   Local variables.
     integer :: iu, I, nspinu, no, nuo, maxnh
     integer, dimension (2) :: nscu
+    integer, allocatable, dimension (:) :: ephIndic ! E-ph interaction in
+                                                    ! unit type (0 or 1)
     real(8) :: tempu, efu
     real(8), allocatable, dimension (:,:,:) :: H0aux, H1aux
     real(8), allocatable, dimension (:,:) :: S0aux, S1aux
@@ -320,9 +319,9 @@ CONTAINS
 
 !   Allocate and initialize units hamiltonian and overlap matrices.
     allocate (S1unit(unitdimensions(ntypeunits),                        &
-         unitdimensions(ntypeunits)))
+                     unitdimensions(ntypeunits)))
     allocate (H1unit(unitdimensions(ntypeunits),                        &
-         unitdimensions(ntypeunits),nspin))
+                     unitdimensions(ntypeunits),nspin))
     S1unit = 0.d0
     H1unit = 0.d0
     allocate (Sunits(ntypeunits+2))
@@ -339,9 +338,9 @@ CONTAINS
 
 !      Allocate auxiliary matrices.
        allocate (H0aux(maxval(unitdimensions),maxval(unitdimensions),   &
-            nspin))
+                       nspin))
        allocate (H1aux(maxval(unitdimensions),maxval(unitdimensions),   &
-            nspin))
+                       nspin))
        allocate (S0aux(maxval(unitdimensions),maxval(unitdimensions)))
        allocate (S1aux(maxval(unitdimensions),maxval(unitdimensions)))
 
@@ -408,6 +407,9 @@ CONTAINS
 
 !   Read electron-phonon interaction data.
     call EPHread (ntypeunits, fileunits, unitdimensions, ephIndic)
+
+!   Free memory.
+    deallocate (ephIndic)
 
 
   end subroutine readunits
@@ -670,7 +672,6 @@ CONTAINS
     deallocate (Hunits)
     deallocate (unit_type)
     deallocate (unitdimensions)
-    deallocate (ephIndic)
 
 
   end subroutine freeunits

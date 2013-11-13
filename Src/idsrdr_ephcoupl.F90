@@ -42,8 +42,8 @@ MODULE idsrdr_ephcoupl
   implicit none
 
   PRIVATE ! default is private
-  PUBLIC :: eph, neph, nModes, norbDyn, idxF, idxL, freq, Meph,         &
-            EPHread, EPHfree
+  PUBLIC :: eph, neph, nModes, norbDyn, idxF, idxL, ephIdx,             &
+            freq, Meph, EPHread, EPHfree
 
   logical :: eph ! Inelastic calculation?
 
@@ -53,6 +53,7 @@ MODULE idsrdr_ephcoupl
                                                 ! dynamic atoms
   integer, dimension(:), allocatable :: idxF ! First dynamic atom orbital
   integer, dimension(:), allocatable :: idxL ! Last dynamic atom orbital
+  integer, dimension(:), allocatable :: ephIdx ! unit index
 
   TYPE ephFreq
      real(8), pointer :: F(:) ! pointer to frequency array
@@ -95,12 +96,13 @@ CONTAINS
 !  integer unitdimensions(ntypeunits+2)  : Units number of orbitals     !
 !  integer ephIndic(ntypeunits+2)        : E-ph interaction indicator   !
 !  ***************************** OUTPUT ******************************  !
-!  logical eph                 : Inelastic calculation?
+!  logical eph                 : Inelastic calculation?                 !
 !  integer neph                : Number of units with e-ph interaction  !
 !  integer nModes(neph)        : Number of vibrational modes            !
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  integer idxF(neph)          : First dynamic atom orbital             !
 !  integer idxL(neph)          : Last dynamic atom orbital              !
+!  integer ephIdx(ntypeunits+2) : Unit index (for those with e-ph)      !
 !  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
 !                                       frequencies                     !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nModes*nspin) :          !
@@ -157,10 +159,112 @@ CONTAINS
     allocate (idxL(neph))
     allocate (freq(neph))
     allocate (Meph(neph))
+    allocate (ephIdx(ntypeunits+2))
 
 !   Read e-ph interaction data of the required units.
     idx = 1
-    do nu = 1,ntypeunits+2
+    ephIdx = 0
+
+!   First unit type.
+    nu = ntypeunits + 1
+    if (ephIndic(nu) == 1) then ! consider eph interaction
+
+!      Check if electron-phonon coupling file exists.
+       inquire (file=paste(directory, paste(fileunits(nu),'.Meph')),    &
+                exist=found)
+       if (.not.found) go to 123
+
+!      Set e-ph index vector.
+       ephIdx(nu) = 1
+
+       if (IOnode) then
+
+          write(6,'(a,i3,a)', advance='no') "EPHread: Reading"   //     &
+               " electron-phonon coupling matrix ", idx,  "..."
+
+!         Opens the file.
+          call io_assign (iu)
+          open (iu,                                                     &
+               file=paste(directory, paste(fileunits(nu),'.Meph')),     &
+               form='formatted', status='old')
+
+!         Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
+!         dynamic orbitals (norbDyn), first orbital index (idxF) and
+!         last orbital index (idxL).
+          read (iu,*) sDyn, nDyn, norbDyn(idx), idxF(idx), idxL(idx)
+
+!         Verifies spin number.
+          if (sDyn /= nspin) then
+             write (6,'(/,a,/)')                                        &
+                  "EPHread: ERROR: Electron-phonon coupling"     //     &
+                  " calculated with different spin number."
+#ifdef MPI
+             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             stop
+#else
+             stop
+#endif
+          endif
+
+!         Verifies orbital indexes.
+          if (idxL(idx) > unitdimensions(nu)) then
+             write (6,'(/,a,/)')                                        &
+                  "EPHread: ERROR: Last orbital index from"     //      &
+                  " electron-phonon coupling matrix is greater" //      &
+                  " than the total number of orbitals."
+#ifdef MPI
+             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             stop
+#else
+             stop
+#endif
+          endif
+
+!         Total number of modes.
+          nModes(idx) = 3 * nDyn
+
+!         Allocates memory.
+          allocate (freq(idx)%F(nModes(idx)))
+          allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
+                                nspin,nModes(idx)))
+          allocate (aux(norbDyn(idx)))
+
+!         Reads the mode's frequencies (energies).
+          read (iu,*) freq(idx)%F(1:nModes(idx))
+          do l = 1,3*nDyn ! don't consider null modes
+             if (freq(idx)%F(l) <= 0.D0) nModes(idx) = nModes(idx) - 1
+          enddo
+
+!         Reads the electron-phonon coupling matrix.
+          do l = 1,nModes(idx)
+             do s = 1,nspin
+                do i = 1,norbDyn(idx)
+                   read (iu,*) aux
+                   Meph(idx)%M(i,1:norbDyn(idx),s,l) = aux
+                enddo
+             enddo
+          enddo
+
+!         Energies in Ry (from CODATA - 2012).
+          freq(idx)%F = freq(idx)%F / 13.60569253D0
+          Meph(idx)%M = Meph(idx)%M / 13.60569253D0
+
+!         Closes the file.
+          call io_close (iu)
+
+!         Free memory.
+          deallocate (aux)
+
+          write(6,'(a)') " ok!"
+
+       endif ! if (IOnode)
+
+       idx = idx + 1
+
+    endif ! if (ephIndic(nu) == 1)
+
+!   Intermediary unit types.
+    do nu = 1,ntypeunits
 
        if (ephIndic(nu) == 1) then ! consider eph interaction
 
@@ -168,6 +272,9 @@ CONTAINS
           inquire (file=paste(directory, paste(fileunits(nu),'.Meph')), &
                exist=found)
           if (.not.found) go to 123
+
+!         Set e-ph index vector.
+          ephIdx(nu) = idx
 
           if (IOnode) then
 
@@ -253,9 +360,105 @@ CONTAINS
 
           idx = idx + 1
 
-       endif ! if (ephIndic == 1)
+       endif ! if (ephIndic(nu) == 1)
 
     enddo ! do nu = 1,ntypeunits+2
+
+!   Last unit type.
+    nu = ntypeunits + 2
+    if (ephIndic(nu) == 1) then ! consider eph interaction
+
+!      Check if electron-phonon coupling file exists.
+       inquire (file=paste(directory, paste(fileunits(nu),'.Meph')),    &
+                exist=found)
+       if (.not.found) go to 123
+
+!      Set e-ph index vector.
+       ephIdx(nu) = idx
+
+       if (IOnode) then
+
+          write(6,'(a,i3,a)', advance='no') "EPHread: Reading"   //     &
+               " electron-phonon coupling matrix ", idx,  "..."
+
+!         Opens the file.
+          call io_assign (iu)
+          open (iu,                                                     &
+               file=paste(directory, paste(fileunits(nu),'.Meph')),     &
+               form='formatted', status='old')
+
+!         Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
+!         dynamic orbitals (norbDyn), first orbital index (idxF) and
+!         last orbital index (idxL).
+          read (iu,*) sDyn, nDyn, norbDyn(idx), idxF(idx), idxL(idx)
+
+!         Verifies spin number.
+          if (sDyn /= nspin) then
+             write (6,'(/,a,/)')                                        &
+                  "EPHread: ERROR: Electron-phonon coupling"     //     &
+                  " calculated with different spin number."
+#ifdef MPI
+             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             stop
+#else
+             stop
+#endif
+          endif
+
+!         Verifies orbital indexes.
+          if (idxL(idx) > unitdimensions(nu)) then
+             write (6,'(/,a,/)')                                        &
+                  "EPHread: ERROR: Last orbital index from"     //      &
+                  " electron-phonon coupling matrix is greater" //      &
+                  " than the total number of orbitals."
+#ifdef MPI
+             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             stop
+#else
+             stop
+#endif
+          endif
+
+!         Total number of modes.
+          nModes(idx) = 3 * nDyn
+
+!         Allocates memory.
+          allocate (freq(idx)%F(nModes(idx)))
+          allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
+                                nspin,nModes(idx)))
+          allocate (aux(norbDyn(idx)))
+
+!         Reads the mode's frequencies (energies).
+          read (iu,*) freq(idx)%F(1:nModes(idx))
+          do l = 1,3*nDyn ! don't consider null modes
+             if (freq(idx)%F(l) <= 0.D0) nModes(idx) = nModes(idx) - 1
+          enddo
+
+!         Reads the electron-phonon coupling matrix.
+          do l = 1,nModes(idx)
+             do s = 1,nspin
+                do i = 1,norbDyn(idx)
+                   read (iu,*) aux
+                   Meph(idx)%M(i,1:norbDyn(idx),s,l) = aux
+                enddo
+             enddo
+          enddo
+
+!         Energies in Ry (from CODATA - 2012).
+          freq(idx)%F = freq(idx)%F / 13.60569253D0
+          Meph(idx)%M = Meph(idx)%M / 13.60569253D0
+
+!         Closes the file.
+          call io_close (iu)
+
+!         Free memory.
+          deallocate (aux)
+
+          write(6,'(a)') " ok!"
+
+       endif ! if (IOnode)
+
+    endif ! if (ephIndic(nu) == 1)
 
 !   Broadcast read variables.
 #ifdef MPI
@@ -325,6 +528,7 @@ CONTAINS
        deallocate (norbDyn)
        deallocate (idxF)
        deallocate (idxL)
+       deallocate (ephIdx)
 !      First deallocates pointed arrays and matrices.
        do I = 1,neph
           deallocate (freq(I)%F)

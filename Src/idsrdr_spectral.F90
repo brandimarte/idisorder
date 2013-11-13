@@ -102,16 +102,15 @@ CONTAINS
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                       : True if it is the I/O node    !
+!  integer ntypeunits                   : Number of unit types          !
 !  integer nunits                       : Total number of units         !
-!  integer neph                         : Number of units with e-ph     !
-!                                         interaction                   !
+!  integer ephIdx(ntypeunits+2)         : Unit index (those with e-ph)  !
 !  integer norbDyn(neph)                : Number of orbitals from       !
 !                                         dynamic atoms                 !
 !  integer idxF(neph)                   : First dynamic atom orbital    !
 !  integer idxL(neph)                   : Last dynamic atom orbital     !
 !  integer unit_type(nunits+2)          : Units types                   !
 !  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
-!  integer ephIndic(ntypeunits+2)       : E-ph interaction indicator    !
 !  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
 !                                         [real*8] Units overlap        !
 !  TYPE(green) Gr_nn(neph)%G(unitdimensions,unitdimensions) :           !
@@ -126,60 +125,125 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use idsrdr_options,  only: nunits
-    use idsrdr_ephcoupl, only: neph, norbDyn, idxF, idxL
-    use idsrdr_units,    only: unit_type, unitdimensions,               &
-                               ephIndic, Sunits
+    use idsrdr_options,  only: ntypeunits, nunits
+    use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
+    use idsrdr_units,    only: unit_type, unitdimensions, Sunits
     use idsrdr_green,    only: Gr_nn
 
 !   Input variables.
     integer, intent(in) :: ienergy, ispin
 
 !   Local variables.
-    integer :: I, J, K
+    integer :: I, J, K, ephType
     complex(8), dimension(:,:), allocatable :: Scp, Aux
     external :: zsymm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing spectral function... '
 
-    J = 1 ! e-ph store indexing
 
-    do I = 2,nunits ! over units from left to right
+    ephType = ephIdx(ntypeunits+1)
+    J = 1
+    if (ephType /= 0) then
 
-       if (ephIndic(unit_type(I)) == 1) then
+!      Allocate auxiliary matrix.
+       allocate (Scp(norbDyn(ephType),norbDyn(ephType)))
+       allocate (Aux(norbDyn(ephType),norbDyn(ephType)))
+
+!      Copy dynamic orbitals part of overlap matrix.
+       Scp = Sunits(unit_type(ntypeunits+1))                            &
+             %S(idxF(ephType):idxL(ephType),idxF(ephType):idxL(ephType))
+
+!      (Aux = GrMM * Saux)
+       call zsymm ('R', 'L', norbDyn(ephType), norbDyn(ephType),        &
+                   (1.D0,0.D0), Scp, norbDyn(ephType), Gr_nn(J)%G,      &
+                   norbDyn(ephType), (0.D0,0.D0), Aux, norbDyn(ephType))
+
+       spctrl(ienergy,ispin,J) = 0.D0
+       dos(ienergy,ispin,J) = 0.D0
+       do K = 1,norbDyn(ephType)
+          spctrl(ienergy,ispin,J) = spctrl(ienergy,ispin,J)             &
+                                    - DIMAG(Gr_nn(J)%G(K,K))
+          dos(ienergy,ispin,J) = dos(ienergy,ispin,J) - DIMAG(Aux(K,K))
+       enddo
+
+       J = J + 1
+
+!      Free memory.
+       deallocate (Scp)
+       deallocate (Aux)
+
+    endif
+
+    do I = 2,nunits+1 ! over units from left to right
+
+       ephType = ephIdx(unit_type(I))
+
+       if (ephType /= 0) then
 
 !         Allocate auxiliary matrix.
-          allocate (Scp(norbDyn(J),norbDyn(J)))
-          allocate (Aux(norbDyn(J),norbDyn(J)))
+          allocate (Scp(norbDyn(ephType),norbDyn(ephType)))
+          allocate (Aux(norbDyn(ephType),norbDyn(ephType)))
 
 !         Copy dynamic orbitals part of overlap matrix.
-          Scp = Sunits(unit_type(I))%S(idxF(J):idxL(J),idxF(J):idxL(J))
+          Scp = Sunits(unit_type(I))%S(idxF(ephType):idxL(ephType),     &
+                                       idxF(ephType):idxL(ephType))
 
 !         (Aux = GrMM * Saux)
-          call zsymm ('R', 'L', norbDyn(J), norbDyn(J), (1.D0,0.D0),    &
-                      Scp, norbDyn(J), Gr_nn(J)%G, norbDyn(J),          &
-                      (0.D0,0.D0), Aux, norbDyn)
+          call zsymm ('R', 'L', norbDyn(ephType), norbDyn(ephType),     &
+                      (1.D0,0.D0), Scp, norbDyn(ephType),               &
+                      Gr_nn(J)%G, norbDyn(ephType),                     &
+                      (0.D0,0.D0), Aux, norbDyn(ephType))
 
           spctrl(ienergy,ispin,J) = 0.D0
           dos(ienergy,ispin,J) = 0.D0
-          do K = 1,norbDyn(J)
+          do K = 1,norbDyn(ephType)
              spctrl(ienergy,ispin,J) = spctrl(ienergy,ispin,J)          &
                                        - DIMAG(Gr_nn(J)%G(K,K))
              dos(ienergy,ispin,J) = dos(ienergy,ispin,J)                &
                                     - DIMAG(Aux(K,K))
           enddo
 
+          J = J + 1
+
 !         Free memory.
           deallocate (Scp)
           deallocate (Aux)
-
-          J = J + 1
 
        endif
 
     enddo
 
+    ephType = ephIdx(ntypeunits+2)
+    if (ephType /= 0) then
+
+!      Allocate auxiliary matrix.
+       allocate (Scp(norbDyn(ephType),norbDyn(ephType)))
+       allocate (Aux(norbDyn(ephType),norbDyn(ephType)))
+
+!      Copy dynamic orbitals part of overlap matrix.
+       Scp = Sunits(ntypeunits+2)%S(idxF(ephType):idxL(ephType),        &
+                                    idxF(ephType):idxL(ephType))
+
+!      (Aux = GrMM * Saux)
+       call zsymm ('R', 'L', norbDyn(ephType), norbDyn(ephType),        &
+                   (1.D0,0.D0), Scp, norbDyn(ephType), Gr_nn(J)%G,      &
+                   norbDyn(ephType), (0.D0,0.D0), Aux, norbDyn(ephType))
+
+       spctrl(ienergy,ispin,J) = 0.D0
+       dos(ienergy,ispin,J) = 0.D0
+       do K = 1,norbDyn(ephType)
+          spctrl(ienergy,ispin,J) = spctrl(ienergy,ispin,J)             &
+                                    - DIMAG(Gr_nn(J)%G(K,K))
+          dos(ienergy,ispin,J) = dos(ienergy,ispin,J) - DIMAG(Aux(K,K))
+                                       
+       enddo
+
+!      Free memory.
+       deallocate (Scp)
+       deallocate (Aux)
+
+    endif
 
     if (IOnode) write(6,'(a)') " ok!"
 
