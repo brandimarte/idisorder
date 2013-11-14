@@ -925,7 +925,7 @@ CONTAINS
 !  compare with the Green's function obtained with the recursive        !
 !  method.                                                              !
 !                                                                       !
-!  ATENTION: this test only works in serial mode!
+!  ATENTION: the writting part only works in serial mode!
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -981,6 +981,8 @@ CONTAINS
 !   Local variables.
     integer :: i, j, k, w, utype, dim, dimTot, dimCpl, idxAnt, ephType
     integer, allocatable, dimension (:) :: ipiv
+    real(8) :: dosTot
+    real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
     real(8), allocatable, dimension (:,:) :: Stot
     complex(8), allocatable, dimension (:,:) :: Htot, Gtot
 
@@ -1066,20 +1068,32 @@ CONTAINS
 
     if (IOnode) write(6,'(a)') " ok!"
 
-
-!   ATENTION: this test only works in serial mode!
+!   Compute the total density of states.
+    dosTot = 0.d0
+    do i = 1,dimTot
+       dosTot = dosTot - DIMAG(Gtot(i,i))
+    enddo
+    dosTot = 2.d0 * dosTot / pi
+    write (4102,'(e17.8e3,e17.8e3)') Ei, dosTot
 
 !   First unit.
     w = 1
     if (ephType /= 0) then
 
        do j = idxF(ephType),idxL(ephType)
-          do i = idxF(ephType),idxL(ephType)
+          do i = j,idxL(ephType)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,j)),                                     &
                   DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
                                    j-idxF(ephType)+1)),                 &
                   DIMAG(Gtot(i,j)),                                     &
+                  DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
+                                   j-idxF(ephType)+1))
+             write (2102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(i,j)) -                                    &
+                  DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
+                                   j-idxF(ephType)+1)),                 &
+                  DIMAG(Gtot(i,j)) -                                    &
                   DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
                                    j-idxF(ephType)+1))
           enddo
@@ -1099,12 +1113,19 @@ CONTAINS
        if (ephType /= 0) then
 
           do j = idxF(ephType),idxL(ephType)
-             do i = idxF(ephType),idxL(ephType)
+             do i = j,idxL(ephType)
                 write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
                      DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                &
                                       j-idxF(ephType)+1)),              &
                      DIMAG(Gtot(idxAnt+i,idxAnt+j)),                    &
+                     DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                &
+                                      j-idxF(ephType)+1))
+                write (2102,'(e17.8e3,e17.8e3)')                        &
+                     DREAL(Gtot(idxAnt+i,idxAnt+j)) -                   &
+                     DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                &
+                                      j-idxF(ephType)+1)),              &
+                     DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                   &
                      DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                &
                                       j-idxF(ephType)+1))
              enddo
@@ -1122,12 +1143,19 @@ CONTAINS
     if (ephType /= 0) then
 
        do j = idxF(ephType),idxL(ephType)
-          do i = idxF(ephType),idxL(ephType)
+          do i = j,idxL(ephType)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(idxAnt+i,idxAnt+j)),                       &
                   DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
                                    j-idxF(ephType)+1)),                 &
                   DIMAG(Gtot(idxAnt+i,idxAnt+j)),                       &
+                  DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
+                                   j-idxF(ephType)+1))
+             write (2102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(idxAnt+i,idxAnt+j)) -                      &
+                  DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
+                                   j-idxF(ephType)+1)),                 &
+                  DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                      &
                   DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
                                    j-idxF(ephType)+1))
           enddo

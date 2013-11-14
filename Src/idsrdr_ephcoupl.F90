@@ -175,7 +175,7 @@ CONTAINS
        if (.not.found) go to 123
 
 !      Set e-ph index vector.
-       ephIdx(nu) = 1
+       ephIdx(nu) = idx
 
        if (IOnode) then
 
@@ -469,6 +469,8 @@ CONTAINS
     call MPI_Bcast (idxF, neph, MPI_Integer, 0,                         &
                     MPI_Comm_World, MPIerror)
     call MPI_Bcast (idxL, neph, MPI_Integer, 0,                         &
+                    MPI_Comm_World, MPIerror)
+    call MPI_Bcast (ephIdx, ntypeunits+2, MPI_Integer, 0,               &
                     MPI_Comm_World, MPIerror)
     if (.not. IOnode) then
        do idx = 1,neph
