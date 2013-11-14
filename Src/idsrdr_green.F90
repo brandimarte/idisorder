@@ -295,7 +295,7 @@ CONTAINS
     utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    J = 2
+    J = ephIdx(utype) + 1 ! first e-ph index
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -490,7 +490,13 @@ CONTAINS
     utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    J = neph - 1
+
+!   First e-ph unit from the right.
+    if (ephIdx(utype) /= 0) then
+       J = neph - 1
+    else
+       J = neph
+    endif
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -1073,7 +1079,7 @@ CONTAINS
     do i = 1,dimTot
        dosTot = dosTot - DIMAG(Gtot(i,i))
     enddo
-    dosTot = 2.d0 * dosTot / pi
+!!$    dosTot = dosTot / pi
     write (4102,'(e17.8e3,e17.8e3)') Ei, dosTot
 
 !   First unit.

@@ -80,9 +80,11 @@ CONTAINS
     use idsrdr_engrid,   only: NTenerg_div
     use idsrdr_ephcoupl, only: neph
 
-!   Allocate spectral and density of states arrays.
+!   Allocate and initializes spectral and density of states arrays.
     allocate (spctrl(NTenerg_div,nspin,neph+1))
     allocate (dos(NTenerg_div,nspin,neph+1))
+    spctrl = 0.d0
+    dos = 0.d0
 
 
   end subroutine spectralinit
@@ -142,9 +144,10 @@ CONTAINS
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing spectral function... '
 
-
+!   Initialize variables.
     ephType = ephIdx(ntypeunits+1)
     J = 1
+
     if (ephType /= 0) then
 
 !      Allocate auxiliary matrix.
@@ -373,14 +376,18 @@ CONTAINS
 #endif
              do e = 1,NTenerg_div
                 write (iuSpc, '(/,e17.8e3)', advance='no')              &
-                     Ei(e) * 13.60569253D0 !eV
+!!$                     Ei(e) * 13.60569253D0 !eV
+                     Ei(e) !Ry
                 write (iuDos, '(/,e17.8e3)', advance='no')              &
-                     Ei(e) * 13.60569253D0 !eV
+!!$                     Ei(e) * 13.60569253D0 !eV
+                     Ei(e) !Ry
                 do s = 1,nspin
                    write (iuSpc, '(e17.8e3)', advance='no')             &
-                        spctrl(e,s,J) / (13.60569253D0 * pi) !eV
+!!$                        spctrl(e,s,J) / (13.60569253D0 * pi) !eV
+                        spctrl(e,s,J) !Ry
                    write (iuDos, '(e17.8e3)', advance='no')             &
-                        dos(e,s,J) / (13.60569253D0 * pi) !eV
+!!$                        dos(e,s,J) / (13.60569253D0 * pi) !eV
+                        dos(e,s,J) !Ry
                 enddo
              enddo
 #ifdef MPI
@@ -408,14 +415,18 @@ CONTAINS
              if (Node == 0) then
                 do e = 1,NTenerg_div
                    write (iuSpc, '(/,e17.8e3)', advance='no')           &
-                        buffEn(e) * 13.60569253D0 !eV
+!!$                        buffEn(e) * 13.60569253D0 !eV
+                        buffEn(e) !Ry
                    write (iuDos, '(/,e17.8e3)', advance='no')           &
-                        buffEn(e) * 13.60569253D0 !eV
+!!$                        buffEn(e) * 13.60569253D0 !eV
+                        buffEn(e) !Ry
                    do s = 1,nspin
                       write (iuSpc, '(e17.8e3)', advance='no')          &
-                           buffSpc(e,s) / (13.60569253D0 * pi) !eV
+!!$                           buffSpc(e,s) / (13.60569253D0 * pi) !eV
+                           buffSpc(e,s) !Ry
                       write (iuDos, '(e17.8e3)', advance='no')          &
-                           buffDos(e,s) / (13.60569253D0 * pi) !eV
+!!$                           buffDos(e,s) / (13.60569253D0 * pi) !eV
+                           buffDos(e,s) !Ry
                    enddo
                 enddo
              endif

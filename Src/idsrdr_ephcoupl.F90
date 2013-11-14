@@ -149,7 +149,6 @@ CONTAINS
     if (neph == 0) then
        if (IOnode) write (6,'(/,a)')                                    &
             'EPHread: Calculation without e-ph interaction!'
-       return
     endif
 
 !   Allocate arrays.
