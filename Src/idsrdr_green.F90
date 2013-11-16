@@ -959,8 +959,8 @@ CONTAINS
 
 !      ('Gr_1n = foo2L * aux3')
        foo3 = aux3(1:n,dim-NR+1:dim)
-       call zgemm ('N', 'N', NL, dim, n, (1.d0,0.d0), foo2L, NL,        &
-                   foo3, n, (0.d0,0.d0), Gr_1M, NL)
+       call zgemm ('N', 'N', NL, NR, n, (1.d0,0.d0), foo2L, NL,        &
+                   foo3, NR, (0.d0,0.d0), Gr_1M, NL)
 
 !      Free memory.
        deallocate (foo3)
