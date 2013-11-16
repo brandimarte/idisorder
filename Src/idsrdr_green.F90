@@ -59,7 +59,9 @@ MODULE idsrdr_green
   TYPE(green), allocatable, dimension (:) :: Gr_1n ! G^r_{1,n}
   TYPE(green), allocatable, dimension (:) :: Gr_Mn ! G^r_{M,n}
 
-!!$  complex(8), allocatable, dimension (:,:) :: Gr_1M ! G^r_{1,M}
+  complex(8), allocatable, dimension (:,:) :: GL_nn ! G^L_{n,n}
+  complex(8), allocatable, dimension (:,:) :: GL_1N ! G^L_{1,M}
+  complex(8), allocatable, dimension (:,:) :: Gr_1M ! G^r_{1,M}
 
 
 CONTAINS
@@ -110,6 +112,9 @@ CONTAINS
     allocate (Gr_nn(neph))
     allocate (Gr_1n(neph))
     allocate (Gr_Mn(neph))
+
+! DUVIDA: GL_1m tem que ter dimensão NL mesmo?
+! E GR_Mp tem que ter dimensão NL mesmo?
 
 !   Allocate Green's functions matrices.
     dim = unitdimensions(ntypeunits+1) ! current unit dimension
@@ -172,7 +177,11 @@ CONTAINS
        allocate (Gr_nn(J)%G(norbDyn(ephType),norbDyn(ephType)))
        allocate (Gr_1n(J)%G(NL,norbDyn(ephType)))
        allocate (Gr_Mn(J)%G(NR,norbDyn(ephType)))
+    else
+       allocate (GL_nn(dimbfr,dimbfr))
+       allocate (GL_1N(NL,dimbfr))
     endif
+    allocate (Gr_1M(NL,NR))
 
 
   end subroutine greeninit
@@ -393,6 +402,9 @@ CONTAINS
     if (ephType /= 0) then
        GL_mm(J)%G = Gbfr
        GL_1m(J)%G = Gbfr_1m
+    else
+       GL_nn = Gbfr
+       GL_1N = Gbfr_1m
     endif
 
 !   Free memory.
@@ -901,6 +913,54 @@ CONTAINS
        foo3 = aux3(1:n,idxF(ephType):idxL(ephType))
        call zgemm ('N', 'N', NL, norbDyn(ephType), n, (1.d0,0.d0),      &
                    foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+       Gr_1M = Gr_1n(J)%G
+
+!      Free memory.
+       deallocate (foo3)
+       deallocate (aux3)
+
+    else
+
+!      Allocate auxiliary matrix.
+       allocate (aux3(dim,dim))
+
+!      ('aux3 = E*S - H')
+       aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                     &
+              - Hunits(utype)%H(:,:,ispin)
+       aux3(dim-NR+1:dim,dim-NR+1:dim) =                                &
+                                        aux3(dim-NR+1:dim,dim-NR+1:dim) &
+                                        - Sigma_R
+
+!      ('aux2 = GL_mm*V')
+       aux1 = GL_nn(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+                   V, n, (0.d0,0.d0), aux2, n)
+
+!      ('aux1 = V^dagger*aux2')
+       call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
+                   aux2, n, (0.d0,0.d0), aux1, n)
+
+!      ('aux3 = aux3 - aux1')
+       aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
+
+!      ('aux3 = aux3^-1')
+       allocate (ipiv(dim))
+       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+       call CHECKzsytri (dim, 'L', aux3, ipiv)
+       deallocate (ipiv)
+
+!      Allocate auxiliary matrix.
+       allocate (foo3(n,NR))
+
+!      ('foo2L = GL_1m*V')
+       foo1L = GL_1N(1:NL,dimbfr-n+1:dimbfr)
+       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
+                   V, n, (0.d0,0.d0), foo2L, NL)
+
+!      ('Gr_1n = foo2L * aux3')
+       foo3 = aux3(1:n,dim-NR+1:dim)
+       call zgemm ('N', 'N', NL, dim, n, (1.d0,0.d0), foo2L, NL,        &
+                   foo3, n, (0.d0,0.d0), Gr_1M, NL)
 
 !      Free memory.
        deallocate (foo3)
@@ -1217,6 +1277,11 @@ CONTAINS
     deallocate (Gr_nn)
     deallocate (Gr_1n)
     deallocate (Gr_Mn)
+    if (allocated(GL_nn)) then
+       deallocate (GL_nn)
+       deallocate (GL_1N)
+    endif
+    deallocate (Gr_1M)
 
 
   end subroutine freegreen
