@@ -35,6 +35,7 @@ MODULE idsrdr_current
 !   Modules
 !
   use parallel,        only: 
+  use idsrdr_leads,    only: 
 
   implicit none
   
@@ -56,21 +57,78 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Sigma_L(NL,NL)           : Left-lead self-energy          !
+!  complex(8) Sigma_R(NR,NR)           : Right-lead self-energy         !
 !  ****************************** INPUT ******************************  !
-!  integer ispin                        : Spin component index          !
-!  real*8 Ei                            : Energy grid point             !
+!  real*8 Ei                           : Energy grid point              !
+!  integer ispin                       : Spin component index           !
 !  *******************************************************************  !
   subroutine current (Ei, ispin)
+
+!
+!   Modules
+!
+    use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
 
 !   Input variables.
     integer, intent(in) :: ispin
     real(8), intent(in) :: Ei
 
+!   Local variables.
+    integer :: i, j
+    complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
+    complex(8), allocatable, dimension (:,:) :: Gamma_L
+    complex(8), allocatable, dimension (:,:) :: Gamma_R
+
+!   Allocate coupling and auxiliary matrices.
+    allocate (Gamma_L(NL,NL))
+    allocate (Gamma_R(NR,NR))
+
+!   Sets the lead's coupling matricesx (triangular inferior part).
+    if (NL >= NR) then
+       Do j = 1,NR
+          do i = j,NR
+             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
+             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
+          enddo
+          do i = NR+1,NL
+             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
+          enddo
+       Enddo
+       Do j = NR+1,NL
+          do i = j,NL
+             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
+          enddo
+       Enddo
+    else ! NL < NR
+       Do j = 1,NL
+          do i = j,NL
+             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
+             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
+          enddo
+          do i = NL+1,NR
+             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
+          enddo
+       Enddo
+       Do j = NL+1,NR
+          do i = j,NR
+             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
+          enddo
+       Enddo
+    endif
+
 !   Compute elastic contribution.
-    call elastic (Ei, ispin)
+    call elastic (Ei, ispin, NL, Gamma_L, NR, Gamma_R)
 
 !   Compute inelastic contribution.
-    call inelastic (Ei, ispin)
+    call inelastic (Ei, ispin, NL, Gamma_L, NR, Gamma_R)
+
+!   Free memory.
+    deallocate (Gamma_L)
+    deallocate (Gamma_R)
 
 
   end subroutine current
@@ -88,13 +146,17 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode                       : True if it is the I/O node    !
+!  logical IOnode                      : True if it is the I/O node     !
 !  ****************************** INPUT ******************************  !
-!  integer ispin                        : Spin component index          !
-!  real*8 Ei                            : Energy grid point             !
+!  real*8 Ei                           : Energy grid point              !
+!  integer ispin                       : Spin component index           !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
+!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  ***************************** OUTPUT ******************************  !
 !  *******************************************************************  !
-  subroutine elastic (Ei, ispin)
+  subroutine elastic (Ei, ispin, NL, Gamma_L, NR, Gamma_R)
 
 !
 !   Modules
@@ -102,8 +164,10 @@ CONTAINS
     use parallel,        only: IOnode
 
 !   Input variables.
-    integer, intent(in) :: ispin
+    integer, intent(in) :: ispin, NL, NR
     real(8), intent(in) :: Ei
+    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
+    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
 
@@ -129,28 +193,53 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode                       : True if it is the I/O node    !
+!  logical IOnode              : True if it is the I/O node             !
+!  integer neph                : Number of units with e-ph interaction  !
+!  integer nModes(neph)        : Number of vibrational modes            !
+!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nModes*nspin) :          !
+!                                   [complex*8] E-ph coupling matrices  !
 !  ****************************** INPUT ******************************  !
-!  integer ispin                        : Spin component index          !
-!  real*8 Ei                            : Energy grid point             !
+!  real*8 Ei                           : Energy grid point              !
+!  integer ispin                       : Spin component index           !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
+!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  ***************************** OUTPUT ******************************  !
 !  *******************************************************************  !
-  subroutine inelastic (Ei, ispin)
+  subroutine inelastic (Ei, ispin, NL, Gamma_L, NR, Gamma_R)
 
 !
 !   Modules
 !
     use parallel,        only: IOnode
+    use idsrdr_ephcoupl, only: neph, nModes, Meph
 
 !   Input variables.
-    integer, intent(in) :: ispin
+    integer, intent(in) :: ispin, NL, NR
     real(8), intent(in) :: Ei
+    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
+    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
+    integer :: j, ephType
+    complex(8), dimension(:,:), allocatable :: Aux
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing inelastic current... '
 
+    do j = 1,neph ! over phonon modes
+
+!!$       ephType = ephIdx(ntypeunits+1) ! e-ph unit type
+!!$       J = 1
+!!$       if (ephType /= 0) then
+
+!!$       allocate (Aux(,))
+
+!      -- FIRST PART --
+       
+       
+    enddo
 
 
     if (IOnode) write(6,'(a)') " ok!"

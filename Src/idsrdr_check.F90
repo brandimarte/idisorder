@@ -161,7 +161,7 @@ CONTAINS
     character(len=1), intent(in) :: LorU
 
 !   Local variables.
-    integer :: info
+    integer :: info, i, j
     complex(8), dimension(:), allocatable :: work
     external :: zsytri
 #ifdef MPI
@@ -194,6 +194,21 @@ CONTAINS
 #else
        stop
 #endif
+    endif
+
+!   Copy the computed triangular part to the symmetric one.
+    if (LorU == 'L') then
+       do i = 1,n-1
+          do j = i+1,n
+             A(i,j) = A(j,i)
+          enddo
+       enddo
+    else
+       do j = 1,n-1
+          do i = j+1,n
+             A(i,j) = A(j,i)             
+          enddo
+       enddo
     endif
 
 !   Free memory.

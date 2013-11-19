@@ -219,7 +219,7 @@ CONTAINS
     call GFfull (Ei, ispin)
 
 !   [test] Compute the entire Green's function of scattering region.
-!!$    call GFtest (Ei, ispin)
+    call GFtest (Ei, ispin)
 
 
   end subroutine greenfunctions
@@ -575,12 +575,12 @@ CONTAINS
        allocate (Gaft_Mp(NR,dim))
        allocate (foo3(n,dim))
 
-!      ('foo2 = Gbfr_1m*V^dagger')
+!      ('foo2 = Gbfr_Mp*V^dagger')
        foo1 = Gbfr_Mp(1:NR,1:n)
        call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,           &
                    V, n, (0.d0,0.d0), foo2, NR)
 
-!      ('Gaft_1m = foo2 * Gaft')
+!      ('Gaft_Mp = foo2 * Gaft')
        foo3 = Gaft(dim-n+1:dim,:)
        call zgemm ('N', 'N', NR, dim, n, (1.d0,0.d0), foo2, NR,         &
                    foo3, n, (0.d0,0.d0), Gaft_Mp, NR)
@@ -654,6 +654,8 @@ CONTAINS
 !                                         [real*8] Units hamiltonian    !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Sigma_L(NL,NL)           : Left-lead self-energy          !
+!  complex(8) Sigma_R(NR,NR)           : Right-lead self-energy         !
 !  integer ephIdx(ntypeunits+2)        : Unit index (those with e-ph)   !
 !  integer norbDyn(neph)               : Number of orbitals from        !
 !                                        dynamic atoms                  !
@@ -913,6 +915,7 @@ CONTAINS
        foo3 = aux3(1:n,idxF(ephType):idxL(ephType))
        call zgemm ('N', 'N', NL, norbDyn(ephType), n, (1.d0,0.d0),      &
                    foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+       !AQUI TA ERRADO PORQUE Gr_1M TEM DIMENSAO (NL,NR)
        Gr_1M = Gr_1n(J)%G
 
 !      Free memory.
@@ -1038,7 +1041,7 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
-    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -1124,8 +1127,8 @@ CONTAINS
     Gtot(1:NL,1:NL) = Gtot(1:NL,1:NL) - Sigma_L
     Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                       &
          Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
-    call CHECKzsytrf (dimTot, 'L', Gtot, ipiv)
-    call CHECKzsytri (dimTot, 'L', Gtot, ipiv)
+    call CHECKzgetrf (dimTot, Gtot, ipiv)
+    call CHECKzgetri (dimTot, Gtot, ipiv)
 
 !   Free memory.
     deallocate (Htot)
@@ -1147,7 +1150,7 @@ CONTAINS
     if (ephType /= 0) then
 
        do j = idxF(ephType),idxL(ephType)
-          do i = j,idxL(ephType)
+          do i = idxF(ephType),idxL(ephType)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,j)),                                     &
                   DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
@@ -1162,6 +1165,34 @@ CONTAINS
                   DIMAG(Gtot(i,j)) -                                    &
                   DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
                                    j-idxF(ephType)+1))
+          enddo
+       enddo
+       do j = idxF(ephType),idxL(ephType)
+          do i = 1,NL
+             write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(i,j)),                                     &
+                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(i,j)),                                     &
+                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+             write (5102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(i,j)) -                                    &
+                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(i,j)) -                                    &
+                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+          enddo
+       enddo
+       do j = idxF(ephType),idxL(ephType)
+          do i = 1,NR
+             write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(dimTot-NR+i,j)),                           &
+                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(dimTot-NR+i,j)),                           &
+                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+             write (7102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(dimTot-NR+i,j)) -                          &
+                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(dimTot-NR+i,j)) -                          &
+                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
           enddo
        enddo
        w = w + 1
@@ -1179,7 +1210,7 @@ CONTAINS
        if (ephType /= 0) then
 
           do j = idxF(ephType),idxL(ephType)
-             do i = j,idxL(ephType)
+             do i = idxF(ephType),idxL(ephType)
                 write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
                      DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                &
@@ -1196,6 +1227,34 @@ CONTAINS
                                       j-idxF(ephType)+1))
              enddo
           enddo
+          do j = idxF(ephType),idxL(ephType)
+             do i = 1,NL
+                write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                     DREAL(Gtot(i,idxAnt+j)),                           &
+                     DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),            &
+                     DIMAG(Gtot(i,idxAnt+j)),                           &
+                     DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                write (5102,'(e17.8e3,e17.8e3)')                        &
+                     DREAL(Gtot(i,idxAnt+j)) -                          &
+                     DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),            &
+                     DIMAG(Gtot(i,idxAnt+j)) -                          &
+                     DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+             enddo
+          enddo
+          do j = idxF(ephType),idxL(ephType)
+             do i = 1,NR
+                write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                     DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                 &
+                     DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),            &
+                     DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                 &
+                     DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                write (7102,'(e17.8e3,e17.8e3)')                        &
+                     DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                &
+                     DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),            &
+                     DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                &
+                     DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+             enddo
+          enddo
           w = w + 1
 
        endif
@@ -1209,7 +1268,7 @@ CONTAINS
     if (ephType /= 0) then
 
        do j = idxF(ephType),idxL(ephType)
-          do i = j,idxL(ephType)
+          do i = idxF(ephType),idxL(ephType)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(idxAnt+i,idxAnt+j)),                       &
                   DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
@@ -1224,6 +1283,34 @@ CONTAINS
                   DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                      &
                   DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
                                    j-idxF(ephType)+1))
+          enddo
+       enddo
+       do j = idxF(ephType),idxL(ephType)
+          do i = 1,NL
+             write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(i,idxAnt+j)),                              &
+                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(i,idxAnt+j)),                              &
+                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+             write (5102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(i,idxAnt+j)) -                             &
+                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(i,idxAnt+j)) -                             &
+                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+          enddo
+       enddo
+       do j = idxF(ephType),idxL(ephType)
+          do i = 1,NR
+             write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                    &
+                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                    &
+                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+             write (7102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
+                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
+                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
           enddo
        enddo
 
