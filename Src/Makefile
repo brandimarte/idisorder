@@ -123,7 +123,8 @@ clean:
 #	idsrdr_options.o idsrdr_leads.o idsrdr_green.o \
 #	idsrdr_spectral.o idsrdr_current.o idsrdr_end.o
 #idsrdr_check.o : 
-#idsrdr_current.o : parallel.o idsrdr_leads.o
+#idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o \
+#	idsrdr_green.o
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o timer.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o

@@ -36,6 +36,7 @@ MODULE idsrdr_current
 !
   use parallel,        only: 
   use idsrdr_leads,    only: 
+  use idsrdr_green,    only: 
 
   implicit none
   
@@ -196,8 +197,10 @@ CONTAINS
 !  logical IOnode              : True if it is the I/O node             !
 !  integer neph                : Number of units with e-ph interaction  !
 !  integer nModes(neph)        : Number of vibrational modes            !
-!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nModes*nspin) :          !
+!  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
+!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
+!  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{1,n}  !
 !  ****************************** INPUT ******************************  !
 !  real*8 Ei                           : Energy grid point              !
 !  integer ispin                       : Spin component index           !
@@ -213,7 +216,8 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use idsrdr_ephcoupl, only: neph, nModes, Meph
+    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph
+    use idsrdr_green,    only: Gr_Mn
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
@@ -222,23 +226,35 @@ CONTAINS
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
-    integer :: j, ephType
-    complex(8), dimension(:,:), allocatable :: Aux
+    integer :: j, w
+    complex(8), dimension(:,:), allocatable :: GrT_Mn, Aux
+    external :: zsymm, zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing inelastic current... '
 
-    do j = 1,neph ! over phonon modes
+    do j = 1,neph ! over unit with e-ph
 
-!!$       ephType = ephIdx(ntypeunits+1) ! e-ph unit type
-!!$       J = 1
-!!$       if (ephType /= 0) then
+!      Allocate auxiliary matrices.
+       allocate (GrT_Mn(norbDyn(j),NR))
+       allocate (Aux(norbDyn(j),NR))
 
-!!$       allocate (Aux(,))
+       GrT_Mn = TRANSPOSE(Gr_Mn(j)%G)
 
-!      -- FIRST PART --
-       
-       
+       do w = 1,nModes(j) ! over phonon modes
+
+!         ('Aux = Meph*GrT_Mn')
+          call zsymm ('L', 'L', norbDyn(j), NR, (1.d0,0.d0),            &
+                      Meph(j)%M(:,:,ispin,w), norbDyn(j), GrT_Mn,       &
+                      norbDyn(j), (0.d0,0.d0), Aux, norbDyn(j))
+
+          
+       enddo
+
+!      Free memory.
+       deallocate (GrT_Mn)
+       deallocate (Aux)
+
     enddo
 
 

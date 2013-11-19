@@ -44,7 +44,8 @@ MODULE idsrdr_green
 
   implicit none
   
-  PUBLIC  :: greeninit, greenfunctions, freegreen
+  PUBLIC  :: greeninit, greenfunctions, freegreen,                      &
+             Gr_nn, Gr_1n, Gr_Mn, Gr_1M
   PRIVATE :: LRsweep , RLsweep, GFfull, GFtest
 
   TYPE green
@@ -102,7 +103,7 @@ CONTAINS
     use idsrdr_ephcoupl, only: neph, ephIdx, norbDyn
 
 !   Local variables.
-    integer :: I, J, dim, dimbfr, dimaft, ephType
+    integer :: I, dim, dimbfr, dimaft, idx
 
 !   Allocate Green's functions pointer array.
     allocate (GL_mm(neph))
@@ -120,63 +121,59 @@ CONTAINS
     dim = unitdimensions(ntypeunits+1) ! current unit dimension
     dimbfr = NL ! last unit dimension
     dimaft = unitdimensions(unit_type(2)) ! next unit dimension
-    ephType = ephIdx(ntypeunits+1) ! e-ph unit type
-    J = 1
-    if (ephType /= 0) then
-       allocate (GL_mm(J)%G(dimbfr,dimbfr))
-       allocate (GL_1m(J)%G(NL,dimbfr))
-       allocate (GR_pp(J)%G(dimaft,dimaft))
-       allocate (GR_Mp(J)%G(NR,dimaft))
-       allocate (Gr_nn(J)%G(norbDyn(ephType),norbDyn(ephType)))
-       allocate (Gr_1n(J)%G(NL,norbDyn(ephType)))
-       allocate (Gr_Mn(J)%G(NR,norbDyn(ephType)))
-       J = J + 1
+    idx = ephIdx(ntypeunits+1) ! e-ph unit type
+    if (idx /= 0) then
+       allocate (GL_mm(idx)%G(dimbfr,dimbfr))
+       allocate (GL_1m(idx)%G(NL,dimbfr))
+       allocate (GR_pp(idx)%G(dimaft,dimaft))
+       allocate (GR_Mp(idx)%G(NR,dimaft))
+       allocate (Gr_nn(idx)%G(norbDyn(idx),norbDyn(idx)))
+       allocate (Gr_1n(idx)%G(NL,norbDyn(idx)))
+       allocate (Gr_Mn(idx)%G(NR,norbDyn(idx)))
     endif
 
     do I = 2,nunits
        dimbfr = dim ! last unit dimension
        dim = unitdimensions(unit_type(I)) ! current unit dimension
        dimaft = unitdimensions(unit_type(I+1)) ! next unit dimension
-       ephType = ephIdx(unit_type(I)) ! e-ph unit type
-       if (ephType /= 0) then
-          allocate (GL_mm(J)%G(dimbfr,dimbfr))
-          allocate (GL_1m(J)%G(NL,dimbfr))
-          allocate (GR_pp(J)%G(dimaft,dimaft))
-          allocate (GR_Mp(J)%G(NR,dimaft))
-          allocate (Gr_nn(J)%G(norbDyn(ephType),norbDyn(ephType)))
-          allocate (Gr_1n(J)%G(NL,norbDyn(ephType)))
-          allocate (Gr_Mn(J)%G(NR,norbDyn(ephType)))
-          J = J + 1
+       idx = ephIdx(unit_type(I)) ! e-ph unit type
+       if (idx /= 0) then
+          allocate (GL_mm(idx)%G(dimbfr,dimbfr))
+          allocate (GL_1m(idx)%G(NL,dimbfr))
+          allocate (GR_pp(idx)%G(dimaft,dimaft))
+          allocate (GR_Mp(idx)%G(NR,dimaft))
+          allocate (Gr_nn(idx)%G(norbDyn(idx),norbDyn(idx)))
+          allocate (Gr_1n(idx)%G(NL,norbDyn(idx)))
+          allocate (Gr_Mn(idx)%G(NR,norbDyn(idx)))
        endif
     enddo
 
     dimbfr = dim ! last unit dimension
     dim = unitdimensions(unit_type(I)) ! current unit dimension
     dimaft = unitdimensions(ntypeunits+2) ! next unit dimension
-    ephType = ephIdx(unit_type(I)) ! e-ph unit type
-    if (ephType /= 0) then
-       allocate (GL_mm(J)%G(dimbfr,dimbfr))
-       allocate (GL_1m(J)%G(NL,dimbfr))
-       allocate (GR_pp(J)%G(dimaft,dimaft))
-       allocate (GR_Mp(J)%G(NR,dimaft))
-       allocate (Gr_nn(J)%G(norbDyn(ephType),norbDyn(ephType)))
-       allocate (Gr_1n(J)%G(NL,norbDyn(ephType)))
-       allocate (Gr_Mn(J)%G(NR,norbDyn(ephType)))
-       J = J + 1
+    idx = ephIdx(unit_type(I)) ! e-ph unit type
+    if (idx /= 0) then
+       allocate (GL_mm(idx)%G(dimbfr,dimbfr))
+       allocate (GL_1m(idx)%G(NL,dimbfr))
+       allocate (GR_pp(idx)%G(dimaft,dimaft))
+       allocate (GR_Mp(idx)%G(NR,dimaft))
+       allocate (Gr_nn(idx)%G(norbDyn(idx),norbDyn(idx)))
+       allocate (Gr_1n(idx)%G(NL,norbDyn(idx)))
+       allocate (Gr_Mn(idx)%G(NR,norbDyn(idx)))
     endif
 
     dimbfr = dim ! last unit dimension
     dim = unitdimensions(ntypeunits+2) ! current unit dimension
     dimaft = NR ! next unit dimension
-    ephType = ephIdx(ntypeunits+2) ! e-ph unit type
-    if (ephType /= 0) then
-       allocate (GL_mm(J)%G(dimbfr,dimbfr))
-       allocate (GL_1m(J)%G(NL,dimbfr))
-       allocate (GR_pp(J)%G(dimaft,dimaft))
-       allocate (GR_Mp(J)%G(NR,dimaft))
-       allocate (Gr_nn(J)%G(norbDyn(ephType),norbDyn(ephType)))
-       allocate (Gr_1n(J)%G(NL,norbDyn(ephType)))
-       allocate (Gr_Mn(J)%G(NR,norbDyn(ephType)))
+    idx = ephIdx(ntypeunits+2) ! e-ph unit type
+    if (idx /= 0) then
+       allocate (GL_mm(idx)%G(dimbfr,dimbfr))
+       allocate (GL_1m(idx)%G(NL,dimbfr))
+       allocate (GR_pp(idx)%G(dimaft,dimaft))
+       allocate (GR_Mp(idx)%G(NR,dimaft))
+       allocate (Gr_nn(idx)%G(norbDyn(idx),norbDyn(idx)))
+       allocate (Gr_1n(idx)%G(NL,norbDyn(idx)))
+       allocate (Gr_Mn(idx)%G(NR,norbDyn(idx)))
     else
        allocate (GL_nn(dimbfr,dimbfr))
        allocate (GL_1N(NL,dimbfr))
@@ -284,7 +281,7 @@ CONTAINS
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: I, J, n, utype, dim, dimbfr, ephType
+    integer :: I, n, utype, dim, dimbfr, idx
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: Gbfr ! GF before
@@ -304,7 +301,6 @@ CONTAINS
     utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    J = ephIdx(utype) + 1 ! first e-ph index
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -337,13 +333,12 @@ CONTAINS
        dimbfr = dim ! old dimension
        utype = unit_type(I) ! current unit type
        dim = unitdimensions(utype) ! current type dimension
-       ephType = ephIdx(utype) ! e-ph unit type
+       idx = ephIdx(utype) ! e-ph unit type
 
 !      Store matrix if required.
-       if (ephType /= 0) then
-          GL_mm(J)%G = Gbfr
-          GL_1m(J)%G = Gbfr_1m
-          J = J + 1
+       if (idx /= 0) then
+          GL_mm(idx)%G = Gbfr
+          GL_1m(idx)%G = Gbfr_1m
        endif
 
 !      ('aux2 = Gbfr*V')
@@ -375,9 +370,9 @@ CONTAINS
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1, NL,           &
                    V, n, (0.d0,0.d0), foo2, NL)
 
-!      ('Gaft_1m = foo2 * Gaft')
+!      ('Gaft_1m = - foo2 * Gaft')
        foo3 = Gaft(1:n,:)
-       call zgemm ('N', 'N', NL, dim, n, (1.d0,0.d0), foo2, NL,         &
+       call zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2, NL,        &
                    foo3, n, (0.d0,0.d0), Gaft_1m, NL)
 
 !      Reallocate matrix.
@@ -398,10 +393,10 @@ CONTAINS
     enddo
 
 !   Store matrix if required.
-    ephType = ephIdx(ntypeunits+2) ! e-ph unit type
-    if (ephType /= 0) then
-       GL_mm(J)%G = Gbfr
-       GL_1m(J)%G = Gbfr_1m
+    idx = ephIdx(ntypeunits+2) ! e-ph unit type
+    if (idx /= 0) then
+       GL_mm(idx)%G = Gbfr
+       GL_1m(idx)%G = Gbfr_1m
     else
        GL_nn = Gbfr
        GL_1N = Gbfr_1m
@@ -482,7 +477,7 @@ CONTAINS
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: I, J, n, utype, dim, ephType
+    integer :: I, n, utype, dim, idx
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: Gbfr ! GF before
@@ -502,13 +497,6 @@ CONTAINS
     utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-
-!   First e-ph unit from the right.
-    if (ephIdx(utype) /= 0) then
-       J = neph - 1
-    else
-       J = neph
-    endif
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -541,13 +529,12 @@ CONTAINS
 !      Assign auxiliary variables.
        utype = unit_type(I) ! current unit type
        dim = unitdimensions(utype) ! current type dimension
-       ephType = ephIdx(utype) ! e-ph unit type
+       idx = ephIdx(utype) ! e-ph unit type
 
 !      Store matrix if required.
-       if (ephType /= 0) then
-          GR_pp(J)%G = Gbfr
-          GR_Mp(J)%G = Gbfr_Mp
-          J = J - 1
+       if (idx /= 0) then
+          GR_pp(idx)%G = Gbfr
+          GR_Mp(idx)%G = Gbfr_Mp
        endif
 
 !      ('aux2 = V*Gbfr')
@@ -580,9 +567,9 @@ CONTAINS
        call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,           &
                    V, n, (0.d0,0.d0), foo2, NR)
 
-!      ('Gaft_Mp = foo2 * Gaft')
+!      ('Gaft_Mp = - foo2 * Gaft')
        foo3 = Gaft(dim-n+1:dim,:)
-       call zgemm ('N', 'N', NR, dim, n, (1.d0,0.d0), foo2, NR,         &
+       call zgemm ('N', 'N', NR, dim, n, (-1.d0,0.d0), foo2, NR,        &
                    foo3, n, (0.d0,0.d0), Gaft_Mp, NR)
 
 !      Reallocate matrix.
@@ -603,10 +590,10 @@ CONTAINS
     enddo
 
 !   Store matrix if required.
-    ephType = ephIdx(ntypeunits+1) ! e-ph unit type
-    if (ephType /= 0) then
-       GR_pp(J)%G = Gbfr
-       GR_Mp(J)%G = Gbfr_Mp
+    idx = ephIdx(ntypeunits+1) ! e-ph unit type
+    if (idx /= 0) then
+       GR_pp(idx)%G = Gbfr
+       GR_Mp(idx)%G = Gbfr_Mp
     endif
 
 !   Free memory.
@@ -688,7 +675,7 @@ CONTAINS
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: I, J, n, utype, dim, dimbfr, ephType
+    integer :: I, n, utype, dim, dimbfr, idx
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
@@ -703,8 +690,7 @@ CONTAINS
     utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    ephType = ephIdx(utype) ! e-ph unit type
-    J = 1
+    idx = ephIdx(utype) ! e-ph unit type
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -718,7 +704,7 @@ CONTAINS
 !   Coupling matrix (pristine).
     V = (Ei-unitshift(ntypeunits))*S1unit - H1unit(:,:,ispin)
 
-    if (ephType /= 0) then
+    if (idx /= 0) then
 
 !      Allocate auxiliary matrix.
        allocate (aux3(dim,dim))
@@ -730,7 +716,7 @@ CONTAINS
        aux3(1:NL,1:NL) = aux3(1:NL,1:NL) - Sigma_L
 
 !      ('aux2 = V*GR_pp')
-       aux1 = GR_pp(J)%G(1:n,1:n)
+       aux1 = GR_pp(idx)%G(1:n,1:n)
        call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
@@ -749,29 +735,28 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(J)%G = aux3(idxF(ephType):idxL(ephType),                   &
-                         idxF(ephType):idxL(ephType))
+       Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),                   &
+                         idxF(idx):idxL(idx))
 
 !      ('Gr_1n = aux3')
-       Gr_1n(J)%G = aux3(1:NL,idxF(ephType):idxL(ephType))
+       Gr_1n(idx)%G = aux3(1:NL,idxF(idx):idxL(idx))
 
 !      Allocate auxiliary matrix.
-       allocate (foo3(n,norbDyn(ephType)))
+       allocate (foo3(n,norbDyn(idx)))
 
 !      ('foo2R = GR_Mp*V^dagger')
-       foo1R = GR_Mp(J)%G(1:NR,1:n)
+       foo1R = GR_Mp(idx)%G(1:NR,1:n)
        call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,          &
                    V, n, (0.d0,0.d0), foo2R, NR)
 
-!      ('Gr_Mn = foo2R * Gr_nn')
-       foo3 = aux3(dim-n+1:dim,idxF(ephType):idxL(ephType))
-       call zgemm ('N', 'N', NR, norbDyn(ephType), n, (1.d0,0.d0),      &
-                   foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
+!      ('Gr_Mn = - foo2R * Gr_nn')
+       foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
+       call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),      &
+                   foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(idx)%G, NR)
 
 !      Free memory.
        deallocate (foo3)
        deallocate (aux3)
-       J = J + 1
 
     endif
 
@@ -782,9 +767,9 @@ CONTAINS
        dimbfr = dim ! last unit dimension
        utype = unit_type(I) ! current unit type
        dim = unitdimensions(utype) ! current type dimension
-       ephType = ephIdx(utype) ! e-ph unit type
+       idx = ephIdx(utype) ! e-ph unit type
 
-       if (ephType /= 0) then
+       if (idx /= 0) then
 
 !         Allocate auxiliary matrix.
           allocate (aux3(dim,dim))
@@ -794,7 +779,7 @@ CONTAINS
                  - Hunits(utype)%H(:,:,ispin)
 
 !         ('aux2 = GL_mm*V')
-          aux1 = GL_mm(J)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+          aux1 = GL_mm(idx)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
           call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
 
@@ -806,7 +791,7 @@ CONTAINS
           aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
 
 !         ('aux2 = V*GR_pp')
-          aux1 = GR_pp(J)%G(1:n,1:n)
+          aux1 = GR_pp(idx)%G(1:n,1:n)
           call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
 
@@ -825,37 +810,35 @@ CONTAINS
           deallocate (ipiv)
 
 !         ('Gr_nn = aux3')
-          Gr_nn(J)%G = aux3(idxF(ephType):idxL(ephType),                &
-                            idxF(ephType):idxL(ephType))
+          Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),                &
+                            idxF(idx):idxL(idx))
 
 !         Allocate auxiliary matrix.
-          allocate (foo3(n,norbDyn(ephType)))
+          allocate (foo3(n,norbDyn(idx)))
 
 !         ('foo2L = GL_1m*V')
-          foo1L = GL_1m(J)%G(1:NL,dimbfr-n+1:dimbfr)
+          foo1L = GL_1m(idx)%G(1:NL,dimbfr-n+1:dimbfr)
           call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,       &
                       V, n, (0.d0,0.d0), foo2L, NL)
 
-!         ('Gr_1n = foo2L * Gr_nn')
-          foo3 = aux3(1:n,idxF(ephType):idxL(ephType))
-          call zgemm ('N', 'N', NL, norbDyn(ephType), n, (1.d0,0.d0),   &
-                      foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+!         ('Gr_1n = - foo2L * Gr_nn')
+          foo3 = aux3(1:n,idxF(idx):idxL(idx))
+          call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),   &
+                      foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(idx)%G, NL)
 
 !         ('foo2R = GR_Mp*V^dagger')
-          foo1R = GR_Mp(J)%G(1:NR,1:n)
+          foo1R = GR_Mp(idx)%G(1:NR,1:n)
           call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,       &
                       V, n, (0.d0,0.d0), foo2R, NR)
 
-!         ('Gr_Mn = foo2R * Gr_nn')
-          foo3 = aux3(dim-n+1:dim,idxF(ephType):idxL(ephType))
-          call zgemm ('N', 'N', NR, norbDyn(ephType), n, (1.d0,0.d0),   &
-                      foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(J)%G, NR)
+!         ('Gr_Mn = - foo2R * Gr_nn')
+          foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
+          call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),   &
+                      foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(idx)%G, NR)
 
 !         Free memory.
           deallocate (foo3)
           deallocate (aux3)
-
-          J = J + 1
 
        endif
     enddo
@@ -864,9 +847,9 @@ CONTAINS
     dimbfr = dim ! last unit dimension
     utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
-    ephType = ephIdx(utype) ! e-ph unit type
+    idx = ephIdx(utype) ! e-ph unit type
 
-    if (ephType /= 0) then
+    if (idx /= 0) then
 
 !      Allocate auxiliary matrix.
        allocate (aux3(dim,dim))
@@ -879,7 +862,7 @@ CONTAINS
                                         - Sigma_R
 
 !      ('aux2 = GL_mm*V')
-       aux1 = GL_mm(J)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+       aux1 = GL_mm(idx)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
        call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
@@ -897,26 +880,26 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(J)%G = aux3(idxF(ephType):idxL(ephType),                   &
-                         idxF(ephType):idxL(ephType))
+       Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),                   &
+                           idxF(idx):idxL(idx))
 
 !      ('Gr_Mn = aux3')
-       Gr_Mn(J)%G = aux3(dim-NR+1:dim,idxF(ephType):idxL(ephType))
+       Gr_Mn(idx)%G = aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
 
 !      Allocate auxiliary matrix.
-       allocate (foo3(n,norbDyn(ephType)))
+       allocate (foo3(n,norbDyn(idx)))
 
 !      ('foo2L = GL_1m*V')
-       foo1L = GL_1m(J)%G(1:NL,dimbfr-n+1:dimbfr)
+       foo1L = GL_1m(idx)%G(1:NL,dimbfr-n+1:dimbfr)
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
 
-!      ('Gr_1n = foo2L * Gr_nn')
-       foo3 = aux3(1:n,idxF(ephType):idxL(ephType))
-       call zgemm ('N', 'N', NL, norbDyn(ephType), n, (1.d0,0.d0),      &
-                   foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(J)%G, NL)
+!      ('Gr_1n = - foo2L * Gr_nn')
+       foo3 = aux3(1:n,idxF(idx):idxL(idx))
+       call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),      &
+                   foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(idx)%G, NL)
        !AQUI TA ERRADO PORQUE Gr_1M TEM DIMENSAO (NL,NR)
-       Gr_1M = Gr_1n(J)%G
+       Gr_1M = Gr_1n(idx)%G
 
 !      Free memory.
        deallocate (foo3)
@@ -960,9 +943,9 @@ CONTAINS
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
 
-!      ('Gr_1n = foo2L * aux3')
+!      ('Gr_1n = - foo2L * G_nn')
        foo3 = aux3(1:n,dim-NR+1:dim)
-       call zgemm ('N', 'N', NL, NR, n, (1.d0,0.d0), foo2L, NL,        &
+       call zgemm ('N', 'N', NL, NR, n, (-1.d0,0.d0), foo2L, NL,        &
                    foo3, NR, (0.d0,0.d0), Gr_1M, NL)
 
 !      Free memory.
@@ -1048,7 +1031,7 @@ CONTAINS
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: i, j, k, w, utype, dim, dimTot, dimCpl, idxAnt, ephType
+    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, idx
     integer, allocatable, dimension (:) :: ipiv
     real(8) :: dosTot
     real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
@@ -1077,7 +1060,7 @@ CONTAINS
     dimCpl = unitdimensions(ntypeunits) ! coupling unit dimensions
     utype = ntypeunits+1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current unit dimensions
-    ephType = ephIdx(utype) ! e-ph unit type
+    idx = ephIdx(utype) ! e-ph unit type
 
     Stot(1:dim,1:dim) = (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
     Htot(1:dim,1:dim) = Hunits(utype)%H(:,:,ispin)
@@ -1146,56 +1129,54 @@ CONTAINS
     write (4102,'(e17.8e3,e17.8e3)') Ei, dosTot
 
 !   First unit.
-    w = 1
-    if (ephType /= 0) then
+    if (idx /= 0) then
 
-       do j = idxF(ephType),idxL(ephType)
-          do i = idxF(ephType),idxL(ephType)
+       do j = idxF(idx),idxL(idx)
+          do i = idxF(idx),idxL(idx)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,j)),                                     &
-                  DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(i,j)),                                     &
-                  DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1))
              write (2102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(i,j)) -                                    &
-                  DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(i,j)) -                                    &
-                  DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1))
           enddo
        enddo
-       do j = idxF(ephType),idxL(ephType)
+       do j = idxF(idx),idxL(idx)
           do i = 1,NL
              write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,j)),                                     &
-                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(i,j)),                                     &
-                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
              write (5102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(i,j)) -                                    &
-                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(i,j)) -                                    &
-                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
           enddo
        enddo
-       do j = idxF(ephType),idxL(ephType)
+       do j = idxF(idx),idxL(idx)
           do i = 1,NR
              write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(dimTot-NR+i,j)),                           &
-                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(dimTot-NR+i,j)),                           &
-                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
              write (7102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(dimTot-NR+i,j)) -                          &
-                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(dimTot-NR+i,j)) -                          &
-                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
           enddo
        enddo
-       w = w + 1
 
     endif
 
@@ -1205,57 +1186,56 @@ CONTAINS
 
        utype = unit_type(k) ! current unit type
        dim = unitdimensions(utype) ! current unit dimensions
-       ephType = ephIdx(utype) ! e-ph unit type
+       idx = ephIdx(utype) ! e-ph unit type
 
-       if (ephType /= 0) then
+       if (idx /= 0) then
 
-          do j = idxF(ephType),idxL(ephType)
-             do i = idxF(ephType),idxL(ephType)
+          do j = idxF(idx),idxL(idx)
+             do i = idxF(idx),idxL(idx)
                 write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
-                     DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                &
-                                      j-idxF(ephType)+1)),              &
+                     DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                &
+                                      j-idxF(idx)+1)),              &
                      DIMAG(Gtot(idxAnt+i,idxAnt+j)),                    &
-                     DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                &
-                                      j-idxF(ephType)+1))
+                     DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                &
+                                      j-idxF(idx)+1))
                 write (2102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(idxAnt+i,idxAnt+j)) -                   &
-                     DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                &
-                                      j-idxF(ephType)+1)),              &
+                     DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                &
+                                      j-idxF(idx)+1)),              &
                      DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                   &
-                     DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                &
-                                      j-idxF(ephType)+1))
+                     DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                &
+                                      j-idxF(idx)+1))
              enddo
           enddo
-          do j = idxF(ephType),idxL(ephType)
+          do j = idxF(idx),idxL(idx)
              do i = 1,NL
                 write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(i,idxAnt+j)),                           &
-                     DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),            &
+                     DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),            &
                      DIMAG(Gtot(i,idxAnt+j)),                           &
-                     DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                     DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
                 write (5102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(i,idxAnt+j)) -                          &
-                     DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),            &
+                     DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),            &
                      DIMAG(Gtot(i,idxAnt+j)) -                          &
-                     DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                     DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
              enddo
           enddo
-          do j = idxF(ephType),idxL(ephType)
+          do j = idxF(idx),idxL(idx)
              do i = 1,NR
                 write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                 &
-                     DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),            &
+                     DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),            &
                      DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                 &
-                     DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                     DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
                 write (7102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                &
-                     DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),            &
+                     DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),            &
                      DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                &
-                     DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                     DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
              enddo
           enddo
-          w = w + 1
 
        endif
 
@@ -1264,53 +1244,53 @@ CONTAINS
     enddo
 
 !   Last unit.
-    ephType = ephIdx(ntypeunits+2) ! e-ph unit type
-    if (ephType /= 0) then
+    idx = ephIdx(ntypeunits+2) ! e-ph unit type
+    if (idx /= 0) then
 
-       do j = idxF(ephType),idxL(ephType)
-          do i = idxF(ephType),idxL(ephType)
+       do j = idxF(idx),idxL(idx)
+          do i = idxF(idx),idxL(idx)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(idxAnt+i,idxAnt+j)),                       &
-                  DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(idxAnt+i,idxAnt+j)),                       &
-                  DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1))
              write (2102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(idxAnt+i,idxAnt+j)) -                      &
-                  DREAL(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                      &
-                  DIMAG(Gr_nn(w)%G(i-idxF(ephType)+1,                   &
-                                   j-idxF(ephType)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
+                                   j-idxF(idx)+1))
           enddo
        enddo
-       do j = idxF(ephType),idxL(ephType)
+       do j = idxF(idx),idxL(idx)
           do i = 1,NL
              write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,idxAnt+j)),                              &
-                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(i,idxAnt+j)),                              &
-                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
              write (5102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(i,idxAnt+j)) -                             &
-                  DREAL(Gr_1n(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(i,idxAnt+j)) -                             &
-                  DIMAG(Gr_1n(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
           enddo
        enddo
-       do j = idxF(ephType),idxL(ephType)
+       do j = idxF(idx),idxL(idx)
           do i = 1,NR
              write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                    &
-                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                    &
-                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
              write (7102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
-                  DREAL(Gr_Mn(w)%G(i,j-idxF(ephType)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
                   DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
-                  DIMAG(Gr_Mn(w)%G(i,j-idxF(ephType)+1))
+                  DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
           enddo
        enddo
 

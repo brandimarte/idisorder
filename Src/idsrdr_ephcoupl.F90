@@ -105,7 +105,7 @@ CONTAINS
 !  integer ephIdx(ntypeunits+2) : Unit index (for those with e-ph)      !
 !  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
 !                                       frequencies                     !
-!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nModes*nspin) :          !
+!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
 !  *******************************************************************  !
   subroutine EPHread (ntypeunits, fileunits, unitdimensions, ephIndic)
