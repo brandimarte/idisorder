@@ -655,7 +655,8 @@ CONTAINS
 !  TYPE(green) Gr_nn(neph)%G(unitdimensions,unitdimensions) :           !
 !                                                  [complex] G^r_{n,n}  !
 !  TYPE(green) Gr_1n(neph)%G(NL,unitdimensions) :  [complex] G^r_{1,n}  !
-!  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{1,n}  !
+!  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{M,n}  !
+!  complex(8) Gr_1M(NL,NR)                      : G^r_{1,M}             !
 !  *******************************************************************  !
   subroutine GFfull (Ei, ispin)
 
@@ -735,8 +736,7 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),                   &
-                         idxF(idx):idxL(idx))
+       Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      ('Gr_1n = aux3')
        Gr_1n(idx)%G = aux3(1:NL,idxF(idx):idxL(idx))
@@ -751,7 +751,7 @@ CONTAINS
 
 !      ('Gr_Mn = - foo2R * Gr_nn')
        foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
-       call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),      &
+       call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),         &
                    foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(idx)%G, NR)
 
 !      Free memory.
@@ -810,8 +810,7 @@ CONTAINS
           deallocate (ipiv)
 
 !         ('Gr_nn = aux3')
-          Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),                &
-                            idxF(idx):idxL(idx))
+          Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !         Allocate auxiliary matrix.
           allocate (foo3(n,norbDyn(idx)))
@@ -823,7 +822,7 @@ CONTAINS
 
 !         ('Gr_1n = - foo2L * Gr_nn')
           foo3 = aux3(1:n,idxF(idx):idxL(idx))
-          call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),   &
+          call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),      &
                       foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(idx)%G, NL)
 
 !         ('foo2R = GR_Mp*V^dagger')
@@ -833,7 +832,7 @@ CONTAINS
 
 !         ('Gr_Mn = - foo2R * Gr_nn')
           foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
-          call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),   &
+          call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),      &
                       foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(idx)%G, NR)
 
 !         Free memory.
@@ -880,26 +879,27 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),                   &
-                           idxF(idx):idxL(idx))
+       Gr_nn(idx)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      ('Gr_Mn = aux3')
        Gr_Mn(idx)%G = aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
 
 !      Allocate auxiliary matrix.
-       allocate (foo3(n,norbDyn(idx)))
-
+       allocate (foo3(n,dim))
+       deallocate (aux1)
+       allocate (aux1(NL,dim))
+ 
 !      ('foo2L = GL_1m*V')
        foo1L = GL_1m(idx)%G(1:NL,dimbfr-n+1:dimbfr)
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
 
 !      ('Gr_1n = - foo2L * Gr_nn')
-       foo3 = aux3(1:n,idxF(idx):idxL(idx))
-       call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),      &
-                   foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(idx)%G, NL)
-       !AQUI TA ERRADO PORQUE Gr_1M TEM DIMENSAO (NL,NR)
-       Gr_1M = Gr_1n(idx)%G
+       foo3 = aux3(1:n,1:dim)
+       call zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2L, NL,       &
+                   foo3, n, (0.d0,0.d0), aux1, NL)
+       Gr_1n(idx)%G = aux1(1:NL,idxF(idx):idxL(idx))
+       Gr_1M = aux1(1:NL,dim-NR+1:dim)
 
 !      Free memory.
        deallocate (foo3)
@@ -1135,30 +1135,26 @@ CONTAINS
           do i = idxF(idx),idxL(idx)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,j)),                                     &
-                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1)),     &
                   DIMAG(Gtot(i,j)),                                     &
-                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1))
              write (2102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(i,j)) -                                    &
-                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1)),     &
                   DIMAG(Gtot(i,j)) -                                    &
-                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1))
           enddo
        enddo
        do j = idxF(idx),idxL(idx)
           do i = 1,NL
              write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,j)),                                     &
-                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(i,j)),                                     &
                   DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
              write (5102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(i,j)) -                                    &
-                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(i,j)) -                                    &
                   DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
           enddo
@@ -1167,12 +1163,12 @@ CONTAINS
           do i = 1,NR
              write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(dimTot-NR+i,j)),                           &
-                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(dimTot-NR+i,j)),                           &
                   DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
              write (7102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(dimTot-NR+i,j)) -                          &
-                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(dimTot-NR+i,j)) -                          &
                   DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
           enddo
@@ -1194,30 +1190,26 @@ CONTAINS
              do i = idxF(idx),idxL(idx)
                 write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
-                     DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                &
-                                      j-idxF(idx)+1)),              &
+                     DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1)),  &
                      DIMAG(Gtot(idxAnt+i,idxAnt+j)),                    &
-                     DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                &
-                                      j-idxF(idx)+1))
+                     DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1))
                 write (2102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(idxAnt+i,idxAnt+j)) -                   &
-                     DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                &
-                                      j-idxF(idx)+1)),              &
+                     DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1)),  &
                      DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                   &
-                     DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                &
-                                      j-idxF(idx)+1))
+                     DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1))
              enddo
           enddo
           do j = idxF(idx),idxL(idx)
              do i = 1,NL
                 write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(i,idxAnt+j)),                           &
-                     DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),            &
+                     DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),              &
                      DIMAG(Gtot(i,idxAnt+j)),                           &
                      DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
                 write (5102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(i,idxAnt+j)) -                          &
-                     DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),            &
+                     DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),              &
                      DIMAG(Gtot(i,idxAnt+j)) -                          &
                      DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
              enddo
@@ -1226,12 +1218,12 @@ CONTAINS
              do i = 1,NR
                 write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                 &
-                     DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),            &
+                     DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),              &
                      DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                 &
                      DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
                 write (7102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                &
-                     DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),            &
+                     DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),              &
                      DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                &
                      DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
              enddo
@@ -1251,30 +1243,26 @@ CONTAINS
           do i = idxF(idx),idxL(idx)
              write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(idxAnt+i,idxAnt+j)),                       &
-                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1)),     &
                   DIMAG(Gtot(idxAnt+i,idxAnt+j)),                       &
-                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1))
              write (2102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(idxAnt+i,idxAnt+j)) -                      &
-                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1)),                 &
+                  DREAL(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1)),     &
                   DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                      &
-                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,                   &
-                                   j-idxF(idx)+1))
+                  DIMAG(Gr_nn(idx)%G(i-idxF(idx)+1,j-idxF(idx)+1))
           enddo
        enddo
        do j = idxF(idx),idxL(idx)
           do i = 1,NL
              write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(i,idxAnt+j)),                              &
-                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(i,idxAnt+j)),                              &
                   DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
              write (5102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(i,idxAnt+j)) -                             &
-                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_1n(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(i,idxAnt+j)) -                             &
                   DIMAG(Gr_1n(idx)%G(i,j-idxF(idx)+1))
           enddo
@@ -1283,12 +1271,12 @@ CONTAINS
           do i = 1,NR
              write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                    &
-                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                    &
                   DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
              write (7102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
-                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),               &
+                  DREAL(Gr_Mn(idx)%G(i,j-idxF(idx)+1)),                 &
                   DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
                   DIMAG(Gr_Mn(idx)%G(i,j-idxF(idx)+1))
           enddo
