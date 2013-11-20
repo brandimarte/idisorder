@@ -19,7 +19,8 @@
 !  *******************************************************************  !
 !                         MODULE idsrdr_current                         !
 !  *******************************************************************  !
-!  Description: compute the eletronic current.                          !
+!  Description: compute the eletronic current (actually the             !
+!  transmission coeficient at zero bias).                               !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -41,7 +42,7 @@ MODULE idsrdr_current
   implicit none
   
   PUBLIC  :: current
-  PRIVATE :: inelSymm
+  PRIVATE :: elastic, transmission, inelSymm
 
 
 CONTAINS
@@ -50,7 +51,8 @@ CONTAINS
 !  *******************************************************************  !
 !                                current                                !
 !  *******************************************************************  !
-!  Description: main subroutine for computing the current.              !
+!  Description: main subroutine for computing the current (actually     !
+!  the transmission coeficient at zero bias).                           !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -80,7 +82,7 @@ CONTAINS
 
 !   Local variables.
     integer :: i, j
-    real(8) :: Isym
+    real(8) :: Tel, Tsym
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L
     complex(8), allocatable, dimension (:,:) :: Gamma_R
@@ -125,10 +127,14 @@ CONTAINS
     endif
 
 !   Compute elastic contribution.
-!!$    call elastic (Ei, ispin, NL, Gamma_L, NR, Gamma_R)
+    call elastic (Tel, NL, Gamma_L, NR, Gamma_R)
 
 !   Compute symmetric part of inelastic contribution.
-    call inelSymm (Isym, ispin, NL, Gamma_L, NR, Gamma_R)
+    call inelSymm (Tsym, ispin, NL, Gamma_L, NR, Gamma_R)
+
+
+!   MPI_Reduce
+
 
 !   Free memory.
     deallocate (Gamma_L)
@@ -141,7 +147,7 @@ CONTAINS
 !  *******************************************************************  !
 !                                elastic                                !
 !  *******************************************************************  !
-!  Description: compute the elastic part from current expression.       !
+!  Description: compute the elastic transmission.                       !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -151,44 +157,116 @@ CONTAINS
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                      : True if it is the I/O node     !
+!  complex(8) Gr_1M(NL,NR)             : G^r_{1,M}                      !
 !  ****************************** INPUT ******************************  !
-!  real*8 Ei                           : Energy grid point              !
-!  integer ispin                       : Spin component index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  ***************************** OUTPUT ******************************  !
+!  real*8 Tel                          : Elastic conductance            !
 !  *******************************************************************  !
-!!$  subroutine elastic (Ei, ispin, NL, Gamma_L, NR, Gamma_R)
-!!$
-!!$!
-!!$!   Modules
-!!$!
-!!$    use parallel,        only: IOnode
-!!$
-!!$!   Input variables.
-!!$    integer, intent(in) :: ispin, NL, NR
-!!$    real(8), intent(in) :: Ei
-!!$    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
-!!$    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
-!!$
-!!$!   Local variables.
-!!$
-!!$    if (IOnode) write (6,'(a)', advance='no')                           &
-!!$            '      computing elastic current... '
-!!$
-!!$
-!!$    if (IOnode) write(6,'(a)') " ok!"
-!!$
-!!$
-!!$  end subroutine elastic
+  subroutine elastic (Tel, NL, Gamma_L, NR, Gamma_R)
+
+!
+!   Modules
+!
+    use parallel,        only: IOnode
+    use idsrdr_green,    only: Gr_1M
+
+!   Input variables.
+    integer, intent(in) :: NL, NR
+    real(8), intent(out) :: Tel
+    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
+    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
+
+!   Local variables.
+
+    if (IOnode) write (6,'(a)', advance='no')                           &
+         '      computing elastic current... '
+
+!   Calculates the transmission coefficient.
+    call transmission (NL, Gamma_L, NR, Gamma_R, Gr_1M, Tel)
+
+    if (IOnode) write(6,'(a)') " ok!"
+
+
+  end subroutine elastic
+
+
+!  *******************************************************************  !
+!                             transmission                              !
+!  *******************************************************************  !
+!  Description: calculates the Landauer-Buttiker transmission           !
+!  coefficient between probes I and J (for example, the electrodes L    !
+!  and R).                                                              !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  ****************************** INPUT ******************************  !
+!  integer NI                  : Number of basis orbitals from probe I  !
+!  complex*8 Gamma_I(NI,NI)    : Low triangular I-probe coupling        !
+!                                matrix (for a given spin)              !
+!  integer NJ                  : Number of basis orbitals in the right  !
+!                                lead, including spin components        !
+!  complex*8 Gamma_J(NJ,NJ)    : Low triangular J-probe coupling        !
+!                                matrix (for a given spin)              !
+!  complex*8 Gr_ij(NI,NJ)      : I-J probes part of unperturbed         !
+!                                retarded Green's function              !
+!  ***************************** OUTPUT ******************************  !
+!  complex*8 Tij               : Transmission coefficient               !
+!  *******************************************************************  !
+  subroutine transmission (NI, Gamma_I, NJ, Gamma_J, Gr_ij, Tij)
+
+
+!   Input variables.
+    integer, intent(in) :: NI, NJ
+    real(8), intent(out) :: Tij
+    complex(8), dimension (NI,NI), intent(in) :: Gamma_I
+    complex(8), dimension (NJ,NJ), intent(in) :: Gamma_J
+    complex(8), dimension (NI,NJ), intent(in) :: Gr_ij
+
+!   Local variables.
+    integer :: r, c
+    complex(8), dimension (:,:), allocatable :: IJ, JI
+    external :: zhemm
+
+!   Allocate auxiliary matrices.
+    allocate (IJ(NI,NJ))
+    allocate (JI(NJ,NI))
+
+!   ('IJ = Gamma_I * Gr_ij')
+    call zhemm ('L', 'L', NI, NJ, (1.d0,0.d0), Gamma_I, NI,             &
+                Gr_ij, NI, (0.d0,0.d0), IJ, NI)
+
+!   ('JI^dagger = Gr_ij * Gamma_J')
+    call zhemm ('R', 'L', NI, NJ, (1.d0,0.d0), Gamma_J, NJ,             &
+                Gr_ij, NI, (0.d0,0.d0), JI, NI)
+
+!   Calculates the transmission coefficient.
+    Tij = 0.d0
+    do c = 1,NJ
+       do r = 1,NI
+          Tij = Tij + DREAL(IJ(r,c) * DCONJG(JI(r,c)))
+       enddo
+    enddo
+
+!   Free memory.
+    deallocate (IJ)
+    deallocate (JI)
+
+
+  end subroutine transmission
 
 
 !  *******************************************************************  !
 !                               inelSymm                                !
 !  *******************************************************************  !
-!  Description: compute the symmetric part of inelastic current.        !
+!  Description: compute the symmetric part of inelastic transmission.   !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -215,9 +293,9 @@ CONTAINS
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 Isym                 : Symmetric part of inelastic current    !
+!  real*8 Tsym             : Symmetric part of inelastic transmission   !
 !  *******************************************************************  !
-  subroutine inelSymm (Isym, ispin, NL, Gamma_L, NR, Gamma_R)
+  subroutine inelSymm (Tsym, ispin, NL, Gamma_L, NR, Gamma_R)
 
 !
 !   Modules
@@ -228,13 +306,12 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
-    real(8), intent(out) :: Isym
+    real(8), intent(out) :: Tsym
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
     integer :: j, w, i !, k, l
-    real(8) :: Tsym
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), dimension(:,:), allocatable :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, A
@@ -347,20 +424,8 @@ CONTAINS
           do i = 1,NR
              Tsym = Tsym + DREAL(Aux7(i,i))
           enddo
-
-          print *, "TRACO = ", Tsym
-
-!         MPI_Reduce
-
-!!$          do l = 1,norbDyn(j)
-!!$             do k = 1,NR
-!!$                write (1102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')     &
-!!$                     DREAL(Aux2(k,l)), DREAL(Hc(l,k)),               &
-!!$                     DIMAG(Aux2(k,l)), DIMAG(Hc(l,k))
-!!$             enddo
-!!$          enddo
           
-       enddo
+       enddo ! do w = 1,nModes(j)
 
 !      Free memory.
        deallocate (GrCJG)
@@ -373,59 +438,13 @@ CONTAINS
        deallocate (Aux6)
        deallocate (Aux7)
 
-    enddo
+    enddo ! do j = 1,neph
 
 
     if (IOnode) write(6,'(a)') " ok!"
 
 
   end subroutine inelSymm
-
-
-!  *******************************************************************  !
-!                              freecurrent                              !
-!  *******************************************************************  !
-!  Description: free allocated vectors.                                 !
-!                                                                       !
-!  Written by Pedro Brandimarte, Nov 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    November 2013                                   !
-!  *********************** INPUT FROM MODULES ************************  !
-!  integer neph                : Number of units with e-ph interaction  !
-!  *******************************************************************  !
-!!$  subroutine freecurrent
-!!$
-!!$!
-!!$!   Modules
-!!$!
-!!$    use idsrdr_ephcoupl, only: neph
-!!$
-!!$!   Local variables.
-!!$    integer :: I
-!!$
-!!$!   First deallocates pointed matrices.
-!!$    do I = 1,neph
-!!$       deallocate (GL_mm(I)%G)
-!!$       deallocate (GL_1m(I)%G)
-!!$       deallocate (GR_pp(I)%G)
-!!$       deallocate (GR_Mp(I)%G)
-!!$       deallocate (Gr_nn(I)%G)
-!!$       deallocate (Gr_1n(I)%G)
-!!$       deallocate (Gr_Mn(I)%G)
-!!$    enddo
-!!$    deallocate (GL_mm)
-!!$    deallocate (GL_1m)
-!!$    deallocate (GR_pp)
-!!$    deallocate (GR_Mp)
-!!$    deallocate (Gr_nn)
-!!$    deallocate (Gr_1n)
-!!$    deallocate (Gr_Mn)
-!!$
-!!$
-!!$  end subroutine freecurrent
 
 
 !  *******************************************************************  !
