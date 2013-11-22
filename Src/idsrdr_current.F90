@@ -37,12 +37,17 @@ MODULE idsrdr_current
 !
   use parallel,        only: 
   use idsrdr_leads,    only: 
+  use idsrdr_ephcoupl, only: 
   use idsrdr_green,    only: 
+  use idsrdr_options,  only: 
+  use idsrdr_units,    only: 
+  use idsrdr_check,    only: 
 
   implicit none
   
   PUBLIC  :: current
-  PRIVATE :: elastic, transmission, inelSymm
+  PRIVATE :: elastic, transmission, inelSymm, inelAsymm, writeTransm,   &
+             testInelSymm
 
 
 CONTAINS
@@ -81,8 +86,7 @@ CONTAINS
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: i, j
-    real(8) :: Tel, Tsym, Tasym
+    real(8) :: Tel, Tsymm, Tasymm
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L
     complex(8), allocatable, dimension (:,:) :: Gamma_R
@@ -91,52 +95,23 @@ CONTAINS
     allocate (Gamma_L(NL,NL))
     allocate (Gamma_R(NR,NR))
 
-! ATENCAO: POSSO USAR QUE Sigma_L/R SAO SIMETRICAS AQUI!!!
-
-!   Sets the lead's coupling matricesx (triangular inferior part).
-    if (NL >= NR) then
-       Do j = 1,NR
-          do i = j,NR
-             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
-             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
-          enddo
-          do i = NR+1,NL
-             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
-          enddo
-       Enddo
-       Do j = NR+1,NL
-          do i = j,NL
-             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
-          enddo
-       Enddo
-    else ! NL < NR
-       Do j = 1,NL
-          do i = j,NL
-             Gamma_L(i,j) = zi * (Sigma_L(i,j) - DCONJG(Sigma_L(j,i)))
-             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
-          enddo
-          do i = NL+1,NR
-             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
-          enddo
-       Enddo
-       Do j = NL+1,NR
-          do i = j,NR
-             Gamma_R(i,j) = zi * (Sigma_R(i,j) - DCONJG(Sigma_R(j,i)))
-          enddo
-       Enddo
-    endif
+!   Sets the lead's coupling matrices.
+    Gamma_L = zi * (Sigma_L - DCONJG(Sigma_L))
+    Gamma_R = zi * (Sigma_R - DCONJG(Sigma_R))
 
 !   Compute elastic contribution.
     call elastic (Tel, NL, Gamma_L, NR, Gamma_R)
 
 !   Compute symmetric part of inelastic contribution.
-    call inelSymm (Tsym, ispin, NL, Gamma_L, NR, Gamma_R)
+!   OBS.: change the commmented lines for testing.
+    call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R)
+!!$    call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
 
 !   Compute asymmetric part of inelastic contribution.
-    call inelAsymm (Tasym, ispin, NL, Gamma_L, NR, Gamma_R)
+    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R)
 
-!   MPI_Reduce
-
+!   Write transmissions to outputfiles.
+    call writeTransm (Ei, Tel, Tsymm, Tasymm)
 
 !   Free memory.
     deallocate (Gamma_L)
@@ -294,10 +269,11 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  real*8 Ei                           : [optional] Energy grid point   !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 Tsym             : Symmetric part of inelastic transmission   !
+!  real*8 Tsymm            : Symmetric part of inelastic transmission   !
 !  *******************************************************************  !
-  subroutine inelSymm (Tsym, ispin, NL, Gamma_L, NR, Gamma_R)
+  subroutine inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
 
 !
 !   Modules
@@ -308,19 +284,23 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
-    real(8), intent(out) :: Tsym
+    real(8), intent(out) :: Tsymm
+    real(8), optional, intent(in) :: Ei
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
     integer :: j, w, i
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
-    complex(8), dimension(:,:), allocatable :: Aux1, Aux2, Aux3, Aux4,  &
+    complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, A
     external :: zsymm, zhemm, zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
-         '      computing inelastic current (symmetric part)... '
+         '      computing inelastic transmission (symmetric part)... '
+
+!   Initialize variable.
+    Tsymm = 0.d0
 
     do j = 1,neph ! over unit with e-ph
 
@@ -369,7 +349,7 @@ CONTAINS
                       (1.d0,0.d0), Gr_1n(j)%G, NL, Aux4,                &
                       norbDyn(j), (0.d0,0.d0), Aux5, NL)
 
-!         -- 2nd PART: 'G*Gamma_R*G^dagger*Meph*A*Meph' --
+!         -- 2nd PART: 'Gamma_R*G^dagger*Meph*A*Meph' --
 
 !         ('Aux1 = Aux2 * A') (where 'Aux2 = Gamma_R * Gr_Mn^* * Meph')
           call zhemm ('R', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
@@ -380,7 +360,7 @@ CONTAINS
                       Meph(j)%M(:,:,ispin,w), norbDyn(j),               &
                       Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
-!         -- 3rd PART: 'G^dagger*Gamma_L*(1st + 2nd PARTS)' --
+!         -- 3rd PART: 'G^dagger*Gamma_L*(1st PART + i/2*G*2nd PART)' --
 
 !         ('Aux5 = i/2 * Gr_1M * Aux2 + Aux5')
           call zgemm ('N', 'N', NL, norbDyn(j), NR, (0.d0,0.5d0),       &
@@ -410,14 +390,21 @@ CONTAINS
                       Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
-          Tsym = 0.d0
           do i = 1,norbDyn(j)
-             Tsym = Tsym + DREAL(Aux4(i,i))
+             Tsymm = Tsymm + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
-             Tsym = Tsym + DREAL(Aux7(i,i))
+             Tsymm = Tsymm + DREAL(Aux7(i,i))
           enddo
           
+!         [test] Compute the matrices multiplication with full matrices.
+          if (present(Ei)) then
+             call testInelSymm (Ei, ispin, NL, Gamma_L,              &
+                                NR, Gamma_R, j, norbDyn(j),          &
+                                Meph(j)%M(:,:,ispin,w),              &
+                                Aux4, Aux7)
+          endif
+
        enddo ! do w = 1,nModes(j)
 
 !      Free memory.
@@ -432,7 +419,6 @@ CONTAINS
        deallocate (Aux7)
 
     enddo ! do j = 1,neph
-
 
     if (IOnode) write(6,'(a)') " ok!"
 
@@ -468,9 +454,9 @@ CONTAINS
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 Tasym            : Asymmetric part of inelastic transmission  !
+!  real*8 Tasymm           : Asymmetric part of inelastic transmission  !
 !  *******************************************************************  !
-  subroutine inelAsymm (Tasym, ispin, NL, Gamma_L, NR, Gamma_R)
+  subroutine inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R)
 
 !
 !   Modules
@@ -481,20 +467,23 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
-    real(8), intent(out) :: Tasym
+    real(8), intent(out) :: Tasymm
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
-    integer :: j, w, i !, k, l
+    integer :: j, w, i
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
-    complex(8), dimension(:,:), allocatable :: Aux1, Aux2, Aux3,        &
+    complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG
     external :: zsymm, zhemm, zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
-         '      computing inelastic current (asymmetric part)... '
+         '      computing inelastic transmission (asymmetric part)... '
+
+!   Initialize variable.
+    Tasymm = 0.d0
 
     do j = 1,neph ! over unit with e-ph
 
@@ -582,12 +571,11 @@ CONTAINS
                       Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
-          Tasym = 0.d0
           do i = 1,norbDyn(j)
-             Tasym = Tasym + DREAL(Aux3(i,i))
+             Tasymm = Tasymm + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
-             Tasym = Tasym + DREAL(Aux6(i,i))
+             Tasymm = Tasymm + DREAL(Aux6(i,i))
           enddo
           
        enddo ! do w = 1,nModes(j)
@@ -604,11 +592,409 @@ CONTAINS
 
     enddo ! do j = 1,neph
 
-
     if (IOnode) write(6,'(a)') " ok!"
 
 
   end subroutine inelAsymm
+
+
+!  *******************************************************************  !
+!                              writeTransm                              !
+!  *******************************************************************  !
+!  Description: write the transmissions (components and total) to       !
+!  output file.                                                         !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode              : True if it is the I/O node             !
+!  ****************************** INPUT ******************************  !
+!  real*8 Ei               : Energy grid point                          !
+!  real*8 Tel              : Elastic transmission                       !
+!  real*8 Tsymm            : Symmetric part of inelastic transmission   !
+!  real*8 Tasymm           : Asymmetric part of inelastic transmission  !
+!  *******************************************************************  !
+  subroutine writeTransm (Ei, Tel, Tsymm, Tasymm)
+
+!
+!   Modules
+!
+    use parallel,        only: IOnode
+
+    include "mpif.h"
+
+!   Input variables.
+    real(8), intent(in) :: Ei, Tel, Tsymm, Tasymm
+
+!   Local variables.
+    real(8) :: TelTot, TsymmTot, TasymmTot
+#ifdef MPI
+    integer :: MPIerror ! Return error code in MPI routines
+#endif
+
+!   Sum the computed transmissions from all nodes.
+    call MPI_Reduce (Tel, TelTot, 1, MPI_Double_Precision,              &
+                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
+    call MPI_Reduce (Tsymm, TsymmTot, 1, MPI_Double_Precision,          &
+                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
+    call MPI_Reduce (Tasymm, TasymmTot, 1, MPI_Double_Precision,        &
+                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
+
+    if (IOnode) then
+
+       write (1102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
+              Ei, Tel, -1.d0*Tsymm, -1.d0*Tasymm, Tel+Tsymm+Tasymm
+       
+
+    endif
+
+
+  end subroutine writeTransm
+
+
+!  *******************************************************************  !
+!                             testInelSymm                              !
+!  *******************************************************************  !
+!  Description: build the full hamiltonian of the scattering region     !
+!  and compute the symmetric part of inelastic transmission in order    !
+!  compare with the transmission obtained with 'inelSymm' subroutine.   !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer ntypeunits                   : Number of unit types          !
+!  integer nunits                       : Total number of units         !
+!  integer unit_type(nunits+2)          : Units types                   !
+!  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
+!  real*8 unitshift(ntypeunits+2)       : Units shift                   !
+!  real*8 S1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits)) : Unit coupling overlap    !
+!  real*8 H1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits),nspin) : Unit coupling      !
+!                                                    Hamiltonian        !
+!  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
+!                                         [real*8] Units overlap        !
+!  TYPE(unitH)                                                          !
+!        Hunits(ntypeunits+2)%H(unitdimensions,unitdimensions,nspin) :  !
+!                                         [real*8] Units hamiltonian    !
+!  complex(8) Sigma_L(NL,NL)           : Left-lead self-energy          !
+!  complex(8) Sigma_R(NR,NR)           : Right-lead self-energy         !
+!  integer ephIdx(ntypeunits+2)        : Unit index (those with e-ph)   !
+!  integer idxF(neph)                  : First dynamic atom orbital     !
+!  integer idxL(neph)                  : Last dynamic atom orbital      !
+!  ****************************** INPUT ******************************  !
+!  real*8 Ei                           : Energy grid point              !
+!  integer ispin                       : Spin component index           !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
+!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  integer ephunit                     : E-ph unit index                !
+!  integer norbDyn                     : # of dynamic atoms orbitals    !
+!  complex(8) Meph(norbDyn,norbDyn)    : E-ph coupling matrix           !
+!  complex(8) Symm(norbDyn,norbDyn)    : Calculated transmission        !
+!  complex(8) Hc(NR,NR)                : Hermitian conjugated part      !
+!  *******************************************************************  !
+  subroutine testInelSymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,         &
+                           ephunit, norbDyn, Meph, Symm, Hc)
+
+!
+!   Modules
+!
+    use idsrdr_options,  only: ntypeunits, nunits
+    use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
+                               S1unit, H1unit, Sunits, Hunits
+    use idsrdr_leads,    only: Sigma_L, Sigma_R
+    use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
+    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
+
+!   Input variables.
+    integer, intent(in) :: ispin, NL, NR, ephunit, norbDyn
+    real(8), intent(in) :: Ei
+    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
+    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
+    complex(8), dimension (norbDyn,norbDyn), intent(in) :: Meph
+    complex(8), dimension (norbDyn,norbDyn), intent(in) :: Symm
+    complex(8), dimension (NR,NR), intent(in) :: Hc
+
+!   Local variables.
+    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt
+    integer, allocatable, dimension (:) :: ipiv
+    real(8), allocatable, dimension (:,:) :: STot
+    complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
+    complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
+                                                Gamma_LTot, Gamma_RTot, &
+                                                Aux1, Aux2, Aux3
+    external :: zsymm, zhemm, zgemm
+
+!   Get the total dimension.
+    dimTot = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
+    do I = 2,nunits+1
+       utype = unit_type(I) ! current unit type
+       dimTot = dimTot + unitdimensions(utype)
+    enddo
+
+!   Allocate and initialize matrices.
+    allocate (STot(dimTot,dimTot))
+    allocate (HTot(dimTot,dimTot))
+    allocate (GrTot(dimTot,dimTot))
+    allocate (ipiv(dimTot))
+    STot = 0.d0
+    HTot = 0.d0
+
+!   Build total hamiltonian and overlap matrices.
+    dimCpl = unitdimensions(ntypeunits) ! coupling unit dimensions
+    utype = ntypeunits+1 ! current unit type (first unit)
+    dim = unitdimensions(utype) ! current unit dimensions
+
+    STot(1:dim,1:dim) = (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+    HTot(1:dim,1:dim) = Hunits(utype)%H(:,:,ispin)
+    STot(dim-dimCpl+1:dim,dim+1:dim+dimCpl) =                           &
+         (Ei-unitshift(ntypeunits))*S1unit
+    HTot(dim-dimCpl+1:dim,dim+1:dim+dimCpl) = H1unit(:,:,ispin)
+    STot(dim+1:dim+dimCpl,dim-dimCpl+1:dim) =                           &
+         (Ei-unitshift(ntypeunits))*TRANSPOSE(S1unit)
+    HTot(dim+1:dim+dimCpl,dim-dimCpl+1:dim) =                           &
+         TRANSPOSE(H1unit(:,:,ispin))
+
+    idxAnt = dim + 1
+    do k = 2,nunits+1
+       utype = unit_type(k) ! current unit type
+       dim = unitdimensions(utype) ! current unit dimensions
+
+       STot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                  &
+            (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+       HTot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                  &
+            Hunits(utype)%H(:,:,ispin)
+       STot(idxAnt+dim-dimCpl:idxAnt+dim-1,                             &
+            idxAnt+dim:idxAnt+dim+dimCpl-1) =                           &
+            (Ei-unitshift(ntypeunits))*S1unit
+       HTot(idxAnt+dim-dimCpl:idxAnt+dim-1,                             &
+            idxAnt+dim:idxAnt+dim+dimCpl-1) = H1unit(:,:,ispin)
+       STot(idxAnt+dim:idxAnt+dim+dimCpl-1,                             &
+            idxAnt+dim-dimCpl:idxAnt+dim-1) =                           &
+            (Ei-unitshift(ntypeunits))*TRANSPOSE(S1unit)
+       HTot(idxAnt+dim:idxAnt+dim+dimCpl-1,                             &
+            idxAnt+dim-dimCpl:idxAnt+dim-1) =                           &
+            TRANSPOSE(H1unit(:,:,ispin))
+
+       idxAnt = idxAnt + dim
+
+    enddo
+
+    utype = ntypeunits + 2 ! current unit type (last unit)
+    dim = unitdimensions(utype) ! current unit dimensions
+
+    STot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
+         (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+    HTot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
+         Hunits(utype)%H(:,:,ispin)
+
+!   Green's function.
+    GrTot = STot - HTot
+    GrTot(1:NL,1:NL) = GrTot(1:NL,1:NL) - Sigma_L
+    GrTot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                      &
+         GrTot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
+    call CHECKzgetrf (dimTot, GrTot, ipiv)
+    call CHECKzgetri (dimTot, GrTot, ipiv)
+
+!   Free memory.
+    deallocate (HTot)
+    deallocate (STot)
+    deallocate (ipiv)
+
+!   Allocate full matrices.
+    allocate (Gamma_LTot(dimTot,dimTot))
+    allocate (Gamma_RTot(dimTot,dimTot))
+    allocate (MephTot(dimTot,dimTot))
+
+!   Assign the full lead's coupling matrices.
+    Gamma_LTot = (0.d0,0.d0)
+    Gamma_RTot = (0.d0,0.d0)
+    do j = 1,NL
+       do i = 1,NL
+          Gamma_LTot(i,j) = Gamma_L(i,j)
+       enddo
+    enddo
+    do j = 1,NR
+       do i = 1,NR
+          Gamma_RTot(dimTot-NR+i,dimTot-NR+j) = Gamma_R(i,j)
+       enddo
+    enddo
+
+!   Assign the full e-ph coupling matrix.
+    MephTot = (0.d0,0.d0)
+    if (ephunit == ephIdx(ntypeunits+1)) then
+       do j = idxF(ephunit),idxL(ephunit)
+          do i = idxF(ephunit),idxL(ephunit)
+             MephTot(i,j) = Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+          enddo
+       enddo
+    else if (ephunit == ephIdx(ntypeunits+2)) then
+       dim = unitdimensions(ntypeunits+2)
+       do j = idxF(ephunit),idxL(ephunit)
+          do i = idxF(ephunit),idxL(ephunit)
+             MephTot(dimTot-dim+i,dimTot-dim+j) =                       &
+                  Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+          enddo
+       enddo
+    else
+       dim = unitdimensions(ntypeunits+1)
+       do k = 2,nunits+1
+          utype = unit_type(k) ! current unit type
+          if (ephunit == ephIdx(utype)) then
+             do j = idxF(ephunit),idxL(ephunit)
+                do i = idxF(ephunit),idxL(ephunit)
+                   MephTot(dim+i,dim+j) =                               &
+                        Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+                enddo
+             enddo
+             EXIT
+          endif
+          dim = dim + unitdimensions(utype)
+       enddo
+    endif
+
+!   Allocate auxiliaries matrices.
+    allocate (Aux1(dimTot,dimTot))
+    allocate (Aux2(dimTot,dimTot))
+    allocate (Aux3(dimTot,dimTot))
+
+!   -- 1st PART: 'i/2*G*(Gamma_R*G^dagger*Meph*A*Meph - H.c.' --
+
+!   ('Aux1 = Gamma_RTot * GrTot^dagger')
+    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
+                Gamma_RTot, dimTot, GrTot, dimTot,                      &
+                (0.d0,0.d0), Aux1, dimTot)
+
+!   ('Aux2 = Aux1 * MephTot')
+    call zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
+                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
+
+!   Spectral matrix (obs.: 'GrTot' is symmetric).
+    Aux1 = zi * (GrTot - DCONJG(GrTot))
+
+!   ('Aux3 = Aux2 * Aux1')
+    call zhemm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), Aux1,            &
+                dimTot, Aux2, dimTot, (0.d0,0.d0), Aux3, dimTot)
+
+!   ('Aux1 = Aux3 * MephTot')
+    call zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
+                dimTot, Aux3, dimTot, (0.d0,0.d0), Aux1, dimTot)
+
+!   ('Aux3 = i/2 * GrTot * Aux1')
+    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (0.d0,0.5d0), GrTot,  &
+                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux3, dimTot)
+
+!   ('Aux3 = -i/2 * GrTot * Aux1^dagger + Aux3')
+    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (0.d0,-0.5d0), GrTot, &
+                dimTot, Aux1, dimTot, (1.d0,0.d0), Aux3, dimTot)
+
+!   -- 2nd PART: 'G*Meph*G*Gamma_R*G^dagger*Meph + 1st PART' --
+
+!   ('Aux1 = GrTot * Aux2')
+!                    (where 'Aux2 = Gamma_RTot * GrTot^dagger * MephTot')
+    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), GrTot,   &
+                dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
+
+!   ('Aux2 = MephTot * Aux1')
+    call zsymm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
+                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
+
+!   ('Aux3 = GrTot * Aux2 + Aux3')
+    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), GrTot,   &
+                dimTot, Aux2, dimTot, (1.d0,0.d0), Aux3, dimTot)
+
+!   -- 3rd PART: 'G^dagger*Gamma_L*(2nd PART)' --
+
+!   ('Aux2 = Gamma_LTot * Aux3')
+    call zhemm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), Gamma_LTot,      &
+                dimTot, Aux3, dimTot, (0.d0,0.d0), Aux2, dimTot)
+
+!   ('Aux1 = GrTot^dagger * Aux2')
+    call zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
+                GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
+
+    if (ephunit == ephIdx(ntypeunits+1)) then
+       do j = idxF(ephunit),idxL(ephunit)
+          do i = idxF(ephunit),idxL(ephunit)
+             write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Aux1(i,j)),                                     &
+                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),     &
+                  DIMAG(Aux1(i,j)),                                     &
+                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+             write (2222,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Aux1(i,j)) -                                    &
+                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),     &
+                  DIMAG(Aux1(i,j)) -                                    &
+                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+          enddo
+       enddo
+    else if (ephunit == ephIdx(ntypeunits+2)) then
+! OBS.: Only work if 'norbDyn' is equal to 'NR'!!
+       dim = unitdimensions(ntypeunits+2)
+       do j = idxF(ephunit),idxL(ephunit)
+          do i = idxF(ephunit),idxL(ephunit)
+             write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Aux1(dimTot-dim+i,dimTot-dim+j)),               &
+                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) +    &
+                  DREAL(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),       &
+                  DIMAG(Aux1(dimTot-dim+i,dimTot-dim+j)),               &
+                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) +    &
+                  DIMAG(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+             write (2222,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Aux1(dimTot-dim+i,dimTot-dim+j)) -              &
+                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) -    &
+                  DREAL(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),       &
+                  DIMAG(Aux1(dimTot-dim+i,dimTot-dim+j)) -              &
+                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) -    &
+                  DIMAG(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+          enddo
+       enddo
+    else
+       dim = unitdimensions(ntypeunits+1)
+       do k = 2,nunits+1
+          utype = unit_type(k) ! current unit type
+          if (ephunit == ephIdx(utype)) then
+             do j = idxF(ephunit),idxL(ephunit)
+                do i = idxF(ephunit),idxL(ephunit)
+                   write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')     &
+                      DREAL(Aux1(dim+i,dim+j)),                         &
+                      DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)), &
+                      DIMAG(Aux1(dim+i,dim+j)),                         &
+                      DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                   write (2222,'(e17.8e3,e17.8e3)')                     &
+                      DREAL(Aux1(dim+i,dim+j)) -                        &
+                      DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)), &
+                      DIMAG(Aux1(dim+i,dim+j)) -                        &
+                      DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                enddo
+             enddo
+             EXIT
+          endif
+          dim = dim + unitdimensions(utype)
+       enddo
+    endif
+          
+!   Free memory.
+    deallocate (GrTot)
+    deallocate (Gamma_LTot)
+    deallocate (Gamma_RTot)
+    deallocate (MephTot)
+    deallocate (Aux1)
+    deallocate (Aux2)
+    deallocate (Aux3)
+
+
+  end subroutine testInelSymm
 
 
 !  *******************************************************************  !
