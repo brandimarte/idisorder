@@ -216,7 +216,7 @@ CONTAINS
     call GFfull (Ei, ispin)
 
 !   [test] Compute the entire Green's function of scattering region.
-    call GFtest (Ei, ispin)
+!!$    call GFtest (Ei, ispin)
 
 
   end subroutine greenfunctions
