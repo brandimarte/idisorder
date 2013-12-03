@@ -19,7 +19,12 @@
 !  *******************************************************************  !
 !                         MODULE idsrdr_engrid                          !
 !  *******************************************************************  !
-!  Description: create and distribute to nodes the energy grid.         !
+!  Description: create and distribute to nodes the energy grid. If the  !
+!  user chooses 'NumberTransmPoints' equal 0, then only Fermi energy    !
+!  will be considered. Otherwise, other energy points will be           !
+!  considered as defined by 'TEnergI' and 'TEnergF' at input file. In   !
+!  this case, the energy points can be interpreted as a gate potential  !
+!  that shifts the Fermi energy.                                        !
 !                                                                       !
 !  Written by Pedro Brandimarte, Oct 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -91,7 +96,6 @@ CONTAINS
 #ifdef MPI
     NTenerg_div = NTenerg / Nodes
     if (NTenerg_div == 0) NTenerg_div = 1
-    NTenerg = Nodes * NTenerg_div ! redefine the total energy grid
 #else
     NTenerg_div = NTenerg
 #endif
@@ -100,8 +104,13 @@ CONTAINS
     allocate (Ei(NTenerg_div), gweight(NTenerg_div))
 
 !   Compute the energy grid.
-    call energygrid (NTenerg, NTenerg_div, TEnergI, TEnergF,            &
-                     temp, EfLead, Ei, gweight)
+    if (NTenerg == 0) then
+       Ei(NTenerg_div) = EfLead
+       gweight(NTenerg_div) = 1.d0
+    else
+       call energygrid (NTenerg, NTenerg_div, TEnergI, TEnergF,         &
+                        temp, EfLead, Ei, gweight)
+    endif
     if (IOnode) write(6,'(/,a)') 'engrid: done!'
 
 

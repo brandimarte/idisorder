@@ -212,17 +212,20 @@ CONTAINS
             'readopt: Number of transmission energy points          =', &
             NTenerg
 
-!      Initial transmission energy.
-       TEnergI = fdf_physical ('TransmInitial', -1.d0, 'Ry')
-       write (6,6)                                                      &
-            'readopt: Initial transmission energy                   =', &
-            TEnergI, ' Ry'
+       if (NTenerg > 0) then
 
-!      Final transmission energy.
-       TEnergF = fdf_physical ('TransmFinal', 1.d0, 'Ry')
-       write (6,6)                                                      &
-            'readopt: Final transmission energy                     =', &
-            TEnergF, ' Ry'
+!         Initial transmission energy.
+          TEnergI = fdf_physical ('TransmInitial', -1.d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Initial transmission energy              ' //  &
+               '     =', TEnergI, ' Ry'
+
+!         Final transmission energy.
+          TEnergF = fdf_physical ('TransmFinal', 1.d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Final transmission energy                ' //  &
+               '     =', TEnergF, ' Ry'
+       endif
 
 !      Calculate total DOS?
        calcdos = fdf_boolean ('CalculateDos', .false.)
