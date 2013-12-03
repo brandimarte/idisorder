@@ -64,6 +64,7 @@ MODULE idsrdr_options
   real(8) :: temp                ! Electronic temperature
   real(8) :: VInitial            ! Initial value of the bias potential
   real(8) :: VFinal              ! Final value of the bias potential
+  real(8) :: dV                  ! Bias potential step
 
   character(len=60) :: directory ! Working directory
   character(len=label_length), save :: slabel ! System Label
@@ -109,6 +110,7 @@ CONTAINS
 !  real*8 temp                  : Electronic temperature                !
 !  real*8 VInitial              : Initial value of the bias potential   !
 !  real*8 VFinal                : Final value of the bias potential     !
+!  real*8 dV                    : Bias potential step                   !
 !  character(60) directory      : Working directory                     !
 !  character(label_length) slabel : System Label (for output files)     !
 !  character(14) integraltype   : Integration method                    !
@@ -296,7 +298,7 @@ CONTAINS
 
        write (6,'(2a)') 'readopt: ', repeat('*', 70)
 
-    endif
+    endif ! if (IOnode)
 
 #ifdef MPI
     call MPI_Bcast (slabel, label_length, MPI_Character, 0,             &
@@ -338,6 +340,13 @@ CONTAINS
                     MPI_Comm_world, MPIerror)
 !   It is not necessary to broadcast 'nunits' here.
 #endif
+
+!   Bias potential step.
+    if(NIVP == 0) then
+       dV = 0.d0
+    else
+       dV = 1.d0 * (VFinal - VInitial) / (1.d0 * NIVP)
+    endif
 
 1   format(a,6x,l1)
 2   format(a,a)
