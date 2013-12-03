@@ -49,6 +49,7 @@ MODULE idsrdr_options
   integer :: nspin               ! Number of spin components
   integer :: ntypeunits          ! Number of unit types
   integer :: nunits              ! Total number of units
+  integer :: NIVP                ! Number of bias potential points
 
   integer :: symmetry            ! 
   integer :: norbitals           ! Number of orbitals
@@ -61,6 +62,8 @@ MODULE idsrdr_options
   real(8) :: TEnergI             ! Initial transmission energy
   real(8) :: TEnergF             ! Final transmission energy
   real(8) :: temp                ! Electronic temperature
+  real(8) :: VInitial            ! Initial value of the bias potential
+  real(8) :: VFinal              ! Final value of the bias potential
 
   character(len=60) :: directory ! Working directory
   character(len=label_length), save :: slabel ! System Label
@@ -99,10 +102,13 @@ CONTAINS
 !  integer numberrings          :                                       !
 !  integer atoms_per_ring(numberrings) :                                !
 !  integer label_length         : Length of system label                !
+!  integer NIVP                 : Number of bias potential points       !
 !  real*8 avgdist               : Average deffect distance              !
 !  real*8 TEnergI               : Initial transmission energy           !
 !  real*8 TEnergF               : Final transmission energy             !
 !  real*8 temp                  : Electronic temperature                !
+!  real*8 VInitial              : Initial value of the bias potential   !
+!  real*8 VFinal                : Final value of the bias potential     !
 !  character(60) directory      : Working directory                     !
 !  character(label_length) slabel : System Label (for output files)     !
 !  character(14) integraltype   : Integration method                    !
@@ -206,6 +212,24 @@ CONTAINS
             'readopt: Electronic temperature                        =', &
             temp, ' Ry'
 
+!      Number of bias potential points.
+       NIVP = fdf_integer ('NIVPoints', 10)
+       write(6,4)                                                       &
+            'readopt: Number of bias potential points               =', &
+            NIVP
+
+!      Initial value of the bias potential.
+       VInitial = fdf_physical ('VInitial', 0.0d0, 'Ry')
+       write(6,6)                                                       &
+            'readopt: Initial value of the bias potential           =', &
+            VInitial, ' Ry'
+
+!      Final value of the bias potential.
+       VFinal = fdf_physical ('VFinal', 0.1d0, 'Ry')
+       write(6,6)                                                       &
+            'readopt: Final value of the bias potential             =', &
+            VFinal, ' Ry'
+
 !      Number of transmission energy points.
        NTenerg = fdf_integer ('NumberTransmPoints', 100)
        write (6,4)                                                      &
@@ -289,6 +313,11 @@ CONTAINS
     call MPI_Bcast (norbitals, 1, MPI_Integer, 0,                       &
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (temp, 1, MPI_Double_Precision, 0,                   &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (NIVP, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+    call MPI_Bcast (VInitial, 1, MPI_Double_Precision, 0,               &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (VFinal, 1, MPI_Double_Precision, 0,                 &
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (NTenerg, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
     call MPI_Bcast (TEnergI, 1, MPI_Double_Precision, 0,                &
