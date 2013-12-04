@@ -37,13 +37,14 @@ PROGRAM IDISORDER
 !
   use parallel,        only: IOnode
   use idsrdr_init,     only: init
-  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
   use idsrdr_units,    only: makeunits
+  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
+  use idsrdr_hilbert,  only: hilbertinit
+  use idsrdr_spectral, only: spectralinit, spectral, writespectral
+  use idsrdr_green,    only: greeninit, greenfunctions
   use idsrdr_options,  only: nspin
   use idsrdr_leads,    only: leadsSelfEn
-  use idsrdr_green,    only: greeninit, greenfunctions
   use idsrdr_current,  only: current
-  use idsrdr_spectral, only: spectralinit, spectral, writespectral
   use idsrdr_end,      only: finalize
 
   implicit none
@@ -54,11 +55,14 @@ PROGRAM IDISORDER
 ! Proper initialization and reading of input options.
   call init
 
+! Read and build disorder units.
+  call makeunits
+
 ! Create the energy grid and distribute over the nodes.
   call engrid
 
-! Read and build disorder units.
-  call makeunits
+! Allocate the energy grid for asymmetric term integral.
+  call hilbertinit
 
 ! Initialize spectral function and DOS arrays.
   call spectralinit

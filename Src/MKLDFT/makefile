@@ -17,26 +17,20 @@
 #  distributed along with this program or at                            #
 #  <http://www.gnu.org/licenses/gpl.html>).                             #
 #  *******************************************************************  #
-#  Description: makefile for BTree module.                              #
+#  Description: makefile to build the compiler dependent MKL interface  #
+#  for computing discrete Fourier transform through the fast Fourier    #
+#  transform algorithm on distributed-memory architectures (clusters).  #
 #                                                                       #
-#  Written by Pedro Brandimarte, Sep 2013.                              #
+#  Writen by Pedro Brandimarte, Dec 2013.                               #
 #  Instituto de Fisica                                                  #
 #  Universidade de Sao Paulo                                            #
 #  e-mail: brandimarte@gmail.com                                        #
 #  ***************************** HISTORY *****************************  #
-#  Original version:    September 2013                                  #
+#  Original version:    December 2013                                   #
 #  *******************************************************************  #
 
-#  It has to be a better way to do this... I just need to do:
-#  ifort -traceback -C -fpe0 -heap-arrays 1024 \
-#	-warn unused,truncated_source,uncalled,declarations,usage -c \
-#	fortran_std.F90 fortran_init.F90 fortran_except.F90 \
-#	open_direct.F90 alloc_direct.F90 btree_generic.F90 \
-#	btree_binary.F90 btree_data.F90 btree_main.F90 \
-#	btree_insert.F90 btree_remove.F90 btree.F90
-
-# This makefile can also be used "remotely", so we allow for an external
-# specification of the (relative) location of the arch.make file.
+# Allow external specification of the (relative) location
+# of the 'arch.make' file enabling be used "remotely".
 ARCH_MAKE_DEFAULT=../arch.make
 ARCH_MAKE?=$(ARCH_MAKE_DEFAULT)
 include $(ARCH_MAKE)
@@ -47,50 +41,11 @@ INCFLAGS:=-I$(VPATH) $(INCFLAGS)
 # Remove command.
 RM = /bin/rm -f
 
-# All objects.
-OBJS =  fortran_std.o fortran_init.o fortran_except.o open_direct.o \
-	alloc_direct.o btree_generic.o btree_binary.o btree_data.o \
-	btree_main.o btree_insert.o btree_remove.o btree.o
-
 #  *******************************************************************  #
 
-fortran_std.o:
+mkl_dfti.o: 
 	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
 	$(VPATH)/$*.F90
-fortran_init.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-fortran_except.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-open_direct.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-alloc_direct.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree_generic.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree_binary.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree_data.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree_main.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree_insert.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree_remove.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-btree.o:
-	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
-#	cp *.o *.mod ..
 
 #  *******************************************************************  #
 
@@ -100,20 +55,22 @@ default: module
 
 #  *******************************************************************  #
 
-module: libbtree.a
-	cp libbtree.a ..
+module: libmkl_dfti.a
+	cp libmkl_dfti.a ..
 	@cp -p *.*d ..
+#	@cp *.mod ..
+#	@touch module_built
 
 #  *******************************************************************  #
 
 check_flags:
-	@echo "In BTree, INCFLAGS is: $(INCFLAGS)"
+	@echo "In MKLDFT, INCFLAGS is: $(INCFLAGS)"
 
 #  *******************************************************************  #
 
-libbtree.a: check_flags	$(OBJS)
-	$(AR) $(ARFLAGS_EXTRA) cru libbtree.a $(OBJS)
-	-$(RANLIB) libbtree.a
+libmkl_dfti.a: check_flags mkl_dfti.o
+	@$(AR) $(ARFLAGS_EXTRA) cru libmkl_dfti.a mkl_dfti.o
+	-$(RANLIB) libmkl_dfti.a
 
 #  *******************************************************************  #
 

@@ -222,7 +222,7 @@ CONTAINS
 !         Total number of modes.
           nModes(idx) = 3 * nDyn
 
-!         Allocates memory.
+!         Allocate memory.
           allocate (freq(idx)%F(nModes(idx)))
           allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
                                 nspin,nModes(idx)))
@@ -521,7 +521,7 @@ CONTAINS
   subroutine EPHfree
 
 !   Local variables.
-    integer :: I
+    integer :: i
 
 !   Free memory.
     if (eph) then
@@ -531,9 +531,9 @@ CONTAINS
        deallocate (idxL)
        deallocate (ephIdx)
 !      First deallocates pointed arrays and matrices.
-       do I = 1,neph
-          deallocate (freq(I)%F)
-          deallocate (Meph(I)%M)
+       do i = 1,neph
+          deallocate (freq(i)%F)
+          deallocate (Meph(i)%M)
        enddo
        deallocate (freq)
        deallocate (Meph)

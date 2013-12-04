@@ -63,9 +63,10 @@ what:
 OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o \
 	zhsl.o zhsunits.o gauleg.o hsl.o hsunits.o random_d.o  \
 	identify.o diagonal_alex.o decimate_leads.o leads_complex.o \
-	idsrdr_check.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o \
-	idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o idsrdr_green.o \
-	idsrdr_spectral.o idsrdr_current.o idsrdr_end.o idisorder.o
+	idsrdr_check.o idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o \
+	idsrdr_init.o idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o \
+	idsrdr_green.o idsrdr_spectral.o idsrdr_hilbert.o \
+	idsrdr_current.o idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -94,9 +95,19 @@ $(BTREE):
 
 #  *******************************************************************  #
 
-idisorder: what $(MPI_INTERFACE) $(FDF) $(BTREE) $(COMP_LIBS) $(OBJS) 
-	$(FC) -o $(EXEC) $(LDFLAGS) $(OBJS) $(FDF) $(MPI_INTERFACE) \
-	$(COMP_LIBS) $(LIBS)
+# Creates MKL_DFTI modules:
+MKLDFT=libmkl_dfti.a
+$(MKLDFT):
+	@cp -f $(MKL)/include/mkl_dfti.f90 $(VPATH)/MKLDFT
+	@chmod a+x $(VPATH)/MKLDFT/*
+	@chmod u+w $(VPATH)/MKLDFT/*
+	(cd MKLDFT ; $(MAKE) "VPATH=$(VPATH)/MKLDFT" module)
+
+#  *******************************************************************  #
+
+idisorder: what $(FDF) $(BTREE) $(MKLDFT) $(COMP_LIBS) $(OBJS) 
+	$(FC) -o $(EXEC) $(LDFLAGS) $(OBJS) $(FDF) $(BTREE) $(MKLDFT) \
+	    $(COMP_LIBS) $(LIBS)
 
 #  *******************************************************************  #
 
@@ -105,6 +116,7 @@ clean:
 	$(RM) i-disorder* *.o *.a *.mod *.h *~ \#~ .\#*
 	(cd fdf ; $(MAKE) clean)
 	(cd BTree ; $(MAKE) clean)
+	@if [ -d MKLDFT ] ; then (cd MKLDFT && $(MAKE) clean ) ; fi
 #	@if [ -d MPI ] ; then (cd MPI && $(MAKE) clean ) ; fi
 
 
@@ -119,19 +131,23 @@ clean:
 #hsunits.o : 
 #zhsl.o : 
 #identify.o : 
-#idsorder.o : parallel.o idsrdr_init.o idsrdr_engrid.o idsrdr_units.o \
-#	idsrdr_options.o idsrdr_leads.o idsrdr_green.o \
-#	idsrdr_spectral.o idsrdr_current.o idsrdr_end.o
+#idsorder.o : parallel.o idsrdr_init.o idsrdr_units.o idsrdr_engrid.o \
+#	idsrdr_spectral.o idsrdr_green.o \
+#	idsrdr_options.o idsrdr_leads.o idsrdr_current.o idsrdr_end.o
 #idsrdr_check.o : 
 #idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o \
-#	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o
+#	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o \
+#	idsrdr_hilbert.o
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
-#	paste.o timer.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o
+#	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o \
+#	idsrdr_hilbert.o
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o \
 #	idsrdr_leads.o idsrdr_check.o
-#idsrdr_init.o : parallel.o timer.o io.o idsrdr_options.o idsrdr_leads.o
+#idsrdr_hilbert.o : parallel.o idsrdr_options.o idsrdr_ephcoupl.o \
+#	idsrdr_recipes.o
+#idsrdr_init.o : parallel.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o \
 #	idsrdr_options.o decimate_leads.o leads_complex.o idsrdr_check.o
 #idsrdr_options.o : parallel.o

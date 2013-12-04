@@ -50,10 +50,11 @@ MODULE idsrdr_options
   integer :: ntypeunits          ! Number of unit types
   integer :: nunits              ! Total number of units
   integer :: NIVP                ! Number of bias potential points
-
   integer :: symmetry            ! 
   integer :: norbitals           ! Number of orbitals
   integer :: numberrings         ! 
+  integer :: nAsymmPts           ! Number of energy grid points
+                                 ! for asymmetric term integral
   integer, parameter :: label_length = 60 ! Length of system label
 
   integer, allocatable, dimension (:) :: atoms_per_ring ! 
@@ -90,6 +91,7 @@ CONTAINS
 !  Original version:    September 2013                                  !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode              : True if it is the I/O node             !
+!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  ***************************** OUTPUT ******************************  !
 !  logical calcdos              : Calculate total DOS?                  !
 !  logical readunitstf          : Read 'UnitIndex' block?               !
@@ -98,12 +100,14 @@ CONTAINS
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
 !  integer nunits               : Total number of units                 !
+!  integer NIVP                 : Number of bias potential points       !
 !  integer symmetry             :                                       !
 !  integer norbitals            : Number of orbitals                    !
 !  integer numberrings          :                                       !
+!  integer nAsymmPts            : Number of energy grid points          !
+!                                 for asymmetric term integral          !
 !  integer atoms_per_ring(numberrings) :                                !
 !  integer label_length         : Length of system label                !
-!  integer NIVP                 : Number of bias potential points       !
 !  real*8 avgdist               : Average deffect distance              !
 !  real*8 TEnergI               : Initial transmission energy           !
 !  real*8 TEnergF               : Final transmission energy             !
@@ -120,7 +124,7 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: IOnode
+    use parallel,        only: IOnode, Nodes
 
 #ifdef MPI
     include "mpif.h"
@@ -186,7 +190,7 @@ CONTAINS
        if (readunitstf) then
           if (nunits == 0) then
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_world, 1, MPIerror)
 #else
              stop 'readopt: ERROR: Number of units is zero!'
 #endif
@@ -260,7 +264,7 @@ CONTAINS
             calcdos
 
 !      Number of rings (?).
-       numberrings = fdf_integer('NumberOfrings',1)
+       numberrings = fdf_integer('NumberOfrings', 1)
        write (6,4)                                                      &
             'readopt: Number of rings                               =', &
             numberrings
@@ -286,7 +290,7 @@ CONTAINS
        endif
 
 !      Working directory.
-       directory = fdf_string ('Directory',' ')
+       directory = fdf_string ('Directory', ' ')
        write (6,2) 'readopt: Working directory                    ' //  &
             '         =  ', directory	
 
@@ -295,6 +299,16 @@ CONTAINS
        integraltype = fdf_string ('TypeOfIntegral', 'Sympson')
        write (6,2) 'readopt: Integration method                   ' //  &
             '         =  ', integraltype
+
+!      Number of energy grid points for asymmetric term integral.
+       nAsymmPts = fdf_integer('AsymmGridPts', 1000)
+       if (nAsymmPts == 0) nAsymmPts = 1
+       do while (MOD(nAsymmPts,Nodes) /= 0)
+          nAsymmPts = nAsymmPts + 1
+       enddo
+       write (6,4)                                                      &
+            'readopt: Number of points at asymmetric term integral  =', &
+            nAsymmPts
 
        write (6,'(2a)') 'readopt: ', repeat('*', 70)
 
@@ -335,6 +349,8 @@ CONTAINS
     call MPI_Bcast (directory, 60, MPI_Character, 0,                    &
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (integraltype, 14, MPI_Character, 0,                 &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (nAsymmPts, 1, MPI_Integer, 0,                       &
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (readunitstf, 1, MPI_Logical, 0,                     &
                     MPI_Comm_world, MPIerror)

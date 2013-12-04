@@ -105,6 +105,8 @@ CONTAINS
 
 !   Compute the energy grid.
     if (NTenerg == 0) then
+       TEnergI = EfLead
+       TEnergF = EfLead
        Ei(NTenerg_div) = EfLead
        gweight(NTenerg_div) = 1.d0
     else
@@ -161,7 +163,6 @@ CONTAINS
     integer, intent(in) :: NTenerg, NTenerg_div
     real(8), intent(in) :: TenergI, TenergF, temp, EfLead
     real(8), dimension (NTenerg_div), intent(out) :: Ei, gweight
-
 
 !   Local variables.
     integer :: I

@@ -42,12 +42,13 @@ MODULE idsrdr_current
   use idsrdr_options,  only: 
   use idsrdr_units,    only: 
   use idsrdr_check,    only: 
+  use idsrdr_hilbert,  only: 
 
   implicit none
   
   PUBLIC  :: current
   PRIVATE :: elastic, transmission, inelSymm, inelAsymm, writeTransm,   &
-             testInelSymm, testInelAsymm
+             testInelSymm, testInelAsymm, asymmPre
 
 
 CONTAINS
@@ -107,9 +108,13 @@ CONTAINS
     call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R)
 !!$    call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
 
+!   Compute asymmetric pre-factors.
+    call asymmPre (Ei)
+
 !   Compute asymmetric part of inelastic contribution.
-!!$    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R)
-    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+!   OBS.: change the commmented lines for testing.
+    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R)
+!!$    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
 
 !   Write transmissions to outputfiles.
     call writeTransm (Ei, Tel, Tsymm, Tasymm)
@@ -424,6 +429,38 @@ CONTAINS
 
 
   end subroutine inelSymm
+
+
+!  *******************************************************************  !
+!                               asymmPre                                !
+!  *******************************************************************  !
+!  Description: compute pre-factors from the asymmetric part of         !
+!  inelastic current.                                                   !
+!                                                                       !
+!  Written by Pedro Brandimarte, Dec 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    December 2013                                   !
+!  ****************************** INPUT ******************************  !
+!  real*8 Ei                           : Energy grid point              !
+!  *******************************************************************  !
+  subroutine asymmPre (Ei)
+
+!
+!   Modules
+!
+    use idsrdr_hilbert,  only: hilbert
+
+!   Input variables.
+    real(8), intent(in) :: Ei
+
+!   Compute the pre-factor (with Hilbert transform).
+    call hilbert (Ei)
+
+
+  end subroutine asymmPre
 
 
 !  *******************************************************************  !

@@ -43,6 +43,7 @@ MODULE idsrdr_end
   use idsrdr_ephcoupl, only: 
   use idsrdr_green,    only: 
   use idsrdr_spectral, only: 
+  use idsrdr_hilbert,  only: 
 
   implicit none
 
@@ -84,6 +85,7 @@ CONTAINS
     use idsrdr_ephcoupl, only: EPHfree
     use idsrdr_green,    only: freegreen
     use idsrdr_spectral, only: freespectral
+    use idsrdr_hilbert,  only: freehilb
 
 #ifdef MPI
     include "mpif.h"
@@ -92,7 +94,6 @@ CONTAINS
 !   Local variables.
     real(8) :: time_end
     character(len=label_length+4), external :: paste
-    external :: timer
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
@@ -112,6 +113,7 @@ CONTAINS
     call EPHfree
     call freegreen
     call freespectral
+    call freehilb
 
     if (IOnode) then
 
