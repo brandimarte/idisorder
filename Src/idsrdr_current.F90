@@ -42,14 +42,24 @@ MODULE idsrdr_current
   use idsrdr_options,  only: 
   use idsrdr_units,    only: 
   use idsrdr_check,    only: 
+  use idsrdr_recipes,  only: 
+  use idsrdr_distrib,  only: 
   use idsrdr_hilbert,  only: 
 
   implicit none
   
   PUBLIC  :: current
   PRIVATE :: elastic, transmission, inelSymm, inelAsymm, writeTransm,   &
-             testInelSymm, testInelAsymm, asymmPre
+             testInelSymm, testInelAsymm, asymmPre, kbTol, eoverh
 
+  real(8), parameter :: kbTol = 18.d0 ! tolerance value for temperature
+
+! Constants. (physical constants from CODATA 2013)
+!!$  real(8), parameter :: e   = 1.602176565D-19 ! C
+!!$  real(8), parameter :: h   = 4.135667516D-15 ! eV*s
+!!$  real(8), parameter :: Rhc = 13.60569253D0 ! eV
+  real(8), parameter :: eoverh = 1.602176565D-4 * 13.60569253D0 /      &
+                                 4.135667516D0
 
 CONTAINS
 
@@ -67,27 +77,34 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  integer NL                          : Number of left lead orbitals   !
-!  integer NR                          : Number of right lead orbitals  !
-!  complex(8) Sigma_L(NL,NL)           : Left-lead self-energy          !
-!  complex(8) Sigma_R(NR,NR)           : Right-lead self-energy         !
+!  logical IOnode               : True if it is the I/O node            !
+!  integer NL                   : Number of left lead orbitals          !
+!  integer NR                   : Number of right lead orbitals         !
+!  complex(8) Sigma_L(NL,NL)    : Left-lead self-energy                 !
+!  complex(8) Sigma_R(NR,NR)    : Right-lead self-energy                !
+!  integer NIVP                 : Number of bias potential points       !
+!  real*8 VInitial              : Initial value of the bias potential   !
+!  real*8 dV                    : Bias potential step                   !
 !  ****************************** INPUT ******************************  !
-!  real*8 Ei                           : Energy grid point              !
-!  integer ispin                       : Spin component index           !
+!  real*8 Ei                    : Energy grid point                     !
+!  integer ispin                : Spin component index                  !
 !  *******************************************************************  !
   subroutine current (Ei, ispin)
 
 !
 !   Modules
 !
+    use parallel,        only: IOnode
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
+    use idsrdr_options,  only: NIVP, VInitial, dV
 
 !   Input variables.
     integer, intent(in) :: ispin
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    real(8) :: Tel, Tsymm, Tasymm
+    integer :: i
+    real(8) :: Tel, Tsymm, Tasymm, Vbias
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L
     complex(8), allocatable, dimension (:,:) :: Gamma_R
@@ -100,24 +117,33 @@ CONTAINS
     Gamma_L = zi * (Sigma_L - DCONJG(Sigma_L))
     Gamma_R = zi * (Sigma_R - DCONJG(Sigma_R))
 
-!   Compute elastic contribution.
-    call elastic (Tel, NL, Gamma_L, NR, Gamma_R)
+    if (IOnode) write (6,'(a)', advance='no')                           &
+         '      computing current... '
 
-!   Compute symmetric part of inelastic contribution.
-!   OBS.: change the commmented lines for testing.
-    call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R)
-!!$    call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+    Vbias = VInitial
+    do i = 1,NIVP ! over bias points
 
-!   Compute asymmetric pre-factors.
-    call asymmPre (Ei)
+!      Compute elastic contribution.
+       call elastic (Tel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
-!   Compute asymmetric part of inelastic contribution.
-!   OBS.: change the commmented lines for testing.
-    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R)
-!!$    call inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+!      Compute symmetric part of inelastic contribution.
+!      OBS.: exchange commmented lines for testing.
+       call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+!!$       call inelSymm (Tsymm, ispin, NL, Gamma_L,                     &
+!!$                      NR, Gamma_R, Vbias, Ei)
 
-!   Write transmissions to outputfiles.
-    call writeTransm (Ei, Tel, Tsymm, Tasymm)
+!      Compute asymmetric part of inelastic contribution.
+       call inelAsymm (Tasymm, ispin, NL, Gamma_L,                      &
+                       NR, Gamma_R, Vbias, Ei)
+
+!      Write transmissions to outputfiles.
+       call writeTransm (Ei, Tel, Tsymm, Tasymm)
+
+       Vbias = Vbias + dV
+
+    enddo
+
+    if (IOnode) write(6,'(a)') " ok!"
 
 !   Free memory.
     deallocate (Gamma_L)
@@ -139,39 +165,34 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode                      : True if it is the I/O node     !
 !  complex(8) Gr_1M(NL,NR)             : G^r_{1,M}                      !
 !  ****************************** INPUT ******************************  !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  real*8 Vbias                        : Bias potential                 !
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Tel                          : Elastic conductance            !
 !  *******************************************************************  !
-  subroutine elastic (Tel, NL, Gamma_L, NR, Gamma_R)
+  subroutine elastic (Tel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
 !
 !   Modules
 !
-    use parallel,        only: IOnode
     use idsrdr_green,    only: Gr_1M
 
 !   Input variables.
     integer, intent(in) :: NL, NR
+    real(8), intent(in) :: Vbias
     real(8), intent(out) :: Tel
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
-!   Local variables.
-
-    if (IOnode) write (6,'(a)', advance='no')                           &
-         '      computing elastic current... '
-
 !   Calculates the transmission coefficient.
     call transmission (NL, Gamma_L, NR, Gamma_R, Gr_1M, Tel)
 
-    if (IOnode) write(6,'(a)') " ok!"
+    Tel = eoverh * Vbias * Tel
 
 
   end subroutine elastic
@@ -258,52 +279,55 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode              : True if it is the I/O node             !
 !  integer neph                : Number of units with e-ph interaction  !
 !  integer nModes(neph)        : Number of vibrational modes            !
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
+!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
+!                                       frequencies                     !
 !  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{M,n}  !
 !  TYPE(green) Gr_1n(neph)%G(NL,unitdimensions) :  [complex] G^r_{1,n}  !
 !  TYPE(green) Gr_nn(neph)%G(unitdimensions,unitdimensions) :           !
 !                                                  [complex] G^r_{n,n}  !
 !  complex(8) Gr_1M(NL,NR)                      : G^r_{1,M}             !
+!  real*8 temp                 : Electronic temperature                 !
 !  ****************************** INPUT ******************************  !
 !  integer ispin                       : Spin component index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : [optional] Energy grid point   !
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Tsymm            : Symmetric part of inelastic transmission   !
 !  *******************************************************************  !
-  subroutine inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+  subroutine inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias, Ei)
 
 !
 !   Modules
 !
-    use parallel,        only: IOnode
-    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph
+    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph, freq
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_nn, Gr_1M
+    use idsrdr_options,  only: temp
+    use idsrdr_distrib,  only: BoseEinstein
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
     real(8), intent(out) :: Tsymm
+    real(8), intent(in) :: Vbias
     real(8), optional, intent(in) :: Ei
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
     integer :: j, w, i
+    real(8) :: foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, A
     external :: zsymm, zhemm, zgemm
-
-    if (IOnode) write (6,'(a)', advance='no')                           &
-         '      computing inelastic transmission (symmetric part)... '
 
 !   Initialize variable.
     Tsymm = 0.d0
@@ -410,6 +434,13 @@ CONTAINS
                                 Aux4, Aux7)
           endif
 
+          foo = 2.d0 * Vbias * BoseEinstein (freq(j)%F(w), temp)
+          foo = foo + (freq(j)%F(w) - Vbias)                            &
+                * BoseEinstein (freq(j)%F(w) - Vbias, temp)
+          foo = foo - (freq(j)%F(w) + Vbias)                            &
+                * BoseEinstein (freq(j)%F(w) + Vbias, temp)
+          foo = eoverh * foo
+
        enddo ! do w = 1,nModes(j)
 
 !      Free memory.
@@ -424,8 +455,6 @@ CONTAINS
        deallocate (Aux7)
 
     enddo ! do j = 1,neph
-
-    if (IOnode) write(6,'(a)') " ok!"
 
 
   end subroutine inelSymm
@@ -443,24 +472,70 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    December 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nAsymmPts           : Number of energy grid points           !
+!                                for asymmetric term integral           !
+!  real*8 temp                 : Electronic temperature                 !
 !  ****************************** INPUT ******************************  !
 !  real*8 Ei                           : Energy grid point              !
+!  real*8 freq                         : Vibrational mode frequency     !
+!  real*8 Vbias                        : Bias potential                 !
 !  *******************************************************************  !
-  subroutine asymmPre (Ei)
+  real(8) function asymmPre (Ei, freq, VBias)
 
 !
 !   Modules
 !
+    use idsrdr_options,  only: nAsymmPts, temp
+    use idsrdr_recipes,  only: RECPSsimpson
+    use idsrdr_distrib,  only: FermiDirac
     use idsrdr_hilbert,  only: hilbert
 
 !   Input variables.
-    real(8), intent(in) :: Ei
+    real(8), intent(in) :: Ei, freq, Vbias
+
+!   Local variables.
+    integer :: k
+    real(8) :: enI, enF
+    real(8), allocatable, dimension (:) :: En ! energy grid points
+    real(8), allocatable, dimension (:) :: We ! energy grid weights
+    real(8), allocatable, dimension (:) :: aux
+
+!   Set lower and upper limit of energy integration.
+    enI = Ei - freq - kbTol*temp
+    enF = Ei + freq + kbTol*temp + Vbias
+
+!   Allocate the energy grid points and weights arrays.
+    allocate (En(nAsymmPts), We(nAsymmPts))
+
+!   Compute energy points and weights on an equidistant grid.
+    call RECPSsimpson (enI, enF, nAsymmPts, En, We)
+
+!   Allocate auxiliary array.
+    allocate (aux(2*nAsymmPts))
+
+!   ('aux = f(E-w) - f(E+w)')
+    aux = 0.d0
+    do k = 1,nAsymmPts
+       aux(k) = FermiDirac (En(k), -freq, temp)                         &
+                - FermiDirac (En(k), freq, temp)
+    enddo
 
 !   Compute the pre-factor (with Hilbert transform).
-    call hilbert (Ei)
+    call hilbert (nAsymmPts, aux)
 
+    asymmPre = 0.d0
+    do k = 1,nAsymmPts
+       asymmPre = asymmPre + (FermiDirac (En(k), 0.d0, temp)            &
+                  - FermiDirac (En(k), Vbias, temp)) * We(k) * aux(k)
+    enddo
+    asymmPre = eoverh * asymmPre / 2.d0
 
-  end subroutine asymmPre
+!   Free memory.
+    deallocate (En, We)
+    deallocate (aux)
+
+  end function asymmPre
 
 
 !  *******************************************************************  !
@@ -475,12 +550,13 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode              : True if it is the I/O node             !
 !  integer neph                : Number of units with e-ph interaction  !
 !  integer nModes(neph)        : Number of vibrational modes            !
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
+!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
+!                                       frequencies                     !
 !  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{M,n}  !
 !  TYPE(green) Gr_1n(neph)%G(NL,unitdimensions) :  [complex] G^r_{1,n}  !
 !  complex(8) Gr_1M(NL,NR)                      : G^r_{1,M}             !
@@ -490,23 +566,24 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
-!  real*8 Ei                           : [optional] Energy grid point   !
+!  real*8 Vbias                        : Bias potential                 !
+!  real*8 Ei                           : Energy grid point              !
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Tasymm           : Asymmetric part of inelastic transmission  !
 !  *******************************************************************  !
-  subroutine inelAsymm (Tasymm, ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+  subroutine inelAsymm (Tasymm, ispin, NL, Gamma_L,                     &
+                        NR, Gamma_R, Vbias, Ei)
 
 !
 !   Modules
 !
-    use parallel,        only: IOnode
-    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph
+    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph, freq
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_1M
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
+    real(8), intent(in) :: Ei, Vbias
     real(8), intent(out) :: Tasymm
-    real(8), optional, intent(in) :: Ei
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
@@ -517,9 +594,6 @@ CONTAINS
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG
     external :: zsymm, zhemm, zgemm
-
-    if (IOnode) write (6,'(a)', advance='no')                           &
-         '      computing inelastic transmission (asymmetric part)... '
 
 !   Initialize variable.
     Tasymm = 0.d0
@@ -618,11 +692,13 @@ CONTAINS
           enddo
 
 !         [test] Compute the matrices multiplication with full matrices.
-          if (present(Ei)) then
-             call testInelAsymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,   &
-                                 j, norbDyn(j), Meph(j)%M(:,:,ispin,w), &
-                                 Aux3, Aux6)
-          endif
+!         OBS.: uncommment for testing
+!!$          call testInelAsymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,   &
+!!$                              j, norbDyn(j), Meph(j)%M(:,:,ispin,w), &
+!!$                              Aux3, Aux6)
+
+!         Compute asymmetric pre-factor.
+          Tasymm = asymmPre (Ei, freq(j)%F(w), Vbias) * Tasymm
           
        enddo ! do w = 1,nModes(j)
 
@@ -637,8 +713,6 @@ CONTAINS
        deallocate (Aux6)
 
     enddo ! do j = 1,neph
-
-    if (IOnode) write(6,'(a)') " ok!"
 
 
   end subroutine inelAsymm

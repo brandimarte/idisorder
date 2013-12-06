@@ -65,8 +65,8 @@ OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o \
 	identify.o diagonal_alex.o decimate_leads.o leads_complex.o \
 	idsrdr_check.o idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o \
 	idsrdr_init.o idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o \
-	idsrdr_green.o idsrdr_spectral.o idsrdr_hilbert.o \
-	idsrdr_current.o idsrdr_end.o idisorder.o
+	idsrdr_distrib.o idsrdr_green.o idsrdr_spectral.o \
+	idsrdr_hilbert.o idsrdr_current.o idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -103,6 +103,10 @@ $(MKLDFT):
 	@chmod u+w $(VPATH)/MKLDFT/*
 	(cd MKLDFT ; $(MAKE) "VPATH=$(VPATH)/MKLDFT" module)
 
+# Routines using fdf calls.
+idsrdr_hilbert.o : $(MKLDFT)
+
+
 #  *******************************************************************  #
 
 idisorder: what $(FDF) $(BTREE) $(MKLDFT) $(COMP_LIBS) $(OBJS) 
@@ -137,7 +141,8 @@ clean:
 #idsrdr_check.o : 
 #idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o \
 #	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o \
-#	idsrdr_hilbert.o
+#	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o
+#idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o \
 #	idsrdr_hilbert.o
@@ -145,8 +150,7 @@ clean:
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o \
 #	idsrdr_leads.o idsrdr_check.o
-#idsrdr_hilbert.o : parallel.o idsrdr_options.o idsrdr_ephcoupl.o \
-#	idsrdr_recipes.o
+#idsrdr_hilbert.o : parallel.o idsrdr_options.o
 #idsrdr_init.o : parallel.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o \
 #	idsrdr_options.o decimate_leads.o leads_complex.o idsrdr_check.o

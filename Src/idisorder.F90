@@ -39,7 +39,7 @@ PROGRAM IDISORDER
   use idsrdr_init,     only: init
   use idsrdr_units,    only: makeunits
   use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
-  use idsrdr_hilbert,  only: hilbertinit
+  use idsrdr_hilbert,  only: hilbertkernel
   use idsrdr_spectral, only: spectralinit, spectral, writespectral
   use idsrdr_green,    only: greeninit, greenfunctions
   use idsrdr_options,  only: nspin
@@ -61,8 +61,8 @@ PROGRAM IDISORDER
 ! Create the energy grid and distribute over the nodes.
   call engrid
 
-! Allocate the energy grid for asymmetric term integral.
-  call hilbertinit
+! Compute interpolation kernel function.
+  call hilbertkernel
 
 ! Initialize spectral function and DOS arrays.
   call spectralinit
