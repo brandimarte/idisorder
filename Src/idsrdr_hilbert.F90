@@ -44,7 +44,7 @@ MODULE idsrdr_hilbert
   PUBLIC  :: hilbertkernel, hilbert, freehilb
   PRIVATE :: ker
 
-  real(8), allocatable, dimension (:) :: ker ! Hilbert transform kernel
+  complex(8), allocatable, dimension (:) :: ker ! kernel function
 
 
 CONTAINS
@@ -70,7 +70,7 @@ CONTAINS
 !  integer nAsymmPts           : Number of energy grid points           !
 !                                for asymmetric term integral           !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 ker(nAsymmPts)       : Kernel function                        !
+!  complex*8 ker(2*nAsymmPts)  : Kernel function                        !
 !  *******************************************************************  !
   subroutine hilbertkernel
 
@@ -113,13 +113,13 @@ CONTAINS
        ker(1) = 0.d0
        ker(nAsymmPts+1) = 0.d0
        do i = 1,nAsymmPts-1
-          ker(i+1) = foo(i+2) - 2.d0*foo(i+1) + foo(i)
+          ker(i+1) = DCMPLX(foo(i+2) - 2.d0*foo(i+1) + foo(i))
           ker(2*nAsymmPts-i+1) = - ker(i+1)
        enddo
 
 !      Allocate and initialize the descriptor data structure.
        MKLstatus = DftiCreateDescriptor (MKLdesc, DFTI_DOUBLE,          &
-                                         DFTI_REAL, 1, 2*nAsymmPts)
+                                         DFTI_COMPLEX, 1, 2*nAsymmPts)
 
 !      Complete initialization of the previously created descriptor.
        MKLstatus = DftiCommitDescriptor (MKLdesc)
@@ -137,7 +137,7 @@ CONTAINS
 
 !   Distribute 'ker' to all nodes.
 #ifdef MPI
-    call MPI_Bcast (ker, 2*nAsymmPts, MPI_Double_Precision, 0,          &
+    call MPI_Bcast (ker, 2*nAsymmPts, MPI_Double_Complex, 0,            &
                     MPI_Comm_world, MPIerror)
 #endif
 
@@ -159,14 +159,14 @@ CONTAINS
 !  ****************************** INPUT ******************************  !
 !  integer nAsymmPts           : Number of energy grid points           !
 !                                for asymmetric term integral           !
-!  real*8 aux(2*nAsymmPts)     : Array where the Hibert transform will  !
+!  complex*8 aux(2*nAsymmPts)  : Array where the Hibert transform will  !
 !                                be performed                           !
 !  *******************************************************************  !
   subroutine hilbert (nAsymmPts, aux)
 
 !   Input variables.
     integer, intent(in) :: nAsymmPts
-    real(8), dimension (2*nAsymmPts), intent(inout) :: aux
+    complex(8), dimension (2*nAsymmPts), intent(inout) :: aux
 
 !   Local variables.
     integer :: i
@@ -178,7 +178,7 @@ CONTAINS
 
 !   Allocate and initialize the descriptor data structure.
     MKLstatus = DftiCreateDescriptor (MKLdesc, DFTI_DOUBLE,             &
-                                      DFTI_REAL, 1, 2*nAsymmPts)
+                                      DFTI_COMPLEX, 1, 2*nAsymmPts)
 
 !   Set the scale factor for the backward transform
 !   (to make it really the inverse of the forward).

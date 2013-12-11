@@ -104,7 +104,7 @@ CONTAINS
 
 !   Local variables.
     integer :: i
-    real(8) :: Tel, Tsymm, Tasymm, Vbias
+    real(8) :: Iel, Isymm, Iasymm, Vbias
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L
     complex(8), allocatable, dimension (:,:) :: Gamma_R
@@ -124,20 +124,20 @@ CONTAINS
     do i = 1,NIVP ! over bias points
 
 !      Compute elastic contribution.
-       call elastic (Tel, NL, Gamma_L, NR, Gamma_R, Vbias)
+       call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
 !      Compute symmetric part of inelastic contribution.
 !      OBS.: exchange commmented lines for testing.
-       call inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
-!!$       call inelSymm (Tsymm, ispin, NL, Gamma_L,                     &
+       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+!!$       call inelSymm (Isymm, ispin, NL, Gamma_L,                     &
 !!$                      NR, Gamma_R, Vbias, Ei)
 
 !      Compute asymmetric part of inelastic contribution.
-       call inelAsymm (Tasymm, ispin, NL, Gamma_L,                      &
+       call inelAsymm (Iasymm, ispin, NL, Gamma_L,                      &
                        NR, Gamma_R, Vbias, Ei)
 
 !      Write transmissions to outputfiles.
-       call writeTransm (Ei, Tel, Tsymm, Tasymm)
+!!$       call writeTransm (Ei, Iel, Isymm, Iasymm)
 
        Vbias = Vbias + dV
 
@@ -156,7 +156,7 @@ CONTAINS
 !  *******************************************************************  !
 !                                elastic                                !
 !  *******************************************************************  !
-!  Description: compute the elastic transmission.                       !
+!  Description: compute the elastic component of the current.           !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -173,9 +173,9 @@ CONTAINS
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  real*8 Vbias                        : Bias potential                 !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 Tel                          : Elastic conductance            !
+!  real*8 Iel                          : Elastic current                !
 !  *******************************************************************  !
-  subroutine elastic (Tel, NL, Gamma_L, NR, Gamma_R, Vbias)
+  subroutine elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
 !
 !   Modules
@@ -185,14 +185,14 @@ CONTAINS
 !   Input variables.
     integer, intent(in) :: NL, NR
     real(8), intent(in) :: Vbias
-    real(8), intent(out) :: Tel
+    real(8), intent(out) :: Iel
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Calculates the transmission coefficient.
-    call transmission (NL, Gamma_L, NR, Gamma_R, Gr_1M, Tel)
+    call transmission (NL, Gamma_L, NR, Gamma_R, Gr_1M, Iel)
 
-    Tel = eoverh * Vbias * Tel
+    Iel = eoverh * Vbias * Iel
 
 
   end subroutine elastic
@@ -301,9 +301,9 @@ CONTAINS
 !  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : [optional] Energy grid point   !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 Tsymm            : Symmetric part of inelastic transmission   !
+!  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
-  subroutine inelSymm (Tsymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias, Ei)
+  subroutine inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias, Ei)
 
 !
 !   Modules
@@ -315,7 +315,7 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
-    real(8), intent(out) :: Tsymm
+    real(8), intent(out) :: Isymm
     real(8), intent(in) :: Vbias
     real(8), optional, intent(in) :: Ei
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
@@ -330,7 +330,7 @@ CONTAINS
     external :: zsymm, zhemm, zgemm
 
 !   Initialize variable.
-    Tsymm = 0.d0
+    Isymm = 0.d0
 
     do j = 1,neph ! over unit with e-ph
 
@@ -421,10 +421,10 @@ CONTAINS
 
 !         Compute the trace.
           do i = 1,norbDyn(j)
-             Tsymm = Tsymm + DREAL(Aux4(i,i))
+             Isymm = Isymm + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
-             Tsymm = Tsymm + DREAL(Aux7(i,i))
+             Isymm = Isymm + DREAL(Aux7(i,i))
           enddo
           
 !         [test] Compute the matrices multiplication with full matrices.
@@ -434,12 +434,13 @@ CONTAINS
                                 Aux4, Aux7)
           endif
 
+!         Compute symmetric pre-factor.
           foo = 2.d0 * Vbias * BoseEinstein (freq(j)%F(w), temp)
           foo = foo + (freq(j)%F(w) - Vbias)                            &
                 * BoseEinstein (freq(j)%F(w) - Vbias, temp)
           foo = foo - (freq(j)%F(w) + Vbias)                            &
                 * BoseEinstein (freq(j)%F(w) + Vbias, temp)
-          foo = eoverh * foo
+          Isymm = eoverh * foo * Isymm
 
        enddo ! do w = 1,nModes(j)
 
@@ -490,6 +491,7 @@ CONTAINS
     use idsrdr_recipes,  only: RECPSsimpson
     use idsrdr_distrib,  only: FermiDirac
     use idsrdr_hilbert,  only: hilbert
+    use idsrdr_leads,    only: EfLead
 
 !   Input variables.
     real(8), intent(in) :: Ei, freq, Vbias
@@ -499,11 +501,16 @@ CONTAINS
     real(8) :: enI, enF
     real(8), allocatable, dimension (:) :: En ! energy grid points
     real(8), allocatable, dimension (:) :: We ! energy grid weights
-    real(8), allocatable, dimension (:) :: aux
+    complex(8), allocatable, dimension (:) :: aux
 
 !   Set lower and upper limit of energy integration.
-    enI = Ei - freq - kbTol*temp
-    enF = Ei + freq + kbTol*temp + Vbias
+    if (Vbias >= 0.d0) then
+       enI = Ei - 2.d0*freq - kbTol*temp - Vbias
+       enF = Ei + 2.d0*freq + kbTol*temp
+    else
+       enI = Ei - 2.d0*freq - kbTol*temp
+       enF = Ei + 2.d0*freq + kbTol*temp - Vbias
+    endif
 
 !   Allocate the energy grid points and weights arrays.
     allocate (En(nAsymmPts), We(nAsymmPts))
@@ -517,8 +524,8 @@ CONTAINS
 !   ('aux = f(E-w) - f(E+w)')
     aux = 0.d0
     do k = 1,nAsymmPts
-       aux(k) = FermiDirac (En(k), -freq, temp)                         &
-                - FermiDirac (En(k), freq, temp)
+       aux(k) = FermiDirac (En(k)+freq, EfLead, temp)                   &
+                - FermiDirac (En(k)-freq, EfLead, temp)
     enddo
 
 !   Compute the pre-factor (with Hilbert transform).
@@ -526,8 +533,9 @@ CONTAINS
 
     asymmPre = 0.d0
     do k = 1,nAsymmPts
-       asymmPre = asymmPre + (FermiDirac (En(k), 0.d0, temp)            &
-                  - FermiDirac (En(k), Vbias, temp)) * We(k) * aux(k)
+       asymmPre = asymmPre + We(k) * aux(k)                             &
+                  * (FermiDirac (En(k), EfLead, temp)                   &
+                  - FermiDirac (En(k)-Vbias, EfLead, temp))
     enddo
     asymmPre = eoverh * asymmPre / 2.d0
 
@@ -569,9 +577,9 @@ CONTAINS
 !  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : Energy grid point              !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 Tasymm           : Asymmetric part of inelastic transmission  !
+!  real*8 Iasymm               : Asymmetric part of inelastic current   !
 !  *******************************************************************  !
-  subroutine inelAsymm (Tasymm, ispin, NL, Gamma_L,                     &
+  subroutine inelAsymm (Iasymm, ispin, NL, Gamma_L,                     &
                         NR, Gamma_R, Vbias, Ei)
 
 !
@@ -583,7 +591,7 @@ CONTAINS
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
     real(8), intent(in) :: Ei, Vbias
-    real(8), intent(out) :: Tasymm
+    real(8), intent(out) :: Iasymm
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
@@ -594,9 +602,8 @@ CONTAINS
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG
     external :: zsymm, zhemm, zgemm
-
 !   Initialize variable.
-    Tasymm = 0.d0
+    Iasymm = 0.d0
 
     do j = 1,neph ! over unit with e-ph
 
@@ -685,10 +692,10 @@ CONTAINS
 
 !         Compute the trace.
           do i = 1,norbDyn(j)
-             Tasymm = Tasymm + DREAL(Aux3(i,i))
+             Iasymm = Iasymm + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
-             Tasymm = Tasymm + DREAL(Aux6(i,i))
+             Iasymm = Iasymm + DREAL(Aux6(i,i))
           enddo
 
 !         [test] Compute the matrices multiplication with full matrices.
@@ -698,7 +705,7 @@ CONTAINS
 !!$                              Aux3, Aux6)
 
 !         Compute asymmetric pre-factor.
-          Tasymm = asymmPre (Ei, freq(j)%F(w), Vbias) * Tasymm
+          Iasymm = asymmPre (Ei, freq(j)%F(w), Vbias) * Iasymm
           
        enddo ! do w = 1,nModes(j)
 
@@ -734,11 +741,11 @@ CONTAINS
 !  logical IOnode              : True if it is the I/O node             !
 !  ****************************** INPUT ******************************  !
 !  real*8 Ei               : Energy grid point                          !
-!  real*8 Tel              : Elastic transmission                       !
-!  real*8 Tsymm            : Symmetric part of inelastic transmission   !
-!  real*8 Tasymm           : Asymmetric part of inelastic transmission  !
+!  real*8 Iel              : Elastic current                            !
+!  real*8 Isymm            : Symmetric part of inelastic current        !
+!  real*8 Iasymm           : Asymmetric part of inelastic current       !
 !  *******************************************************************  !
-  subroutine writeTransm (Ei, Tel, Tsymm, Tasymm)
+  subroutine writeTransm (Ei, Iel, Isymm, Iasymm)
 
 !
 !   Modules
@@ -748,26 +755,26 @@ CONTAINS
     include "mpif.h"
 
 !   Input variables.
-    real(8), intent(in) :: Ei, Tel, Tsymm, Tasymm
+    real(8), intent(in) :: Ei, Iel, Isymm, Iasymm
 
 !   Local variables.
-    real(8) :: TelTot, TsymmTot, TasymmTot
+    real(8) :: IelTot, IsymmTot, IasymmTot
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
 !   Sum the computed transmissions from all nodes.
-    call MPI_Reduce (Tel, TelTot, 1, MPI_Double_Precision,              &
+    call MPI_Reduce (Iel, IelTot, 1, MPI_Double_Precision,              &
                      MPI_Sum, 0, MPI_Comm_World, MPIerror)
-    call MPI_Reduce (Tsymm, TsymmTot, 1, MPI_Double_Precision,          &
+    call MPI_Reduce (Isymm, IsymmTot, 1, MPI_Double_Precision,          &
                      MPI_Sum, 0, MPI_Comm_World, MPIerror)
-    call MPI_Reduce (Tasymm, TasymmTot, 1, MPI_Double_Precision,        &
+    call MPI_Reduce (Iasymm, IasymmTot, 1, MPI_Double_Precision,        &
                      MPI_Sum, 0, MPI_Comm_World, MPIerror)
 
     if (IOnode) then
 
        write (1102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
-              Ei, Tel, -Tsymm+Tasymm, Tel-Tsymm+Tasymm
+              Ei, Iel, -Isymm+Iasymm, Iel-Isymm+Iasymm
        
 
     endif
