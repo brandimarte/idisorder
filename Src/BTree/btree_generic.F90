@@ -19,7 +19,7 @@
 !  *******************************************************************  !
 !                         MODULE btree_generic                          !
 !  *******************************************************************  !
-!  Description: abstract symble-table managed by a key-indexed B-Tree.  !
+!  Description: abstract symbol table managed by a key-indexed B-Tree.  !
 !                                                                       !
 !  Based on P. Lignelet, "Structures de Donnees en Fortran 90/95",      !
 !  Masson  (1996).                                                      !
@@ -39,9 +39,7 @@ MODULE btree_generic
 
   integer, parameter :: ORDER = 2 ! B-Tree order
 
-  integer, parameter :: n_long = 20
-
-! The 'keys' are given by the matrix index '(i,j)'.
+! The 'keys' are given by the matrix index.
   TYPE keys
      integer :: ij
   END TYPE keys

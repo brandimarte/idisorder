@@ -106,8 +106,9 @@ C Read data
         open(iu1,file=paste(slabeli,'.DAT'),status='old')
         read(iu1,*) slabel, nuoL, nspinL, maxnhL, efL, tempL,
      .              nscL(1), nscL(2), noL
-        write(6,*) slabel, nuoL, nspinL, maxnhL, efL, tempL,
-     .              nscL(1), nscL(2), noL
+        write(6,'(a,a,i4,i4,i4,e18.7e3,e18.7e3,i4,i4,i4,/)') "    ",
+     .       trim(slabel), nuoL, nspinL, maxnhL, efL, tempL,
+     .       nscL(1), nscL(2), noL
 
 
 c Allocate arrays

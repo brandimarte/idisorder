@@ -101,7 +101,7 @@ C Internal variables
 
       if (iter.eq.1 .and. istep.eq.0 .and. iv.eq.0 .and. ik.eq.1) then
 
-         write(6,'(/,a,a,/)') 'zhsunits: Reading ',
+         write(6,'(a,a,/)') 'zhsunits: Reading ',
      .        paste(slabeli,'.DAT')
 
 C Read data
@@ -187,7 +187,7 @@ c Calculate S0, S1, H0 and H1 (left and right)
             call zhsl(trnspin, nspin, nuoL, dnuoL, noL, maxnhL,
      .                numhL, listhptrL, indxuoL, listhL, SL, HL,
      .                S0L, S1L, H0L, H1L)
-            write(6,'(a)') ' done!'
+            write(6,'(a,/)') ' done!'
          endif
 
       endif

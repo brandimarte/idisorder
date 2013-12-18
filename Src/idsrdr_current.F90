@@ -139,6 +139,11 @@ CONTAINS
 !      Write transmissions to outputfiles.
 !!$       call writeTransm (Ei, Iel, Isymm, Iasymm)
 
+! TEMP BEGIN
+       write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
+            Vbias, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+! TEMP END
+
        Vbias = Vbias + dV
 
     enddo
@@ -279,18 +284,22 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  integer neph                : Number of units with e-ph interaction  !
 !  integer nModes(neph)        : Number of vibrational modes            !
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
 !  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
 !                                       frequencies                     !
-!  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{M,n}  !
-!  TYPE(green) Gr_1n(neph)%G(NL,unitdimensions) :  [complex] G^r_{1,n}  !
-!  TYPE(green) Gr_nn(neph)%G(unitdimensions,unitdimensions) :           !
+!  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
+!  integer nunitseph                  : Number of units with eph        !
+!  integer eph_type(nunitseph)        : Units types with eph            !
+!  TYPE(green) Gr_Mn(nunitseph)%G(NR,unitdimensions) : [complex]        !
+!                                                      G^r_{M,n}        !
+!  TYPE(green) Gr_1n(nunitseph)%G(NL,unitdimensions) : [complex]        !
+!                                                      G^r_{1,n}        !
+!  TYPE(green) Gr_nn(nunitseph)%G(unitdimensions,unitdimensions) :      !
 !                                                  [complex] G^r_{n,n}  !
-!  complex(8) Gr_1M(NL,NR)                      : G^r_{1,M}             !
+!  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
 !  real*8 temp                 : Electronic temperature                 !
 !  ****************************** INPUT ******************************  !
 !  integer ispin                       : Spin component index           !
@@ -308,7 +317,8 @@ CONTAINS
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph, freq
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_nn, Gr_1M
     use idsrdr_options,  only: temp
     use idsrdr_distrib,  only: BoseEinstein
@@ -322,7 +332,7 @@ CONTAINS
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
-    integer :: j, w, i
+    integer :: j, w, i, idx
     real(8) :: foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
@@ -332,17 +342,19 @@ CONTAINS
 !   Initialize variable.
     Isymm = 0.d0
 
-    do j = 1,neph ! over unit with e-ph
+    do j = 1,nunitseph ! over unit with e-ph
+
+       idx = ephIdx(eph_type(j))
 
 !      Allocate auxiliary matrices.
-       allocate (GrCJG(NR,norbDyn(j)))
-       allocate (A(norbDyn(j),norbDyn(j)))
-       allocate (Aux1(NR,norbDyn(j)))
-       allocate (Aux2(NR,norbDyn(j)))
-       allocate (Aux3(norbDyn(j),norbDyn(j)))
-       allocate (Aux4(norbDyn(j),norbDyn(j)))
-       allocate (Aux5(NL,norbDyn(j)))
-       allocate (Aux6(NL,norbDyn(j)))
+       allocate (GrCJG(NR,norbDyn(idx)))
+       allocate (A(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux1(NR,norbDyn(idx)))
+       allocate (Aux2(NR,norbDyn(idx)))
+       allocate (Aux3(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux4(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux5(NL,norbDyn(idx)))
+       allocate (Aux6(NL,norbDyn(idx)))
        allocate (Aux7(NR,NR))
 
 !      Copy the complex conjugate of 'Gr_Mn'.
@@ -351,76 +363,77 @@ CONTAINS
 !      Spectral matrix (obs.: 'Gr_nn' is symmetric).
        A = zi * (Gr_nn(j)%G - DCONJG(Gr_nn(j)%G))
 
-       do w = 1,nModes(j) ! over phonon modes
+       do w = 1,nModes(idx) ! over phonon modes
 
 !         -- 1st PART: 'G*Meph*G*Gamma_R*G^dagger*Meph' --
 
 !         ('Aux1 = Gamma_R * Gr_Mn^*')
-          call zhemm ('L', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
+          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
                       Gamma_R, NR, GrCJG, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
-                      Meph(j)%M(:,:,ispin,w), norbDyn(j),               &
+          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
                       Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
-          call zgemm ('T', 'N', norbDyn(j), norbDyn(j), NR,             &
+          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
                       (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
-                      (0.d0,0.d0), Aux3, norbDyn(j))
+                      (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         ('Aux4 = Meph * Aux3')
-          call zsymm ('L', 'L', norbDyn(j), norbDyn(j), (1.d0,0.d0),    &
-                      Meph(j)%M(:,:,ispin,w), norbDyn(j),               &
-                      Aux3, norbDyn(j), (0.d0,0.d0), Aux4, norbDyn(j))
+          call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.d0,0.d0), Meph(idx)%M(:,:,ispin,w),            &
+                      norbDyn(idx), Aux3, norbDyn(idx), (0.d0,0.d0),    &
+                      Aux4, norbDyn(idx))
 
 !         ('Aux5 = Gr_1n * Aux4')
-          call zgemm ('N', 'N', NL, norbDyn(j), norbDyn(j),             &
+          call zgemm ('N', 'N', NL, norbDyn(idx), norbDyn(idx),         &
                       (1.d0,0.d0), Gr_1n(j)%G, NL, Aux4,                &
-                      norbDyn(j), (0.d0,0.d0), Aux5, NL)
+                      norbDyn(idx), (0.d0,0.d0), Aux5, NL)
 
 !         -- 2nd PART: 'Gamma_R*G^dagger*Meph*A*Meph' --
 
 !         ('Aux1 = Aux2 * A') (where 'Aux2 = Gamma_R * Gr_Mn^* * Meph')
-          call zhemm ('R', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
-                      A, norbDyn(j), Aux2, NR, (0.d0,0.d0), Aux1, NR)
+          call zhemm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      A, norbDyn(idx), Aux2, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
-                      Meph(j)%M(:,:,ispin,w), norbDyn(j),               &
+          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
                       Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         -- 3rd PART: 'G^dagger*Gamma_L*(1st PART + i/2*G*2nd PART)' --
 
 !         ('Aux5 = i/2 * Gr_1M * Aux2 + Aux5')
-          call zgemm ('N', 'N', NL, norbDyn(j), NR, (0.d0,0.5d0),       &
+          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (0.d0,0.5d0),     &
                       Gr_1M, NL, Aux2, NR, (1.d0,0.d0), Aux5, NL)
 
 !         ('Aux6 = Gamma_L * Aux5')
-          call zhemm ('L', 'L', NL, norbDyn(j), (1.d0,0.d0),            &
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
                       Gamma_L, NL, Aux5, NL, (0.d0,0.d0), Aux6, NL)
 
 !         ('Aux4 = Gr_1n^dagger * Aux6')
-          call zgemm ('C', 'N', norbDyn(j), norbDyn(j), NL,             &
+          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
                       (1.d0,0.d0), Gr_1n(j)%G, NL, Aux6, NL,            &
-                      (0.d0,0.d0), Aux4, norbDyn(j))
+                      (0.d0,0.d0), Aux4, norbDyn(idx))
 
 !         -- 4rd PART: 'G^dagger*Gamma_L*G*(-i/2 * H.c.)' --
 
 !         ('Aux6 = Gamma_L * Gr_1n')
-          call zhemm ('L', 'L', NL, norbDyn(j), (1.d0,0.d0), Gamma_L,   &
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
                       NL, Gr_1n(j)%G, NL, (0.d0,0.d0), Aux6, NL)
 
 !         ('Aux1 = Gr_1M^dagger * Aux6')
-          call zgemm ('C', 'N', NR, norbDyn(j), NL, (1.d0,0.d0),        &
+          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
                       Gr_1M, NL, Aux6, NL, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux7 = Aux1 * (-i/2 * H.c.)') (where 'H.c. = Aux2^dagger')
-          call zgemm ('N', 'C', NR, NR, norbDyn(j), (0.d0,-0.5d0),      &
+          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (0.d0,-0.5d0),    &
                       Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
-          do i = 1,norbDyn(j)
+          do i = 1,norbDyn(idx)
              Isymm = Isymm + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
@@ -429,20 +442,20 @@ CONTAINS
           
 !         [test] Compute the matrices multiplication with full matrices.
           if (present(Ei)) then
-             call testInelSymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,    &
-                                j, norbDyn(j), Meph(j)%M(:,:,ispin,w),  &
-                                Aux4, Aux7)
+             call testInelSymm (Ei, ispin, NL, Gamma_L,                 &
+                                NR, Gamma_R, j, idx, norbDyn(idx),      &
+                                Meph(idx)%M(:,:,ispin,w), Aux4, Aux7)
           endif
 
 !         Compute symmetric pre-factor.
-          foo = 2.d0 * Vbias * BoseEinstein (freq(j)%F(w), temp)
-          foo = foo + (freq(j)%F(w) - Vbias)                            &
-                * BoseEinstein (freq(j)%F(w) - Vbias, temp)
-          foo = foo - (freq(j)%F(w) + Vbias)                            &
-                * BoseEinstein (freq(j)%F(w) + Vbias, temp)
+          foo = 2.d0 * Vbias * BoseEinstein (freq(idx)%F(w), temp)
+          foo = foo + (freq(idx)%F(w) - Vbias)                          &
+                * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
+          foo = foo - (freq(idx)%F(w) + Vbias)                          &
+                * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
           Isymm = eoverh * foo * Isymm
 
-       enddo ! do w = 1,nModes(j)
+       enddo ! do w = 1,nModes(idx)
 
 !      Free memory.
        deallocate (GrCJG)
@@ -455,7 +468,7 @@ CONTAINS
        deallocate (Aux6)
        deallocate (Aux7)
 
-    enddo ! do j = 1,neph
+    enddo ! do j = 1,nunitseph
 
 
   end subroutine inelSymm
@@ -558,16 +571,20 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    November 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  integer neph                : Number of units with e-ph interaction  !
 !  integer nModes(neph)        : Number of vibrational modes            !
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
 !  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
 !                                       frequencies                     !
-!  TYPE(green) Gr_Mn(neph)%G(NR,unitdimensions) :  [complex] G^r_{M,n}  !
-!  TYPE(green) Gr_1n(neph)%G(NL,unitdimensions) :  [complex] G^r_{1,n}  !
-!  complex(8) Gr_1M(NL,NR)                      : G^r_{1,M}             !
+!  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
+!  integer nunitseph                  : Number of units with eph        !
+!  integer eph_type(nunitseph)        : Units types with eph            !
+!  TYPE(green) Gr_Mn(nunitseph)%G(NR,unitdimensions) : [complex]        !
+!                                                      G^r_{M,n}        !
+!  TYPE(green) Gr_1n(nunitseph)%G(NL,unitdimensions) : [complex]        !
+!                                                      G^r_{1,n}        !
+!  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
 !  ****************************** INPUT ******************************  !
 !  integer ispin                       : Spin component index           !
 !  integer NL                          : Number of left lead orbitals   !
@@ -585,7 +602,8 @@ CONTAINS
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: neph, nModes, norbDyn, Meph, freq
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_1M
 
 !   Input variables.
@@ -596,102 +614,105 @@ CONTAINS
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
-    integer :: j, w, i
+    integer :: j, w, i, idx
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG
     external :: zsymm, zhemm, zgemm
+
 !   Initialize variable.
     Iasymm = 0.d0
 
-    do j = 1,neph ! over unit with e-ph
+    do j = 1,nunitseph ! over unit with e-ph
+
+       idx = ephIdx(eph_type(j))
 
 !      Allocate auxiliary matrices.
-       allocate (Gr_MnCJG(NR,norbDyn(j)))
-       allocate (Gr_1nCJG(NL,norbDyn(j)))
-       allocate (Aux1(NR,norbDyn(j)))
-       allocate (Aux2(NR,norbDyn(j)))
-       allocate (Aux3(norbDyn(j),norbDyn(j)))
-       allocate (Aux4(NL,norbDyn(j)))
-       allocate (Aux5(NL,norbDyn(j)))
+       allocate (Gr_MnCJG(NR,norbDyn(idx)))
+       allocate (Gr_1nCJG(NL,norbDyn(idx)))
+       allocate (Aux1(NR,norbDyn(idx)))
+       allocate (Aux2(NR,norbDyn(idx)))
+       allocate (Aux3(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux4(NL,norbDyn(idx)))
+       allocate (Aux5(NL,norbDyn(idx)))
        allocate (Aux6(NR,NR))
 
 !      Copy the complex conjugate of 'Gr_Mn' and 'Gr_1n'.
        Gr_MnCJG = DCONJG(Gr_Mn(j)%G)
        Gr_1nCJG = DCONJG(Gr_1n(j)%G)
 
-       do w = 1,nModes(j) ! over phonon modes
+       do w = 1,nModes(idx) ! over phonon modes
 
 !         -- 1st PART: 'G*Gamma_R*G^dagger*Meph' --
 
 !         ('Aux1 = Gamma_R * Gr_Mn^*')
-          call zhemm ('L', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
+          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
                       Gamma_R, NR, Gr_MnCJG, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(j), (1.d0,0.d0),            &
-                      Meph(j)%M(:,:,ispin,w), norbDyn(j),               &
+          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
                       Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
-          call zgemm ('T', 'N', norbDyn(j), norbDyn(j), NR,             &
+          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
                       (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
-                      (0.d0,0.d0), Aux3, norbDyn(j))
+                      (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 2nd PART: '-G*Gamma_L*G^dagger*Meph + 1st PART' --
 
 !         ('Aux4 = Gr_1n^* * Meph')
-          call zsymm ('R', 'L', NL, norbDyn(j), (1.d0,0.d0),            &
-                      Meph(j)%M(:,:,ispin,w), norbDyn(j),               &
+          call zsymm ('R', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
                       Gr_1nCJG, NL, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux5 = Gamma_L * Aux4')
-          call zhemm ('L', 'L', NL, norbDyn(j), (1.d0,0.d0),            &
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
                       Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
 
 !         ('Aux3 = - Gr_1n^T * Aux5 + Aux3')
-          call zgemm ('T', 'N', norbDyn(j), norbDyn(j), NL,             &
+          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NL,         &
                       (-1.d0,0.d0), Gr_1n(j)%G, NL, Aux5, NL,           &
-                      (1.d0,0.d0), Aux3, norbDyn(j))
+                      (1.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 3rd PART:
 !                'G^dagger*Gamma_L*G*Gamma_R*G^dagger*Meph*(2nd Part)' --
 
 !         ('Aux1 = Aux2 * Aux3') (where 'Aux2= Gamma_R * Gr_Mn^* * Meph')
-          call zgemm ('N', 'N', NR, norbDyn(j), norbDyn(j),             &
+          call zgemm ('N', 'N', NR, norbDyn(idx), norbDyn(idx),         &
                       (1.d0,0.d0), Aux2, NR, Aux3,                      &
-                      norbDyn(j), (0.d0,0.d0), Aux1, NR)
+                      norbDyn(idx), (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux4 = Gr_1M * Aux1')
-          call zgemm ('N', 'N', NL, norbDyn(j), NR, (1.d0,0.d0),        &
+          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (1.d0,0.d0),      &
                       Gr_1M, NL, Aux1, NR, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux5 = Gamma_L*Aux4')
-          call zhemm ('L', 'L', NL, norbDyn(j), (1.d0,0.d0), Gamma_L,   &
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
                       NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
 
 !         ('Aux3 = Gr_1n^dagger * Aux5')
-          call zgemm ('C', 'N', norbDyn(j), norbDyn(j), NL,             &
+          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
                       (1.d0,0.d0), Gr_1n(j)%G, NL, Aux5, NL,            &
-                      (0.d0,0.d0), Aux3, norbDyn(j))
+                      (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 4rd PART: 'G^dagger*Gamma_L*G*(H.c.)' --
 
 !         ('Aux4 = Gamma_L * Gr_1n')
-          call zhemm ('L', 'L', NL, norbDyn(j), (1.d0,0.d0), Gamma_L,   &
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
                       NL, Gr_1n(j)%G, NL, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux2 = Gr_1M^dagger * Aux4')
-          call zgemm ('C', 'N', NR, norbDyn(j), NL, (1.d0,0.d0),        &
+          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
                       Gr_1M, NL, Aux4, NL, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux6 = Aux2 * (H.c.)') ('H.c. = Aux1^dagger')
-          call zgemm ('N', 'C', NR, NR, norbDyn(j), (1.d0,0.0d0),      &
+          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (1.d0,0.0d0),     &
                       Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
-          do i = 1,norbDyn(j)
+          do i = 1,norbDyn(idx)
              Iasymm = Iasymm + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
@@ -699,15 +720,15 @@ CONTAINS
           enddo
 
 !         [test] Compute the matrices multiplication with full matrices.
-!         OBS.: uncommment for testing
-!!$          call testInelAsymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,   &
-!!$                              j, norbDyn(j), Meph(j)%M(:,:,ispin,w), &
-!!$                              Aux3, Aux6)
+!         OBS.: uncommment for testing.
+!!$          call testInelAsymm (Ei, ispin, NL, Gamma_L,                &
+!!$                              NR, Gamma_R, j, idx, norbDyn(idx),     &
+!!$                              Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
 
 !         Compute asymmetric pre-factor.
-          Iasymm = asymmPre (Ei, freq(j)%F(w), Vbias) * Iasymm
+          Iasymm = asymmPre (Ei, freq(idx)%F(w), Vbias) * Iasymm
           
-       enddo ! do w = 1,nModes(j)
+       enddo ! do w = 1,nModes(idx)
 
 !      Free memory.
        deallocate (Gr_MnCJG)
@@ -719,7 +740,7 @@ CONTAINS
        deallocate (Aux5)
        deallocate (Aux6)
 
-    enddo ! do j = 1,neph
+    enddo ! do j = 1,nunitseph
 
 
   end subroutine inelAsymm
@@ -825,13 +846,14 @@ CONTAINS
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  integer ephunit                     : E-ph unit index                !
+!  integer ephtype                     : E-ph unit type index           !
 !  integer norbDyn                     : # of dynamic atoms orbitals    !
 !  complex(8) Meph(norbDyn,norbDyn)    : E-ph coupling matrix           !
 !  complex(8) Symm(norbDyn,norbDyn)    : Calculated transmission        !
 !  complex(8) Hc(NR,NR)                : Hermitian conjugated part      !
 !  *******************************************************************  !
   subroutine testInelSymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,         &
-                           ephunit, norbDyn, Meph, Symm, Hc)
+                           ephunit, ephtype, norbDyn, Meph, Symm, Hc)
 
 !
 !   Modules
@@ -844,7 +866,7 @@ CONTAINS
     use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
-    integer, intent(in) :: ispin, NL, NR, ephunit, norbDyn
+    integer, intent(in) :: ispin, NL, NR, ephunit, ephtype, norbDyn
     real(8), intent(in) :: Ei
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
@@ -853,10 +875,11 @@ CONTAINS
     complex(8), dimension (NR,NR), intent(in) :: Hc
 
 !   Local variables.
-    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt
+    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, ueph
     integer, allocatable, dimension (:) :: ipiv
     real(8), allocatable, dimension (:,:) :: STot
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
+    complex(8) :: foo
     complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
                                                 Gamma_LTot, Gamma_RTot, &
                                                 Aux1, Aux2, Aux3
@@ -959,32 +982,37 @@ CONTAINS
 
 !   Assign the full e-ph coupling matrix.
     MephTot = (0.d0,0.d0)
-    if (ephunit == ephIdx(ntypeunits+1)) then
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
-             MephTot(i,j) = Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+    if (ephtype == ephIdx(ntypeunits+1)) then
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
+             MephTot(i,j) = Meph(i-idxF(ephtype)+1,j-idxF(ephtype)+1)
           enddo
        enddo
-    else if (ephunit == ephIdx(ntypeunits+2)) then
+    else if (ephtype == ephIdx(ntypeunits+2)) then
        dim = unitdimensions(ntypeunits+2)
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
              MephTot(dimTot-dim+i,dimTot-dim+j) =                       &
-                  Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+                  Meph(i-idxF(ephtype)+1,j-idxF(ephtype)+1)
           enddo
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
+       ueph = 1 ! eph units indexing
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
-          if (ephunit == ephIdx(utype)) then
-             do j = idxF(ephunit),idxL(ephunit)
-                do i = idxF(ephunit),idxL(ephunit)
-                   MephTot(dim+i,dim+j) =                               &
-                        Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+          if (ephIdx(utype) /= 0) then ! unit with eph?
+             if (ephunit == ueph) then ! the unit we are looking?
+                do j = idxF(ephtype),idxL(ephtype)
+                   do i = idxF(ephtype),idxL(ephtype)
+                      MephTot(dim+i,dim+j) =                            &
+                           Meph(i-idxF(ephtype)+1,j-idxF(ephtype)+1)
+                   enddo
                 enddo
-             enddo
-             EXIT
+                EXIT
+             else
+                ueph = ueph + 1
+             endif
           endif
           dim = dim + unitdimensions(utype)
        enddo
@@ -1050,62 +1078,77 @@ CONTAINS
     call zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
                 GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
 
-    if (ephunit == ephIdx(ntypeunits+1)) then
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
+    foo = 0.d0
+    do i = 1,dimTot
+       foo = foo + Aux1(i,i)
+    enddo
+!!$    print *, "AQUI1", ephtype, foo
+
+    if (ephtype == ephIdx(ntypeunits+1)) then
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
              write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Aux1(i,j)),                                     &
-                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),     &
+                  DREAL(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),     &
                   DIMAG(Aux1(i,j)),                                     &
-                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
              write (2222,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Aux1(i,j)) -                                    &
-                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),     &
+                  DREAL(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),     &
                   DIMAG(Aux1(i,j)) -                                    &
-                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
           enddo
        enddo
-    else if (ephunit == ephIdx(ntypeunits+2)) then
+    else if (ephtype == ephIdx(ntypeunits+2)) then
 ! OBS.: Only work if 'norbDyn' is equal to 'NR'!!
        dim = unitdimensions(ntypeunits+2)
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
              write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Aux1(dimTot-dim+i,dimTot-dim+j)),               &
-                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) +    &
-                  DREAL(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),       &
+                  DREAL(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) +    &
+                  DREAL(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),       &
                   DIMAG(Aux1(dimTot-dim+i,dimTot-dim+j)),               &
-                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) +    &
-                  DIMAG(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) +    &
+                  DIMAG(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
              write (2222,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Aux1(dimTot-dim+i,dimTot-dim+j)) -              &
-                  DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) -    &
-                  DREAL(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),       &
+                  DREAL(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) -    &
+                  DREAL(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),       &
                   DIMAG(Aux1(dimTot-dim+i,dimTot-dim+j)) -              &
-                  DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) -    &
-                  DIMAG(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Symm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) -    &
+                  DIMAG(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
           enddo
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
+       ueph = 1 ! eph units indexing
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
-          if (ephunit == ephIdx(utype)) then
-             do j = idxF(ephunit),idxL(ephunit)
-                do i = idxF(ephunit),idxL(ephunit)
-                   write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')     &
-                      DREAL(Aux1(dim+i,dim+j)),                         &
-                      DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)), &
-                      DIMAG(Aux1(dim+i,dim+j)),                         &
-                      DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
-                   write (2222,'(e17.8e3,e17.8e3)')                     &
-                      DREAL(Aux1(dim+i,dim+j)) -                        &
-                      DREAL(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)), &
-                      DIMAG(Aux1(dim+i,dim+j)) -                        &
-                      DIMAG(Symm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+          if (ephIdx(utype) /= 0) then ! unit with eph?
+             if (ephunit == ueph) then ! the unit we are looking?
+                do j = idxF(ephtype),idxL(ephtype)
+                   do i = idxF(ephtype),idxL(ephtype)
+                      write (2221,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')  &
+                           DREAL(Aux1(dim+i,dim+j)),                    &
+                           DREAL(Symm(i-idxF(ephtype)+1,                &
+                                      j-idxF(ephtype)+1)),              &
+                           DIMAG(Aux1(dim+i,dim+j)),                    &
+                           DIMAG(Symm(i-idxF(ephtype)+1,                &
+                                      j-idxF(ephtype)+1))
+                      write (2222,'(e17.8e3,e17.8e3)')                  &
+                           DREAL(Aux1(dim+i,dim+j)) -                   &
+                           DREAL(Symm(i-idxF(ephtype)+1,                &
+                                      j-idxF(ephtype)+1)),              &
+                           DIMAG(Aux1(dim+i,dim+j)) -                   &
+                           DIMAG(Symm(i-idxF(ephtype)+1,                &
+                                      j-idxF(ephtype)+1))
+                   enddo
                 enddo
-             enddo
-             EXIT
+                EXIT
+             else
+                ueph = ueph + 1
+             endif
           endif
           dim = dim + unitdimensions(utype)
        enddo
@@ -1166,13 +1209,14 @@ CONTAINS
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  integer ephunit                     : E-ph unit index                !
+!  integer ephtype                     : E-ph unit type index           !
 !  integer norbDyn                     : # of dynamic atoms orbitals    !
 !  complex(8) Meph(norbDyn,norbDyn)    : E-ph coupling matrix           !
 !  complex(8) Asymm(norbDyn,norbDyn)   : Calculated transmission        !
 !  complex(8) Hc(NR,NR)                : Hermitian conjugated part      !
 !  *******************************************************************  !
   subroutine testInelAsymm (Ei, ispin, NL, Gamma_L, NR, Gamma_R,        &
-                            ephunit, norbDyn, Meph, Asymm, Hc)
+                            ephunit, ephtype, norbDyn, Meph, Asymm, Hc)
 
 !
 !   Modules
@@ -1185,7 +1229,7 @@ CONTAINS
     use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
-    integer, intent(in) :: ispin, NL, NR, ephunit, norbDyn
+    integer, intent(in) :: ispin, NL, NR, ephunit, ephtype, norbDyn
     real(8), intent(in) :: Ei
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
@@ -1194,10 +1238,11 @@ CONTAINS
     complex(8), dimension (NR,NR), intent(in) :: Hc
 
 !   Local variables.
-    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt
+    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, ueph
     integer, allocatable, dimension (:) :: ipiv
     real(8), allocatable, dimension (:,:) :: STot
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
+    complex(8) :: foo
     complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
                                                 Gamma_LTot, Gamma_RTot, &
                                                 Aux1, Aux2, Aux3
@@ -1300,32 +1345,37 @@ CONTAINS
 
 !   Assign the full e-ph coupling matrix.
     MephTot = (0.d0,0.d0)
-    if (ephunit == ephIdx(ntypeunits+1)) then
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
-             MephTot(i,j) = Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+    if (ephtype == ephIdx(ntypeunits+1)) then
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
+             MephTot(i,j) = Meph(i-idxF(ephtype)+1,j-idxF(ephtype)+1)
           enddo
        enddo
-    else if (ephunit == ephIdx(ntypeunits+2)) then
+    else if (ephtype == ephIdx(ntypeunits+2)) then
        dim = unitdimensions(ntypeunits+2)
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
              MephTot(dimTot-dim+i,dimTot-dim+j) =                       &
-                  Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+                  Meph(i-idxF(ephtype)+1,j-idxF(ephtype)+1)
           enddo
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
+       ueph = 1 ! eph units indexing
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
-          if (ephunit == ephIdx(utype)) then
-             do j = idxF(ephunit),idxL(ephunit)
-                do i = idxF(ephunit),idxL(ephunit)
-                   MephTot(dim+i,dim+j) =                               &
-                        Meph(i-idxF(ephunit)+1,j-idxF(ephunit)+1)
+          if (ephIdx(utype) /= 0) then ! unit with eph?
+             if (ephunit == ueph) then ! the unit we are looking?
+                do j = idxF(ephtype),idxL(ephtype)
+                   do i = idxF(ephtype),idxL(ephtype)
+                      MephTot(dim+i,dim+j) =                            &
+                           Meph(i-idxF(ephtype)+1,j-idxF(ephtype)+1)
+                   enddo
                 enddo
-             enddo
-             EXIT
+                EXIT
+             else
+                ueph = ueph + 1
+             endif
           endif
           dim = dim + unitdimensions(utype)
        enddo
@@ -1387,62 +1437,77 @@ CONTAINS
     call zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
                 GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
 
-    if (ephunit == ephIdx(ntypeunits+1)) then
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
+    foo = 0.d0
+    do i = 1,dimTot
+       foo = foo + Aux1(i,i)
+    enddo
+!!$    print *, "AQUI3", ephtype, foo
+
+    if (ephtype == ephIdx(ntypeunits+1)) then
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
              write (3331,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Aux1(i,j)),                                     &
-                  DREAL(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),    &
+                  DREAL(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),    &
                   DIMAG(Aux1(i,j)),                                     &
-                  DIMAG(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
              write (3332,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Aux1(i,j)) -                                    &
-                  DREAL(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),    &
+                  DREAL(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),    &
                   DIMAG(Aux1(i,j)) -                                    &
-                  DIMAG(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
           enddo
        enddo
-    else if (ephunit == ephIdx(ntypeunits+2)) then
+    else if (ephtype == ephIdx(ntypeunits+2)) then
 ! OBS.: Only work if 'norbDyn' is equal to 'NR'!!
        dim = unitdimensions(ntypeunits+2)
-       do j = idxF(ephunit),idxL(ephunit)
-          do i = idxF(ephunit),idxL(ephunit)
+       do j = idxF(ephtype),idxL(ephtype)
+          do i = idxF(ephtype),idxL(ephtype)
              write (3331,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Aux1(dimTot-dim+i,dimTot-dim+j)),               &
-                  DREAL(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) +   &
-                  DREAL(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),       &
+                  DREAL(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) +   &
+                  DREAL(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),       &
                   DIMAG(Aux1(dimTot-dim+i,dimTot-dim+j)),               &
-                  DIMAG(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) +   &
-                  DIMAG(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) +   &
+                  DIMAG(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
              write (3332,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Aux1(dimTot-dim+i,dimTot-dim+j)) -              &
-                  DREAL(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) -   &
-                  DREAL(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),       &
+                  DREAL(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) -   &
+                  DREAL(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1)),       &
                   DIMAG(Aux1(dimTot-dim+i,dimTot-dim+j)) -              &
-                  DIMAG(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)) -   &
-                  DIMAG(Hc(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+                  DIMAG(Asymm(i-idxF(ephtype)+1,j-idxF(ephtype)+1)) -   &
+                  DIMAG(Hc(i-idxF(ephtype)+1,j-idxF(ephtype)+1))
           enddo
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
+       ueph = 1 ! eph units indexing
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
-          if (ephunit == ephIdx(utype)) then
-             do j = idxF(ephunit),idxL(ephunit)
-                do i = idxF(ephunit),idxL(ephunit)
-                   write (3331,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')     &
-                      DREAL(Aux1(dim+i,dim+j)),                         &
-                      DREAL(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),&
-                      DIMAG(Aux1(dim+i,dim+j)),                         &
-                      DIMAG(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
-                   write (3332,'(e17.8e3,e17.8e3)')                     &
-                      DREAL(Aux1(dim+i,dim+j)) -                        &
-                      DREAL(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1)),&
-                      DIMAG(Aux1(dim+i,dim+j)) -                        &
-                      DIMAG(Asymm(i-idxF(ephunit)+1,j-idxF(ephunit)+1))
+          if (ephIdx(utype) /= 0) then ! unit with eph?
+             if (ephunit == ueph) then ! the unit we are looking?
+                do j = idxF(ephtype),idxL(ephtype)
+                   do i = idxF(ephtype),idxL(ephtype)
+                      write (3331,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')  &
+                           DREAL(Aux1(dim+i,dim+j)),                    &
+                           DREAL(Asymm(i-idxF(ephtype)+1,               &
+                                       j-idxF(ephtype)+1)),             &
+                           DIMAG(Aux1(dim+i,dim+j)),                    &
+                           DIMAG(Asymm(i-idxF(ephtype)+1,               &
+                                       j-idxF(ephtype)+1))
+                      write (3332,'(e17.8e3,e17.8e3)')                  &
+                           DREAL(Aux1(dim+i,dim+j)) -                   &
+                           DREAL(Asymm(i-idxF(ephtype)+1,               &
+                                       j-idxF(ephtype)+1)),             &
+                           DIMAG(Aux1(dim+i,dim+j)) -                   &
+                           DIMAG(Asymm(i-idxF(ephtype)+1,               &
+                                       j-idxF(ephtype)+1))
+                   enddo
                 enddo
-             enddo
-             EXIT
+                EXIT
+             else
+                ueph = ueph + 1
+             endif
           endif
           dim = dim + unitdimensions(utype)
        enddo

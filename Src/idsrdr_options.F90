@@ -43,6 +43,7 @@ MODULE idsrdr_options
 
   logical :: calcdos             ! Calculate total DOS?
   logical :: readunitstf         ! Read 'UnitIndex' block?
+  logical :: tightbinding        ! Tight-binding calculation?
 
   integer :: NDeffects           ! Number of deffects blocks
   integer :: NTenerg             ! Number of transmission energy points
@@ -66,6 +67,10 @@ MODULE idsrdr_options
   real(8) :: VInitial            ! Initial value of the bias potential
   real(8) :: VFinal              ! Final value of the bias potential
   real(8) :: dV                  ! Bias potential step
+  real(8) :: TBenerg0            ! Tight-binding site energy
+  real(8) :: TBenerg1            ! Tight-binding deffect site energy
+  real(8) :: TBcoupl0            ! Tight-binding site couplings
+  real(8) :: TBcoupl1            ! Tight-binding deffect coupling
 
   character(len=60) :: directory ! Working directory
   character(len=label_length), save :: slabel ! System Label
@@ -95,6 +100,7 @@ CONTAINS
 !  ***************************** OUTPUT ******************************  !
 !  logical calcdos              : Calculate total DOS?                  !
 !  logical readunitstf          : Read 'UnitIndex' block?               !
+!  logical tightbinding         : Tight-binding calculation?            !
 !  integer NDeffects            : Number of deffects blocks             !
 !  integer NTenerg              : Number of transmission energy points  !
 !  integer nspin                : Number of spin components             !
@@ -115,6 +121,10 @@ CONTAINS
 !  real*8 VInitial              : Initial value of the bias potential   !
 !  real*8 VFinal                : Final value of the bias potential     !
 !  real*8 dV                    : Bias potential step                   !
+!  real*8 TBenerg0              : Tight-binding site energy             !
+!  real*8 TBenerg1              : Tight-binding deffect site energy     !
+!  real*8 TBcoupl0              : Tight-binding site couplings          !
+!  real*8 TBcoupl1              : Tight-binding deffect coupling        !
 !  character(60) directory      : Working directory                     !
 !  character(label_length) slabel : System Label (for output files)     !
 !  character(14) integraltype   : Integration method                    !
@@ -309,6 +319,40 @@ CONTAINS
        write (6,4)                                                      &
             'readopt: Number of points at asymmetric term integral  =', &
             nAsymmPts
+
+!      Tight-binding calculation?
+       tightbinding = fdf_boolean ('TightBinding', .false.)
+       write (6,1)                                                      &
+            'readopt: Tight-binding calculation?                    =', &
+            tightbinding
+
+       if (tightbinding) then
+
+!         Tight-binding site energy.
+          TBenerg0 = fdf_physical ('TB.energy.0', -0.5d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Tight-binding site energy                ' //  &
+               '   =', TBenerg0, ' Ry'
+
+!         Tight-binding deffect site energy.
+          TBenerg1 = fdf_physical ('TB.energy.1', -0.1d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Tight-binding deffect site energy        ' //  &
+               '   =', TBenerg1, ' Ry'
+
+!         Tight-binding site couplings.
+          TBcoupl0 = fdf_physical ('TB.coupling.0', 0.7d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Tight-binding site couplings             ' //  &
+               '   =', TBcoupl0, ' Ry'
+
+!         Tight-binding deffect coupling.
+          TBcoupl1 = fdf_physical ('TB.coupling.1', 0.175d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Tight-binding deffect coupling           ' //  &
+               '   =', TBcoupl1, ' Ry'
+
+       endif
 
        write (6,'(2a)') 'readopt: ', repeat('*', 70)
 

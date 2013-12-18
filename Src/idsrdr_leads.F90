@@ -98,6 +98,7 @@ CONTAINS
 !  integer nspin                : Number of spin components             !
 !  real*8 temp                  : Electronic temperature                !
 !  character(60) directory      : Working directory                     !
+!  logical tightbinding         : Tight-binding calculation?            !
 !  ****************************** INPUT ******************************  !
 !  integer nsc(2)               : Number of unit cells along parallel   !
 !                                 directions                            !
@@ -130,7 +131,7 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use idsrdr_options,  only: nspin, temp, directory
+    use idsrdr_options,  only: nspin, temp, directory, tightbinding
 
 #ifdef MPI
     include "mpif.h"
@@ -190,7 +191,7 @@ CONTAINS
             '      =', EfLead, ' Ry'
        call io_close (iu)
 
-       write (6,'(2a)') 'readleads: ', repeat('*', 68)
+       write (6,'(2a,/)') 'readleads: ', repeat('*', 68)
 
     endif
 
@@ -210,10 +211,19 @@ CONTAINS
 !   Reads and calculates the Hamiltonians
 !   and overlaps matrices of the leads.
     if (IOnode) then
-       call zhsunits (nspin, nspin, NL, nsc, 1, 0, 0, .true., 1, temp,  &
-                      H0_L, H1_L, S0_L, S1_L, paste(directory,'bulklft'))
-       call zhsunits (nspin, nspin, NR, nsc, 1, 0, 0, .true., 1, temp,  &
-                      H0_R, H1_R, S0_R, S1_R, paste(directory,'bulkrgt'))
+       If (tightbinding) Then
+
+!         Creates overlap and hamiltonians for tight-binding calculation.
+          call TBreadleads
+
+       Else
+          call zhsunits (nspin, nspin, NL, nsc, 1, 0, 0,                &
+                         .true., 1, temp, H0_L, H1_L,                   &
+                         S0_L, S1_L, paste(directory,'bulklft'))
+          call zhsunits (nspin, nspin, NR, nsc, 1, 0, 0,                &
+                         .true., 1, temp, H0_R, H1_R,                   &
+                         S0_R, S1_R, paste(directory,'bulkrgt'))
+       EndIf
     endif
 
 #ifdef MPI
@@ -261,6 +271,163 @@ CONTAINS
 
 
   end subroutine readleads
+
+
+!  *******************************************************************  !
+!                              TBreadleads                              !
+!  *******************************************************************  !
+!  Description: Creates the lead's overlap and hamiltonian matrices     !
+!  for tight-binding calculation.                                       !
+!                                                                       !
+!  Written by Pedro Brandimarte, Dec 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    December 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nspin                : Number of spin components             !
+!  real*8 TBenerg0              : Tight-binding site energy             !
+!  real*8 TBcoupl0              : Tight-binding site couplings          !
+!  ***************************** OUTPUT ******************************  !
+!  complex(8) S0_L(NL,NL)         : Left lead PL overlap                !
+!  complex(8) S0_R(NR,NR)         : Right lead PL overlap               !
+!  complex(8) S1_L(NL,NL)         : Left lead coupling overlap          !
+!  complex(8) S1_R(NR,NR)         : Right lead coupling overlap         !
+!  complex(8) H0_L(NL,NL,nspin)   : Left lead PL hamiltonian            !
+!  complex(8) H0_R(NR,NR,nspin)   : Right lead PL hamiltonian           !
+!  complex(8) H1_L(NL,NL,nspin)   : Left lead coupling                  !
+!  complex(8) H1_R(NR,NR,nspin)   : Right lead PL coupling              !
+!  *******************************************************************  !
+  subroutine TBreadleads
+
+!
+!   Modules
+!
+    use idsrdr_options,  only: nspin, TBenerg0, TBcoupl0
+
+!   Local variables.
+    integer :: i, j, s
+
+    S0_L = 0.d0
+    S1_L = 0.d0
+    H0_L = 0.d0
+    H1_L = 0.d0
+    S0_R = 0.d0
+    S1_R = 0.d0
+    H0_R = 0.d0
+    H1_R = 0.d0
+
+    do i = 1,NL-1
+       H0_L(i,i,1) = DCMPLX(TBenerg0)
+       H0_L(i,i+1,1) = DCMPLX(TBcoupl0)
+       H0_L(i+1,i,1) = DCMPLX(TBcoupl0)
+       S0_L(i,i) = (1.d0,0.d0)
+    enddo
+    H0_L(i,i,1) = DCMPLX(TBenerg0)
+    S0_L(i,i) = (1.d0,0.d0)
+    H1_L(NL,1,1) = DCMPLX(TBcoupl0)
+
+    do i = 1,NR-1
+       H0_R(i,i,1) = DCMPLX(TBenerg0)
+       H0_R(i,i+1,1) = DCMPLX(TBcoupl0)
+       H0_R(i+1,i,1) = DCMPLX(TBcoupl0)
+       S0_R(i,i) = (1.d0,0.d0)
+    enddo
+    H0_R(i,i,1) = DCMPLX(TBenerg0)
+    S0_R(i,i) = (1.d0,0.d0)
+    H1_R(NR,1,1) = DCMPLX(TBcoupl0)
+
+    do s = 2,nspin ! over other spin components
+
+       do i = 1,NL-1
+          H0_L(i,i,s) = DCMPLX(TBenerg0)
+          H0_L(i,i+1,s) = DCMPLX(TBcoupl0)
+          H0_L(i+1,i,s) = DCMPLX(TBcoupl0)
+       enddo
+       H0_L(i,i,s) = DCMPLX(TBenerg0)
+       H1_L(NL,1,s) = DCMPLX(TBcoupl0)
+
+       do i = 1,NR-1
+          H0_R(i,i,s) = DCMPLX(TBenerg0)
+          H0_R(i,i+1,s) = DCMPLX(TBcoupl0)
+          H0_R(i+1,i,s) = DCMPLX(TBcoupl0)
+       enddo
+       H0_R(i,i,s) = DCMPLX(TBenerg0)
+       H1_R(NR,1,s) = DCMPLX(TBcoupl0)
+
+    enddo
+
+!   Write matrices on screen.
+    do s = 1,nspin
+       write (6, '(a)') 'H0_L'
+       do i = 1,NL
+          do j = 1,NL-1
+             write (6, '(e17.8e3)', advance='no') DREAL(H0_L(i,j,s))
+          enddo
+          write (6, '(e17.8e3)') DREAL(H0_L(i,j,s))
+       enddo
+
+       write (6, '(a)') 'H1_L'
+       do i = 1,NL
+          do j = 1,NL-1
+             write (6, '(e17.8e3)', advance='no') DREAL(H1_L(i,j,s))
+          enddo
+          write (6, '(e17.8e3)') DREAL(H1_L(i,j,s))
+       enddo
+
+       write (6, '(a)') 'S0_L'
+       do i = 1,NL
+          do j = 1,NL-1
+             write (6, '(e17.8e3)', advance='no') DREAL(S0_L(i,j))
+          enddo
+          write (6, '(e17.8e3)') DREAL(S0_L(i,j))
+       enddo
+
+       write (6, '(a)') 'S1_L'
+       do i = 1,NL
+          do j = 1,NL-1
+             write (6, '(e17.8e3)', advance='no') DREAL(S1_L(i,j))
+          enddo
+          write (6, '(e17.8e3)') DREAL(S1_L(i,j))
+       enddo
+
+       write (6, '(a)') 'H0_R'
+       do i = 1,NR
+          do j = 1,NR-1
+             write (6, '(e17.8e3)', advance='no') DREAL(H0_R(i,j,s))
+          enddo
+          write (6, '(e17.8e3)') DREAL(H0_R(i,j,s))
+       enddo
+
+       write (6, '(a)') 'H1_R'
+       do i = 1,NR
+          do j = 1,NR-1
+             write (6, '(e17.8e3)', advance='no') DREAL(H1_R(i,j,s))
+          enddo
+          write (6, '(e17.8e3)') DREAL(H1_R(i,j,s))
+       enddo
+
+       write (6, '(a)') 'S0_R'
+       do i = 1,NR
+          do j = 1,NR-1
+             write (6, '(e17.8e3)', advance='no') DREAL(S0_R(i,j))
+          enddo
+          write (6, '(e17.8e3)') DREAL(S0_R(i,j))
+       enddo
+
+       write (6, '(a)') 'S1_R'
+       do i = 1,NR
+          do j = 1,NR-1
+             write (6, '(e17.8e3)', advance='no') DREAL(S1_R(i,j))
+          enddo
+          write (6, '(e17.8e3)') DREAL(S1_R(i,j))
+       enddo
+
+    enddo
+
+
+  end subroutine TBreadleads
 
 
 !  *******************************************************************  !

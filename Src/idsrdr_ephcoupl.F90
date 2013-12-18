@@ -47,7 +47,7 @@ MODULE idsrdr_ephcoupl
 
   logical :: eph ! Inelastic calculation?
 
-  integer :: neph ! # of units with e-ph interaction
+  integer :: neph ! # of unit types with e-ph interaction
   integer, dimension(:), allocatable :: nModes ! # of vibrational modes
   integer, dimension(:), allocatable :: norbDyn ! # of orbitals from
                                                 ! dynamic atoms
@@ -96,12 +96,12 @@ CONTAINS
 !  integer unitdimensions(ntypeunits+2)  : Units number of orbitals     !
 !  integer ephIndic(ntypeunits+2)        : E-ph interaction indicator   !
 !  ***************************** OUTPUT ******************************  !
-!  logical eph                 : Inelastic calculation?                 !
-!  integer neph                : Number of units with e-ph interaction  !
-!  integer nModes(neph)        : Number of vibrational modes            !
-!  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
-!  integer idxF(neph)          : First dynamic atom orbital             !
-!  integer idxL(neph)          : Last dynamic atom orbital              !
+!  logical eph            : Inelastic calculation?                      !
+!  integer neph           : Number of unit types with e-ph interaction  !
+!  integer nModes(neph)   : Number of vibrational modes                 !
+!  integer norbDyn(neph)  : Number of orbitals from dynamic atoms       !
+!  integer idxF(neph)     : First dynamic atom orbital                  !
+!  integer idxL(neph)     : Last dynamic atom orbital                   !
 !  integer ephIdx(ntypeunits+2) : Unit index (for those with e-ph)      !
 !  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
 !                                       frequencies                     !
@@ -254,7 +254,7 @@ CONTAINS
 !         Free memory.
           deallocate (aux)
 
-          write(6,'(a)') " ok!"
+          write(6,'(a,/)') " ok!"
 
        endif ! if (IOnode)
 
@@ -353,7 +353,7 @@ CONTAINS
 !            Free memory.
              deallocate (aux)
 
-             write(6,'(a)') " ok!"
+             write(6,'(a,/)') " ok!"
 
           endif ! if (IOnode)
 
@@ -453,7 +453,7 @@ CONTAINS
 !         Free memory.
           deallocate (aux)
 
-          write(6,'(a)') " ok!"
+          write(6,'(a,/)') " ok!"
 
        endif ! if (IOnode)
 
