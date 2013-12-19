@@ -41,6 +41,7 @@ MODULE idsrdr_units
   use idsrdr_leads,    only: 
   use idsrdr_init,     only: 
   use idsrdr_ephcoupl, only: 
+  use idsrdr_random,   only: 
   use fdf
 
   implicit none
@@ -84,7 +85,7 @@ CONTAINS
 !                               makeunits                               !
 !  *******************************************************************  !
 !  Description: main subroutine that computes a random distribution of  !
-!  the deffects and, read and build the units (size, weight, shift,     !
+!  the defects and, read and build the units (size, weight, shift,      !
 !  overlap and hamiltonian).                                            !
 !                                                                       !
 !  Written by Pedro Brandimarte, Oct 2013.                              !
@@ -95,9 +96,9 @@ CONTAINS
 !  Original version:    October 2013                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode               : True if it is the I/O node            !
-!  integer NDeffects            : Number of deffects blocks             !
+!  integer NDefects             : Number of defects blocks              !
 !  integer ntypeunits           : Number of unit types                  !
-!  real*8 avgdist               : Average deffect distance              !
+!  real*8 avgdist               : Average defect distance               !
 !  integer nspin                : Number of spin components             !
 !  real*8 temp                  : Electronic temperature                !
 !  character(60) directory      : Working directory                     !
@@ -109,7 +110,7 @@ CONTAINS
 !  integer N1                           : Leads total number of         !
 !                                         orbitals (left + right)       !
 !  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
-!  real*8 theta(NDeffects+1)            :                               !
+!  real*8 theta(NDefects+1)             :                               !
 !  real*8 unitshift(ntypeunits+2)       : Units shift                   !
 !  *******************************************************************  !
   subroutine makeunits
@@ -118,25 +119,25 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use idsrdr_options,  only: NDeffects, ntypeunits, avgdist,          &
+    use idsrdr_options,  only: NDefects, ntypeunits, avgdist,          &
                                nspin, temp, directory
     use idsrdr_leads,    only: NL, NR
     use idsrdr_init,     only: nsc
+    use idsrdr_random,   only: random_d
 
 !   Local variables.
-    real(8), allocatable, dimension (:) :: dist ! Deffects distribution
-    real(8), allocatable, dimension (:) :: unitlength ! Units size (in z)
-    real(8), allocatable, dimension (:) :: unitweight ! Units weight
-    character (len=30), dimension (:), allocatable :: fileunits ! Units
+    real(8), allocatable, dimension (:) :: dist ! defects distribution
+    real(8), allocatable, dimension (:) :: unitlength ! units size (in z)
+    real(8), allocatable, dimension (:) :: unitweight ! units weight
+    character (len=30), dimension (:), allocatable :: fileunits ! units
                                                                 ! files
-    external :: randon_d
 
     if (IOnode) write (6,'(/,25("*"),a,26("*"),/)')                     &
          ' Reading and Building units '
 
 !   Allocate arrays.
-    allocate (dist(NDeffects+1))
-    allocate (theta(NDeffects+1))
+    allocate (dist(NDefects+1))
+    allocate (theta(NDefects+1))
     allocate (fileunits(ntypeunits+2))
     allocate (unitlength(ntypeunits+2))
     allocate (unitshift(ntypeunits+2))
@@ -154,7 +155,7 @@ CONTAINS
     unitdimensions(ntypeunits+1) = NL
     unitdimensions(ntypeunits+2) = NR
 
-    call random_d (Ndeffects+1, avgdist, dist, theta)
+    call random_d (NDefects+1, avgdist, dist, theta)
 
     if (IOnode) write (6,'(a,f15.10,/)')                                &
          'makeunits: temperature before = ', temp
@@ -167,7 +168,7 @@ CONTAINS
 !   Leads total number of orbitals (left + right).
     N1 = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
    
-    call buildunits (NDeffects, ntypeunits, unitlength, unitweight, dist)
+    call buildunits (NDefects, ntypeunits, unitlength, unitweight, dist)
 
 !   Free memory.
     deallocate (dist)
@@ -446,9 +447,11 @@ CONTAINS
 !  integer idxF(neph)                  : First dynamic atom orbital     !
 !  integer idxL(neph)                  : Last dynamic atom orbital      !
 !  real*8 TBenerg0              : Tight-binding site energy             !
-!  real*8 TBenerg1              : Tight-binding deffect site energy     !
 !  real*8 TBcoupl0              : Tight-binding site couplings          !
-!  real*8 TBcoupl1              : Tight-binding deffect coupling        !
+!  real*8 TBenerg1              : Tight-binding defect 1 site energy    !
+!  real*8 TBcoupl1              : Tight-binding defect 1 coupling       !
+!  real*8 TBenerg2              : Tight-binding defect 2 site energy    !
+!  real*8 TBcoupl2              : Tight-binding defect 2 coupling       !
 !  ****************************** INPUT ******************************  !
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
@@ -472,7 +475,8 @@ CONTAINS
 !   Modules
 !
     use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
-    use idsrdr_options,  only: TBenerg0, TBenerg1, TBcoupl0, TBcoupl1
+    use idsrdr_options,  only: TBenerg0, TBcoupl0, TBenerg1, TBcoupl1,  &
+                               TBenerg2, TBcoupl2
     use fdf
 
 #ifdef MPI
@@ -485,7 +489,7 @@ CONTAINS
     integer, dimension (ntypeunits+2), intent(in) :: ephIndic
 
 !   Local variables.
-    integer :: I, w, r, s
+    integer :: I, w, r, s, ueph
 
 !   Build hamiltonian and overlap matrices for each unit.
     w = 1
@@ -512,6 +516,7 @@ CONTAINS
        w = w + 1
     EndIf
 
+    ueph = 1
     do I = 1,ntypeunits
        Sunits(I)%S = 0.d0
        Hunits(I)%H = 0.d0
@@ -524,15 +529,30 @@ CONTAINS
        Hunits(I)%H(r,r,1) = TBenerg0
        Sunits(I)%S(r,r) = 1.d0
        If (ephIndic(I) == 1) Then
-          r = idxF(w) - 1
-          Hunits(I)%H(r,r+1,1) = TBcoupl1
-          Hunits(I)%H(r+1,r,1) = TBcoupl1
-          do r = idxF(w),idxL(w)
-             Hunits(I)%H(r,r,1) = TBenerg1
+          if (ueph == 1) then
+             r = idxF(w) - 1
              Hunits(I)%H(r,r+1,1) = TBcoupl1
              Hunits(I)%H(r+1,r,1) = TBcoupl1
-          enddo
-          w = w + 1
+             do r = idxF(w),idxL(w)
+                Hunits(I)%H(r,r,1) = TBenerg1
+                Hunits(I)%H(r,r+1,1) = TBcoupl1
+                Hunits(I)%H(r+1,r,1) = TBcoupl1
+             enddo
+             w = w + 1
+             ueph = ueph + 1
+          else ! Only in mind a 4x4 matrix here...
+             r = idxF(w) - 1
+             Hunits(I)%H(r,r+1,1) = TBcoupl2
+             Hunits(I)%H(r+1,r,1) = TBcoupl2
+             do r = idxF(w),idxL(w)
+                Hunits(I)%H(r,r,1) = TBenerg2
+                Hunits(I)%H(r,r+1,1) = 0.d0
+                Hunits(I)%H(r+1,r,1) = 0.d0
+                Hunits(I)%H(r-1,r+1,1) = TBcoupl2
+                Hunits(I)%H(r+1,r-1,1) = TBcoupl2
+             enddo
+             w = w + 1
+          endif
        EndIf
     enddo
     H1unit = 0.d0
@@ -583,6 +603,7 @@ CONTAINS
           w = w + 1
        EndIf
 
+       ueph = 1
        do I = 1,ntypeunits
           do r = 1,unitdimensions(I)-1
              Hunits(I)%H(r,r,s) = TBenerg0
@@ -591,15 +612,30 @@ CONTAINS
           enddo
           Hunits(I)%H(r,r,s) = TBenerg0
           If (ephIndic(I) == 1) Then
-             r = idxF(w) - 1
-             Hunits(I)%H(r,r+1,s) = TBcoupl1
-             Hunits(I)%H(r+1,r,s) = TBcoupl1
-             do r = idxF(w),idxL(w)
-                Hunits(I)%H(r,r,s) = TBenerg1
+             if (ueph == 1) then
+                r = idxF(w) - 1
                 Hunits(I)%H(r,r+1,s) = TBcoupl1
                 Hunits(I)%H(r+1,r,s) = TBcoupl1
-             enddo
-             w = w + 1
+                do r = idxF(w),idxL(w)
+                   Hunits(I)%H(r,r,s) = TBenerg1
+                   Hunits(I)%H(r,r+1,s) = TBcoupl1
+                   Hunits(I)%H(r+1,r,s) = TBcoupl1
+                enddo
+                w = w + 1
+                ueph = ueph + 1
+             else ! Only in mind a 4x4 matrix here...
+                r = idxF(w) - 1
+                Hunits(I)%H(r,r+1,1) = TBcoupl2
+                Hunits(I)%H(r+1,r,1) = TBcoupl2
+                do r = idxF(w),idxL(w)
+                   Hunits(I)%H(r,r,1) = TBenerg2
+                   Hunits(I)%H(r,r+1,1) = 0.d0
+                   Hunits(I)%H(r+1,r,1) = 0.d0
+                   Hunits(I)%H(r-1,r+1,1) = TBcoupl2
+                   Hunits(I)%H(r+1,r-1,1) = TBcoupl2
+                enddo
+                w = w + 1
+             endif
           EndIf
        enddo
        H1unit(unitdimensions(I),1,s) = TBcoupl0
@@ -690,18 +726,18 @@ CONTAINS
 !  ******************** INPUT/OUTPUT FROM MODULES ********************  !
 !  integer nunits               : Total number of units                 !
 !  ****************************** INPUT ******************************  !
-!  integer NDeffects                    : Number of deffects blocks     !
+!  integer NDefects                     : Number of defects blocks      !
 !  integer ntypeunits                   : Number of unit types          !
 !  real*8 unitlength(ntypeunits+2)      : Units size (in z direction)   !
 !  real*8 unitweight(ntypeunits+2)      : Units weight                  !
 !  ************************** INPUT/OUTPUT ***************************  !
-!  real*8 dist(NDeffects+1)             : Deffects random distribution  !
+!  real*8 dist(NDefects+1)              : Defects random distribution   !
 !  ***************************** OUTPUT ******************************  !
 !  integer unit_type(nunits+2)          : Units types                   !
 !  integer nunitseph                    : Number of units with eph      !
 !  integer eph_type(nunitseph)          : Units types with eph          !
 !  *******************************************************************  !
-  subroutine buildunits (NDeffects, ntypeunits, unitlength,             &
+  subroutine buildunits (NDefects, ntypeunits, unitlength,              &
                          unitweight, dist)
 
 !
@@ -709,6 +745,7 @@ CONTAINS
 !
     use parallel,        only: IOnode
     use idsrdr_options,  only: readunitstf, nunits
+    use idsrdr_random,   only: irandomizedefects, irandomize_index
     use fdf
 
 #ifdef MPI
@@ -716,48 +753,47 @@ CONTAINS
 #endif
 
 !   Input variables.
-    integer, intent(in) :: NDeffects, ntypeunits
+    integer, intent(in) :: NDefects, ntypeunits
     real(8), dimension (ntypeunits+2), intent(in) :: unitlength,        &
                                                      unitweight
-    real(8), dimension (NDeffects+1), intent(inout) :: dist
+    real(8), dimension (NDefects+1), intent(inout) :: dist
 
 !   Local variables.
     integer :: I, J, nunits_aux, iu, index, ueph
-    integer, allocatable, dimension (:) :: randomdeffects
+    integer, allocatable, dimension (:) :: randomdefects
     real(8) :: length
     real(8), allocatable, dimension(:) :: total_length ! Segment length
-    integer, external :: irandomizedeffects, irandomize_index
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
 !   Allocate arrays.
-    allocate (randomdeffects(NDeffects))
+    allocate (randomdefects(NDefects))
 
     IF (IOnode) THEN
-       J = irandomizedeffects (ntypeunits-1,                            &
+       J = irandomizedefects (ntypeunits-1,                             &
             unitweight(1:ntypeunits-1), .true.)
 
        If (.not. readunitstf) Then
           if (nunits == 0) then
-             do I = 1,NDeffects+1
-                J = irandomizedeffects (ntypeunits-1,                   &
+             do I = 1,NDefects+1
+                J = irandomizedefects (ntypeunits-1,                    &
                      unitweight(1:ntypeunits-1), .false.)
-                if (I <= NDeffects) randomdeffects(I) = J
+                if (I <= NDefects) randomdefects(I) = J
 !               We can set to a random number if
-!               if we have more than one deffect.
+!               if we have more than one defect.
                 length = 0.d0
                 do while (length < dist(I)-unitlength(J))
                    length = length + unitlength(ntypeunits)
                    nunits = nunits + 1
                 enddo
-                if (I <= NDeffects) nunits = nunits + 1
+                if (I <= NDefects) nunits = nunits + 1
              enddo
           elseif (nunits /= 0) then
-             do I = 1,NDeffects
-                J = irandomizedeffects (ntypeunits-1,                   &
+             do I = 1,NDefects
+                J = irandomizedefects (ntypeunits-1,                    &
                      unitweight(1:ntypeunits-1), .false.)
-                randomdeffects(I) = J
+                randomdefects(I) = J
              enddo
           endif
        EndIf
@@ -769,7 +805,7 @@ CONTAINS
 
 !   Allocate arrays.
     allocate (unit_type(nunits+2))
-    allocate (total_length(NDeffects+1))
+    allocate (total_length(NDefects+1))
 
 !   Build units types and calcutates the 'total_length'.
     IF (IOnode) THEN
@@ -790,15 +826,15 @@ CONTAINS
           unit_type(2) = -2
           nunits_aux = 0
 
-          do I = 1,NDeffects+1
-             if (I <= NDeffects) J = randomdeffects(I)
+          do I = 1,NDefects+1
+             if (I <= NDefects) J = randomdefects(I)
              length = 0.0d0
              do while (length < dist(I)-unitlength(J))
                 length = length + unitlength(ntypeunits)
                 nunits_aux = nunits_aux + 1
                 unit_type(nunits_aux+1) = ntypeunits
              enddo
-             if (I <= NDeffects) then
+             if (I <= NDefects) then
                 nunits_aux = nunits_aux + 1
                 unit_type(nunits_aux+1) = J
                 total_length(I) = length + unitlength(J)
@@ -812,19 +848,19 @@ CONTAINS
           unit_type(1) = -1
           unit_type(nunits+2) = -2
 
-          do I = 1,NDeffects
+          do I = 1,NDefects
              index = 1
              do while (unit_type(index) /= ntypeunits)
                 index = irandomize_index (nunits, .false.)
              enddo
              write (6,'(/,a,i3,i3)') 'buildunits: index ', index,       &
-                  randomdeffects(I)
-             unit_type(index) = randomdeffects(I)
+                  randomdefects(I)
+             unit_type(index) = randomdefects(I)
           enddo
 
           total_length = 0.0d0
           index = 2
-          do I = 1,NDeffects+1
+          do I = 1,NDefects+1
              write (6,'(a,i3,i3)') 'buildunits: index teste', index,    &
                   unit_type(index)
              do while (unit_type(index) == ntypeunits)
@@ -847,7 +883,7 @@ CONTAINS
     IF (readunitstf) THEN
        If (IOnode) Then
           if (fdf_block ('SegmentLengths', iu)) then
-             do I = 1,NDeffects+1
+             do I = 1,NDefects+1
                 read (iu,*) dist(I), total_length(I)
              enddo
           else
@@ -860,7 +896,7 @@ CONTAINS
        EndIf
 
 #ifdef MPI
-       call MPI_Bcast (dist, NDeffects+1, MPI_Double_Precision, 0,      &
+       call MPI_Bcast (dist, NDefects+1, MPI_Double_Precision, 0,       &
                        MPI_Comm_world, MPIerror)
 #endif
     ENDIF
@@ -896,8 +932,8 @@ CONTAINS
     endif
 
     if (IOnode) then
-       write (6,'(a,i6)') 'buildunits: Number of segments', NDeffects+1
-       do I = 1,NDeffects+1
+       write (6,'(a,i6)') 'buildunits: Number of segments', NDefects+1
+       do I = 1,NDefects+1
           write (6,'(a,d16.8,a,d16.8)')                                 &
                'buildunits: Desired/Real segment length', dist(I),      &
                ' /', total_length(I)
@@ -936,7 +972,7 @@ CONTAINS
     endif
 
 !   Free memory.
-    deallocate (randomdeffects)
+    deallocate (randomdefects)
     deallocate (total_length)
 
 

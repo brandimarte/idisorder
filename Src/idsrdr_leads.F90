@@ -99,6 +99,7 @@ CONTAINS
 !  real*8 temp                  : Electronic temperature                !
 !  character(60) directory      : Working directory                     !
 !  logical tightbinding         : Tight-binding calculation?            !
+!  real*8 TBeFermi              : Tight-binding Fermi energy            !
 !  ****************************** INPUT ******************************  !
 !  integer nsc(2)               : Number of unit cells along parallel   !
 !                                 directions                            !
@@ -131,7 +132,8 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use idsrdr_options,  only: nspin, temp, directory, tightbinding
+    use idsrdr_options,  only: nspin, temp, directory,                  &
+                               tightbinding, TBeFermi
 
 #ifdef MPI
     include "mpif.h"
@@ -185,6 +187,9 @@ CONTAINS
        if (EfLead /= EfLeadR) then
           write (6,'(a)') 'WARNING: the Fermi energy from leads ' //    &
                'differs! (using the left lead Fermi energy...)'
+       endif
+       if (tightbinding) then
+          EfLead = TBeFermi
        endif
        write (6,6)                                                      &
             'readleads: Lead Fermi energy                       ' //    &

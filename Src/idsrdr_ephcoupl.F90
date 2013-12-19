@@ -21,7 +21,7 @@
 !  *******************************************************************  !
 !  Description: reads the electron-phonon coupling matrix, the          !
 !  vibrational frequencies (which is given in eV) and the dynamic       !
-!  orbitals indexes, for each deffect unit.                             !
+!  orbitals indexes, for each "defect" unit.                            !
 !                                                                       !
 !  Written by Pedro Brandimarte, Oct 2013.                              !
 !  Instituto de Fisica                                                  !

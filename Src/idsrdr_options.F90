@@ -45,7 +45,7 @@ MODULE idsrdr_options
   logical :: readunitstf         ! Read 'UnitIndex' block?
   logical :: tightbinding        ! Tight-binding calculation?
 
-  integer :: NDeffects           ! Number of deffects blocks
+  integer :: NDefects            ! Number of defects blocks
   integer :: NTenerg             ! Number of transmission energy points
   integer :: nspin               ! Number of spin components
   integer :: ntypeunits          ! Number of unit types
@@ -60,17 +60,20 @@ MODULE idsrdr_options
 
   integer, allocatable, dimension (:) :: atoms_per_ring ! 
 
-  real(8) :: avgdist             ! Average deffect distance
+  real(8) :: avgdist             ! Average defect distance
   real(8) :: TEnergI             ! Initial transmission energy
   real(8) :: TEnergF             ! Final transmission energy
   real(8) :: temp                ! Electronic temperature
   real(8) :: VInitial            ! Initial value of the bias potential
   real(8) :: VFinal              ! Final value of the bias potential
   real(8) :: dV                  ! Bias potential step
+  real(8) :: TBeFermi            ! Tight-binding Fermi energy
   real(8) :: TBenerg0            ! Tight-binding site energy
-  real(8) :: TBenerg1            ! Tight-binding deffect site energy
+  real(8) :: TBenerg1            ! Tight-binding defect 1 site energy
+  real(8) :: TBenerg2            ! Tight-binding defect 2 site energy
   real(8) :: TBcoupl0            ! Tight-binding site couplings
-  real(8) :: TBcoupl1            ! Tight-binding deffect coupling
+  real(8) :: TBcoupl1            ! Tight-binding defect 1 coupling
+  real(8) :: TBcoupl2            ! Tight-binding defect 2 coupling
 
   character(len=60) :: directory ! Working directory
   character(len=label_length), save :: slabel ! System Label
@@ -101,7 +104,7 @@ CONTAINS
 !  logical calcdos              : Calculate total DOS?                  !
 !  logical readunitstf          : Read 'UnitIndex' block?               !
 !  logical tightbinding         : Tight-binding calculation?            !
-!  integer NDeffects            : Number of deffects blocks             !
+!  integer NDefects             : Number of defects blocks              !
 !  integer NTenerg              : Number of transmission energy points  !
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
@@ -114,17 +117,20 @@ CONTAINS
 !                                 for asymmetric term integral          !
 !  integer atoms_per_ring(numberrings) :                                !
 !  integer label_length         : Length of system label                !
-!  real*8 avgdist               : Average deffect distance              !
+!  real*8 avgdist               : Average defect distance               !
 !  real*8 TEnergI               : Initial transmission energy           !
 !  real*8 TEnergF               : Final transmission energy             !
 !  real*8 temp                  : Electronic temperature                !
 !  real*8 VInitial              : Initial value of the bias potential   !
 !  real*8 VFinal                : Final value of the bias potential     !
 !  real*8 dV                    : Bias potential step                   !
+!  real*8 TBeFermi              : Tight-binding Fermi energy            !
 !  real*8 TBenerg0              : Tight-binding site energy             !
-!  real*8 TBenerg1              : Tight-binding deffect site energy     !
+!  real*8 TBenerg1              : Tight-binding defect 1 site energy    !
+!  real*8 TBenerg2              : Tight-binding defect 2 site energy    !
 !  real*8 TBcoupl0              : Tight-binding site couplings          !
-!  real*8 TBcoupl1              : Tight-binding deffect coupling        !
+!  real*8 TBcoupl1              : Tight-binding defect 1 coupling       !
+!  real*8 TBcoupl2              : Tight-binding defect 2 coupling       !
 !  character(60) directory      : Working directory                     !
 !  character(label_length) slabel : System Label (for output files)     !
 !  character(14) integraltype   : Integration method                    !
@@ -159,16 +165,16 @@ CONTAINS
        write (6,2) 'readopt: System label                         ' //  &
             '         =  ', slabel
 
-!      Number of deffects blocks.
-       NDeffects = fdf_integer ('NumberDeffects', 1)
+!      Number of defects blocks.
+       NDefects = fdf_integer ('NumberDefects', 1)
        write (6,4)                                                      &
-            'readopt: Number of deffects blocks                     =', &
-            NDeffects
+            'readopt: Number of defects blocks                      =', &
+            NDefects
 
-!      Average deffect distance.
-       avgdist = fdf_physical ('AvgDeffectDist', 50.0d0, 'Ang')
+!      Average defect distance.
+       avgdist = fdf_physical ('AvgDefectDist', 50.0d0, 'Ang')
        write (6,6)                                                      &
-            'readopt: Average deffect distance                      =', &
+            'readopt: Average defect distance                       =', &
             avgdist, ' Ang'
 
 !      Number of spin components.
@@ -328,17 +334,17 @@ CONTAINS
 
        if (tightbinding) then
 
+!         Tight-binding Fermi energy.
+          TBeFermi = fdf_physical ('TB.eFermi', 0.d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Tight-binding Fermi energy               ' //  &
+               '   =', TBeFermi, ' Ry'
+
 !         Tight-binding site energy.
           TBenerg0 = fdf_physical ('TB.energy.0', -0.5d0, 'Ry')
           write (6,6)                                                   &
                'readopt: Tight-binding site energy                ' //  &
                '   =', TBenerg0, ' Ry'
-
-!         Tight-binding deffect site energy.
-          TBenerg1 = fdf_physical ('TB.energy.1', -0.1d0, 'Ry')
-          write (6,6)                                                   &
-               'readopt: Tight-binding deffect site energy        ' //  &
-               '   =', TBenerg1, ' Ry'
 
 !         Tight-binding site couplings.
           TBcoupl0 = fdf_physical ('TB.coupling.0', 0.7d0, 'Ry')
@@ -346,11 +352,33 @@ CONTAINS
                'readopt: Tight-binding site couplings             ' //  &
                '   =', TBcoupl0, ' Ry'
 
-!         Tight-binding deffect coupling.
+!         Tight-binding defect 1 site energy.
+          TBenerg1 = fdf_physical ('TB.energy.1', -0.1d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Tight-binding defect 1 site energy       ' //  &
+               '   =', TBenerg1, ' Ry'
+
+!         Tight-binding defect 1 coupling.
           TBcoupl1 = fdf_physical ('TB.coupling.1', 0.175d0, 'Ry')
           write (6,6)                                                   &
-               'readopt: Tight-binding deffect coupling           ' //  &
+               'readopt: Tight-binding defect 1 coupling          ' //  &
                '   =', TBcoupl1, ' Ry'
+
+          if (ntypeunits > 2) then
+
+!            Tight-binding defect 2 site energy.
+             TBenerg2 = fdf_physical ('TB.energy.2', -0.1d0, 'Ry')
+             write (6,6)                                                &
+                  'readopt: Tight-binding defect 2 site energy    ' //  &
+                  '      =', TBenerg2, ' Ry'
+
+!            Tight-binding defect 1 coupling.
+             TBcoupl2 = fdf_physical ('TB.coupling.2', 0.175d0, 'Ry')
+             write (6,6)                                                &
+                  'readopt: Tight-binding defect 2 coupling       ' //  &
+                  '      =', TBcoupl2, ' Ry'
+
+          endif
 
        endif
 
@@ -361,7 +389,7 @@ CONTAINS
 #ifdef MPI
     call MPI_Bcast (slabel, label_length, MPI_Character, 0,             &
                     MPI_Comm_world, MPIerror)
-    call MPI_Bcast (NDeffects, 1, MPI_Integer, 0,                       &
+    call MPI_Bcast (NDefects, 1, MPI_Integer, 0,                        &
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (avgdist, 1, MPI_Double_Precision, 0,                &
                     MPI_Comm_world, MPIerror)
@@ -398,6 +426,24 @@ CONTAINS
                     MPI_Comm_world, MPIerror)
     call MPI_Bcast (readunitstf, 1, MPI_Logical, 0,                     &
                     MPI_Comm_world, MPIerror)
+    call MPI_Bcast (tightbinding, 1, MPI_Logical, 0,                    &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (TBeFermi, 1, MPI_Double_Precision, 0,               &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (TBenerg0, 1, MPI_Double_Precision, 0,               &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (TBcoupl0, 1, MPI_Double_Precision, 0,               &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (TBenerg1, 1, MPI_Double_Precision, 0,               &
+                    MPI_Comm_world, MPIerror)
+    call MPI_Bcast (TBcoupl1, 1, MPI_Double_Precision, 0,               &
+                    MPI_Comm_world, MPIerror)
+    if (ntypeunits > 2) then
+       call MPI_Bcast (TBenerg1, 1, MPI_Double_Precision, 0,            &
+                       MPI_Comm_world, MPIerror)
+       call MPI_Bcast (TBcoupl1, 1, MPI_Double_Precision, 0,            &
+                       MPI_Comm_world, MPIerror)
+    endif
 !   It is not necessary to broadcast 'nunits' here.
 #endif
 

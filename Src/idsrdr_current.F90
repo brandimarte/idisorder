@@ -141,12 +141,29 @@ CONTAINS
 
 ! TEMP BEGIN
        write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-            Vbias, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+            Vbias*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+       write (6662,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
+            Ei*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+       write (6663,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
+            Ei*13.60569253D0, Vbias*13.60569253D0, Iel
+       write (6664,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
+            Ei*13.60569253D0, Vbias*13.60569253D0, Isymm
+       write (6665,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
+            Ei*13.60569253D0, Vbias*13.60569253D0, Iasymm
+       write (6666,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
+            Ei*13.60569253D0, Vbias*13.60569253D0, Iel+Isymm+Iasymm
 ! TEMP END
 
        Vbias = Vbias + dV
 
     enddo
+
+! TEMP BEGIN
+       write (6663,'(/)',advance="no")
+       write (6664,'(/)',advance="no")
+       write (6665,'(/)',advance="no")
+       write (6666,'(/)',advance="no")
+! TEMP END
 
     if (IOnode) write(6,'(a)') " ok!"
 

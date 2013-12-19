@@ -69,7 +69,7 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  integer nspin               : Number of spin components              !
 !  integer NTenerg_div         : Number of energy grid points per node  !
-!  integer neph                : Number of units with e-ph interaction  !
+!  integer nunitseph           : Number of units with eph               !
 !  *******************************************************************  !
   subroutine spectralinit
 
@@ -78,11 +78,11 @@ CONTAINS
 !
     use idsrdr_options,  only: nspin
     use idsrdr_engrid,   only: NTenerg_div
-    use idsrdr_ephcoupl, only: neph
+    use idsrdr_units,    only: nunitseph
 
 !   Allocate and initializes spectral and density of states arrays.
-    allocate (spctrl(NTenerg_div,nspin,neph+1))
-    allocate (dos(NTenerg_div,nspin,neph+1))
+    allocate (spctrl(NTenerg_div,nspin,nunitseph+1))
+    allocate (dos(NTenerg_div,nspin,nunitseph+1))
     spctrl = 0.d0
     dos = 0.d0
 
@@ -106,7 +106,6 @@ CONTAINS
 !  logical IOnode                       : True if it is the I/O node    !
 !  integer ntypeunits                   : Number of unit types          !
 !  integer nunits                       : Total number of units         !
-!  integer neph                         : Number of units with e-ph     !
 !  integer ephIdx(ntypeunits+2)         : Unit index (those with e-ph)  !
 !  integer norbDyn(neph)                : Number of orbitals from       !
 !                                         dynamic atoms                 !
@@ -116,6 +115,8 @@ CONTAINS
 !  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
 !  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
 !                                         [real*8] Units overlap        !
+!  integer nunitseph                    : Number of units with eph      !
+!  integer eph_type(nunitseph)          : Units types with eph          !
 !  TYPE(green) Gr_nn(neph)%G(unitdimensions,unitdimensions) :           !
 !                                                  [complex] G^r_{n,n}  !
 !  ****************************** INPUT ******************************  !
@@ -129,15 +130,16 @@ CONTAINS
 !
     use parallel,        only: IOnode
     use idsrdr_options,  only: ntypeunits, nunits
-    use idsrdr_ephcoupl, only: neph, ephIdx, norbDyn, idxF, idxL
-    use idsrdr_units,    only: unit_type, unitdimensions, Sunits
+    use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
+    use idsrdr_units,    only: unit_type, unitdimensions, Sunits,       &
+                               nunitseph, eph_type
     use idsrdr_green,    only: Gr_nn
 
 !   Input variables.
     integer, intent(in) :: ienergy, ispin
 
 !   Local variables.
-    integer :: I, K, idx
+    integer :: I, K, idx, ueph
     complex(8), dimension(:,:), allocatable :: Scp, Aux1, Aux2
     external :: zsymm
 
@@ -146,6 +148,7 @@ CONTAINS
 
 !   Initialize variables.
     idx = ephIdx(ntypeunits+1)
+    ueph = 1 ! eph units indexing
 
     if (idx /= 0) then
 
@@ -160,7 +163,7 @@ CONTAINS
 
 !      ('Aux1 = Gr_nn * Saux')
        call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), Scp, norbDyn(idx), Gr_nn(idx)%G,        &
+                   (1.D0,0.D0), Scp, norbDyn(idx), Gr_nn(ueph)%G,       &
                    norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !      ('Aux2 = Saux * Aux1')
@@ -168,21 +171,23 @@ CONTAINS
                    (1.D0,0.D0), Scp, norbDyn(idx), Aux1,                &
                    norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
-       spctrl(ienergy,ispin,idx) = 0.D0
-       dos(ienergy,ispin,idx) = 0.D0
+       spctrl(ienergy,ispin,ueph) = 0.D0
+       dos(ienergy,ispin,ueph) = 0.D0
        do K = 1,norbDyn(idx)
-          spctrl(ienergy,ispin,idx) = spctrl(ienergy,ispin,idx)         &
-                                      - DIMAG(Gr_nn(idx)%G(K,K))
-          dos(ienergy,ispin,idx) = dos(ienergy,ispin,idx)               &
-                                   - DIMAG(Aux2(K,K))
+          spctrl(ienergy,ispin,ueph) = spctrl(ienergy,ispin,ueph)       &
+                                       - DIMAG(Gr_nn(ueph)%G(K,K))
+          dos(ienergy,ispin,ueph) = dos(ienergy,ispin,ueph)             &
+                                    - DIMAG(Aux2(K,K))
        enddo
-       spctrl(ienergy,ispin,neph+1) = spctrl(ienergy,ispin,idx)
-       dos(ienergy,ispin,neph+1) = dos(ienergy,ispin,idx)
+       spctrl(ienergy,ispin,nunitseph+1) = spctrl(ienergy,ispin,ueph)
+       dos(ienergy,ispin,nunitseph+1) = dos(ienergy,ispin,ueph)
 
 !      Free memory.
        deallocate (Scp)
        deallocate (Aux1)
        deallocate (Aux2)
+
+       ueph = ueph + 1 ! eph units indexing
 
     endif
 
@@ -203,7 +208,7 @@ CONTAINS
 
 !         ('Aux1 = GrMM * Saux')
           call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.D0,0.D0), Scp, norbDyn(idx), Gr_nn(idx)%G,     &
+                      (1.D0,0.D0), Scp, norbDyn(idx), Gr_nn(ueph)%G,    &
                       norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !         ('Aux2 = Saux * Aux1')
@@ -211,23 +216,27 @@ CONTAINS
                       (1.D0,0.D0), Scp, norbDyn(idx), Aux1,             &
                       norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
-          spctrl(ienergy,ispin,idx) = 0.D0
-          dos(ienergy,ispin,idx) = 0.D0
+          spctrl(ienergy,ispin,ueph) = 0.D0
+          dos(ienergy,ispin,ueph) = 0.D0
           do K = 1,norbDyn(idx)
-             spctrl(ienergy,ispin,idx) = spctrl(ienergy,ispin,idx)      &
-                                         - DIMAG(Gr_nn(idx)%G(K,K))
-             dos(ienergy,ispin,idx) = dos(ienergy,ispin,idx)            &
-                                      - DIMAG(Aux2(K,K))
+             spctrl(ienergy,ispin,ueph) = spctrl(ienergy,ispin,ueph)    &
+                                          - DIMAG(Gr_nn(ueph)%G(K,K))
+             dos(ienergy,ispin,ueph) = dos(ienergy,ispin,ueph)          &
+                                       - DIMAG(Aux2(K,K))
           enddo
-          spctrl(ienergy,ispin,neph+1) = spctrl(ienergy,ispin,neph+1)   &
-                                         + spctrl(ienergy,ispin,idx)
-          dos(ienergy,ispin,neph+1) = dos(ienergy,ispin,neph+1)         &
-                                      + dos(ienergy,ispin,idx)
+          spctrl(ienergy,ispin,nunitseph+1) =                           &
+                                      spctrl(ienergy,ispin,nunitseph+1) &
+                                      + spctrl(ienergy,ispin,ueph)
+          dos(ienergy,ispin,nunitseph+1) =                              &
+                                         dos(ienergy,ispin,nunitseph+1) &
+                                         + dos(ienergy,ispin,ueph)
 
 !         Free memory.
           deallocate (Scp)
           deallocate (Aux1)
           deallocate (Aux2)
+
+          ueph = ueph + 1 ! eph units indexing
 
        endif
 
@@ -247,7 +256,7 @@ CONTAINS
 
 !      ('Aux1 = GrMM * Saux')
        call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), Scp, norbDyn(idx), Gr_nn(idx)%G,        &
+                   (1.D0,0.D0), Scp, norbDyn(idx), Gr_nn(ueph)%G,       &
                    norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !      ('Aux2 = Saux * Aux1')
@@ -255,18 +264,19 @@ CONTAINS
                    (1.D0,0.D0), Scp, norbDyn(idx), Aux1,                &
                    norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
-       spctrl(ienergy,ispin,idx) = 0.D0
-       dos(ienergy,ispin,idx) = 0.D0
+       spctrl(ienergy,ispin,ueph) = 0.D0
+       dos(ienergy,ispin,ueph) = 0.D0
        do K = 1,norbDyn(idx)
-          spctrl(ienergy,ispin,idx) = spctrl(ienergy,ispin,idx)         &
-                                      - DIMAG(Gr_nn(idx)%G(K,K))
-          dos(ienergy,ispin,idx) = dos(ienergy,ispin,idx)               &
-                                   - DIMAG(Aux2(K,K))
+          spctrl(ienergy,ispin,ueph) = spctrl(ienergy,ispin,ueph)       &
+                                       - DIMAG(Gr_nn(ueph)%G(K,K))
+          dos(ienergy,ispin,ueph) = dos(ienergy,ispin,ueph)             &
+                                    - DIMAG(Aux2(K,K))
        enddo
-       spctrl(ienergy,ispin,neph+1) = spctrl(ienergy,ispin,neph+1)      &
-                                      + spctrl(ienergy,ispin,idx)
-       dos(ienergy,ispin,neph+1) = dos(ienergy,ispin,neph+1)            &
-                                   + dos(ienergy,ispin,idx)
+       spctrl(ienergy,ispin,nunitseph+1) =                              &
+                                      spctrl(ienergy,ispin,nunitseph+1) &
+                                      + spctrl(ienergy,ispin,ueph)
+       dos(ienergy,ispin,nunitseph+1) = dos(ienergy,ispin,nunitseph+1)  &
+                                        + dos(ienergy,ispin,ueph)
 
 !      Free memory.
        deallocate (Scp)
@@ -303,7 +313,7 @@ CONTAINS
 !  character(60) directory     : Working directory                      !
 !  integer NTenerg_div         : Number of energy grid points per node  !
 !  real*8 Ei(NTenerg_div)      : Energy grid points                     !
-!  integer neph                : Number of units with e-ph interaction  !
+!  integer nunitseph           : Number of units with eph               !
 !  *******************************************************************  !
   subroutine writespectral
 
@@ -313,7 +323,7 @@ CONTAINS
     use parallel,        only: IOnode, Node, Nodes
     use idsrdr_options,  only: nspin, label_length, slabel, directory
     use idsrdr_engrid,   only: NTenerg_div, Ei
-    use idsrdr_ephcoupl, only: neph
+    use idsrdr_units,    only: nunitseph
 
 #ifdef MPI
     include "mpif.h"
@@ -334,7 +344,7 @@ CONTAINS
     integer, dimension(MPI_Status_Size) :: MPIstatus
 #endif
 
-    do J = 1,neph+1 ! over units with e-ph intereaction
+    do J = 1,nunitseph+1 ! over units with e-ph intereaction
 
        if (IOnode) then
 
@@ -443,7 +453,7 @@ CONTAINS
 
        endif
 
-    enddo ! do J = 1,neph
+    enddo ! do J = 1,nunitseph
 
 
   end subroutine writespectral
