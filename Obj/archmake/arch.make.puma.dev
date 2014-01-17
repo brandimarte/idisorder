@@ -96,7 +96,7 @@ AR = ar
 # (they are generated automatically by the 'configure' script
 # in some cases).
 FCFLAGS_fixed_f   =
-FCFLAGS_free_f90  =
+FCFLAGS_free_f90  = 
 FPPFLAGS_fixed_F  =
 FPPFLAGS_free_F90 =
 
@@ -137,7 +137,7 @@ COMP_LIBS =
 # implementation. If your compiler vendor offers an alternative, you may
 # change to it here.
 #MPI_INTERFACE = libmpi_f90.a
-MPI_INCLUDE   = /scratch/programas/intel/ompi-1.6-intel/include
+MPI_INCLUDE   = -I/scratch/programas/intel/ompi-1.6-intel/include
 
 # Preprocessor definitions or flags.
 # Here we use FPPFLAGS (as 'configure' calls them), but historically

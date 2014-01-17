@@ -33,7 +33,7 @@
 IDISORDER_ARCH = intel-mkl
 
 # Executable name.
-EXEC = i-disorder.dev
+EXEC = i-disorder.optim
 
 # In case your compiler does not understand the special meaning of 
 # the .F and .F90 extensions ("files in need of preprocessing"), you
@@ -137,7 +137,7 @@ COMP_LIBS =
 # implementation. If your compiler vendor offers an alternative, you may
 # change to it here.
 #MPI_INTERFACE = libmpi_f90.a
-MPI_INCLUDE   = /scratch/programas/intel/ompi-1.6-intel/include
+MPI_INCLUDE   = -I/scratch/programas/intel/ompi-1.6-intel/include
 
 # Preprocessor definitions or flags.
 # Here we use FPPFLAGS (as 'configure' calls them), but historically

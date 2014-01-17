@@ -33,7 +33,7 @@
 IDISORDER_ARCH = x86_64-macbook
 
 # Executable name.
-EXEC = i-disorder.dev
+EXEC = i-disorder.optim
 
 # In case your compiler does not understand the special meaning of 
 # the .F and .F90 extensions ("files in need of preprocessing"), you
