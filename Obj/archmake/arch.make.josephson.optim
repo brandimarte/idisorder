@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = x86_64-macbook
+IDISORDER_ARCH = x86_64-unknown-linux
 
 # Executable name.
 EXEC = i-disorder.dev
@@ -45,7 +45,7 @@ EXEC = i-disorder.dev
 # a good idea to add options here, except when they are essential for
 # a proper operation. For example, here we request 64 bits and a special
 # sub-compiler.
-FC = mpif90
+FC = mpiifort
 
 # The FC_SERIAL symbol is useful in at least two cases:
 #   1. When the "MPI compiler environment" is so complex that it might
@@ -57,7 +57,7 @@ FC = mpif90
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O2 -xHost -ip -mp1 -heap-arrays 1024 \
+FFLAGS = -O2 -xHost -ip -mp1 \
          -warn unused,truncated_source,uncalled,declarations,usage
 
 # Some systems do not have 'ranlib'. If so,
@@ -66,8 +66,8 @@ RANLIB = ranlib
 
 # A compiler-specific file holding special versions of some routines
 # For most f95 compilers, "nag" should work. (The name is historical)
-#SYS = nag
-SYS = bsd
+SYS = nag
+#SYS = bsd
 
 # These symbols should not need to be specified. They will be detected
 # automatically at the time of compiling the MPI interface. Set them
@@ -104,21 +104,23 @@ FPPFLAGS_free_F90 =
 # We can make things a bit easier by grouping symbols, and maybe
 # using the -L flag to define search directories (see examples
 # in 'siesta-3.1/Src/Sys' directory).
-MKL              = /opt/intel/composer_xe_2013.5.198/mkl
-INTEL_LIBS       = $(MKL)/lib/libmkl_intel_lp64.a \
-                   $(MKL)/lib/libmkl_sequential.a \
-                   $(MKL)/lib/libmkl_core.a
-#                   $(MKL)/lib/libmkl_lapack95_lp64.a \
-#                   $(MKL)/lib/libmkl_blas95_lp64.a
-SCALAPACK_LIBS   = /opt/local/lib/libscalapack.a
-MKL_LIBS         = $(INTEL_LIBS) $(SCALAPACK_LIBS) -lpthread -lm
+MKL              = /opt/intel/composer_xe_2011_sp1.6.233/mkl
+INTEL_LIBS       = $(MKL)/lib/intel64/libmkl_intel_lp64.a \
+                   $(MKL)/lib/intel64/libmkl_sequential.a \
+                   $(MKL)/lib/intel64/libmkl_core.a \
+                   $(MKL)/lib/intel64/libmkl_blacs_intelmpi_lp64.a \
+                   $(MKL)/lib/intel64/libmkl_scalapack_lp64.a
+#                   $(MKL)/lib/intel64/libmkl_blas95_lp64.a \
+#                   $(MKLROOT)/lib/intel64/libmkl_lapack95_lp64.a
+MKL_LIBS         = -Wl,--start-group $(INTEL_LIBS) \
+                   -Wl,--end-group -lpthread -lm
 MKL_INCLUDE      = -I$(MKL)/include # -I$(MKL)/include/intel64/lp64
 MKLDFT_INTERFACE = libmkl_dfti.a
 
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
 # might need something like -L somepath/ -l mpi ...
-MPI_LIBS = -L/opt/local/lib -lmpi
+MPI_LIBS = -L/opt/intel/impi/4.0.3.008/intel64/lib -lmpi
 
 # Even if you have an optimized system library (such as ESSL), you might
 # not have all of LAPACK. In particular, the divide_and_conquer routines
@@ -135,7 +137,7 @@ COMP_LIBS =
 # implementation. If your compiler vendor offers an alternative, you may
 # change to it here.
 #MPI_INTERFACE = libmpi_f90.a
-MPI_INCLUDE   = -I/opt/local/include
+MPI_INCLUDE   = -I/opt/intel/impi/4.0.3.008/intel64/include
 
 # Preprocessor definitions or flags.
 # Here we use FPPFLAGS (as 'configure' calls them), but historically

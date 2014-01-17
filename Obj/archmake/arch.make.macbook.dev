@@ -57,7 +57,7 @@ FC = mpif90
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O2 -axSSE4.2 -traceback -C -fpe0 -heap-arrays 1024 \
+FFLAGS = -O2 -xHost -traceback -C -heap-arrays 1024 \
          -warn unused,truncated_source,uncalled,declarations,usage
 
 # Some systems do not have 'ranlib'. If so,
@@ -83,14 +83,14 @@ SYS = bsd
 #DEFS_PREFIX = -WF,
 
 # Used only at the linking stage. For example, you might neeed "-static".
-#LDFLAGS = -static-intel -static-libgcc
+LDFLAGS = -static-intel -static-libgcc
 
 # Extra flags for library creation by the 'ar' command
 # Note that the 'ar' command can itself be specified by
 # defining the AR variable. In most 'make' programs, AR is a
 # built-in variable.
 ARFLAGS_EXTRA =
-AR = ar
+AR = xiar
 
 # These symbols help to keep the building rules concise
 # (they are generated automatically by the 'configure' script
@@ -111,8 +111,9 @@ INTEL_LIBS       = $(MKL)/lib/libmkl_intel_lp64.a \
 #                   $(MKL)/lib/libmkl_lapack95_lp64.a \
 #                   $(MKL)/lib/libmkl_blas95_lp64.a
 SCALAPACK_LIBS   = /opt/local/lib/libscalapack.a
-MKL_LIBS         = -Wl,--start-group $(INTEL_LIBS) $(SCALAPACK_LIBS) \
-		  -Wl,--end-group -lpthread -lm
+MKL_LIBS         = $(INTEL_LIBS) $(SCALAPACK_LIBS) -lpthread -lm
+MKL_INCLUDE      = -I$(MKL)/include # -I$(MKL)/include/intel64/lp64
+MKLDFT_INTERFACE = libmkl_dfti.a
 
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
@@ -127,6 +128,7 @@ MPI_LIBS = -L/opt/local/lib -lmpi
 # If you do not have any optimized linear algebra library, you can
 # specify COMP_LIBS=linalg.a
 COMP_LIBS = 
+#COMP_LIBS = dc_lapack.a 
 
 # This (as well as the -DMPI definition) is essential for MPI support.
 # SIESTA needs an F90 interface to MPI. This will give you SIESTA's own
@@ -147,7 +149,7 @@ FPPFLAGS_MPI = -DMPI
 
 # Other definitions might be needed to work around some glitch in the
 # compiler. For old versions of gfortran, add -DGFORTRAN.
-FPPFLAGS = $(FPPFLAGS_CDF) $(FPPFLAGS_MPI)
+FPPFLAGS = $(FPPFLAGS_MPI)
 
 # All included flags.
 INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
@@ -156,7 +158,7 @@ INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
 # Sometimes the BLAS are included in LAPACK (or it could be
 # that everything is included in SCALAPACK...). You might
 # need to experiment if you find  duplicate symbols.
-LIBS = $(INTEL_LIBS) $(SCALAPACK_LIBS) $(MPI_LIBS) $(COMP_LIBS)
+LIBS = $(MKL_LIBS) $(MPI_LIBS) $(COMP_LIBS)
 
 # Dependency rules ---------
 
@@ -176,6 +178,7 @@ FFLAGS_DEBUG = -g -O0
 # Important points to note:
 #  - INCFLAGS must be present. It is used in several utility makefiles
 #  - Either FPPFLAGS (preferred) or DEFS (deprecated) must be present
+#    (see above) -- Note that the use of DEFS might break Util compilations.
 #  - If your compiler does not recognize .F and .F90 extensions as in
 #    need of preprocessing, you will need to use an intermediate
 #    preprocessing step (see above about FPP). For example:
