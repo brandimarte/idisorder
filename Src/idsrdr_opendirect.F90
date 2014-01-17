@@ -17,22 +17,22 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                          MODULE open_direct                           !
+!                       MODULE idsrdr_opendirect                        !
 !  *******************************************************************  !
 !  Description: controlled opening of a "direct" file.                  !
 !                                                                       !
 !  Based on P. Lignelet, "Structures de Donnees en Fortran 90/95",      !
 !  Masson  (1996).                                                      !
 !                                                                       !
-!  Written by Pedro Brandimarte, Sep 2013.                              !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    September 2013                                  !
+!  Original version:    January 2014                                    !
 !  *******************************************************************  !
 
-MODULE open_direct
+MODULE idsrdr_opendirect
 
   implicit none
 
@@ -53,12 +53,12 @@ CONTAINS
 !  another file, the connection is closed to avoid conflict. If the     !
 !  file doesn't exist, it is created.                                   !
 !                                                                       !
-!  Written by Pedro Brandimarte, Sep 2013.                              !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    September 2013                                  !
+!  Original version:    January 2014                                    !
 !  ****************************** INPUT ******************************  !
 !  character(*) file       : File system name                           !
 !  integer unit            : Data file logical unit number              !
@@ -112,4 +112,4 @@ CONTAINS
 !  *******************************************************************  !
 
 
-END MODULE open_direct
+END MODULE idsrdr_opendirect

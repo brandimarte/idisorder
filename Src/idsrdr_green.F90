@@ -60,9 +60,11 @@ MODULE idsrdr_green
   TYPE(green), allocatable, dimension (:) :: Gr_1n ! G^r_{1,n}
   TYPE(green), allocatable, dimension (:) :: Gr_Mn ! G^r_{M,n}
 
+  complex(8), allocatable, dimension (:,:) :: Gr_1M ! G^r_{1,M}
+
+! The following are allocated only when the last unit doesn't have e-ph.
   complex(8), allocatable, dimension (:,:) :: GL_nn ! G^L_{n,n}
   complex(8), allocatable, dimension (:,:) :: GL_1N ! G^L_{1,M}
-  complex(8), allocatable, dimension (:,:) :: Gr_1M ! G^r_{1,M}
 
 
 CONTAINS

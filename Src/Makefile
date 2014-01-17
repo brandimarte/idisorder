@@ -60,14 +60,14 @@ what:
 	@sleep 2
 
 # All objects.
-OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o \
-	zhsl.o zhsunits.o gauleg.o hsl.o hsunits.o identify.o \
-	diagonal_alex.o decimate_leads.o leads_complex.o \
-	idsrdr_random.o idsrdr_check.o idsrdr_recipes.o \
-	idsrdr_options.o idsrdr_leads.o idsrdr_init.o idsrdr_ephcoupl.o \
-	idsrdr_engrid.o idsrdr_units.o idsrdr_distrib.o idsrdr_green.o \
-	idsrdr_spectral.o idsrdr_hilbert.o idsrdr_current.o \
-	idsrdr_end.o idisorder.o
+OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o     \
+	zhsl.o zhsunits.o gauleg.o hsl.o hsunits.o identify.o           \
+	diagonal_alex.o decimate_leads.o leads_complex.o                \
+	idsrdr_random.o idsrdr_opendirect.o idsrdr_check.o              \
+	idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o  \
+	idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o                \
+	idsrdr_distrib.o idsrdr_green.o idsrdr_spectral.o               \
+	idsrdr_hilbert.o idsrdr_current.o idsrdr_end.o idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -79,20 +79,6 @@ $(FDF):
 
 # Routines using fdf calls.
 idsrdr_init.o idsrdr_options.o idsrdr_units.o : $(FDF)
-
-#  *******************************************************************  #
-
-BTREE=libbtree.a
-$(BTREE): 
-	(cd BTree ; $(MAKE) "VPATH=$(VPATH)/BTree" module)
-
-# Routines using BTree calls.
-
-#  *******************************************************************  #
-
-# Interfaces to libraries.
-#libmpi_f90.a: 
-#	@(cd MPI ; $(MAKE) "VPATH=$(VPATH)/MPI")
 
 #  *******************************************************************  #
 
@@ -110,8 +96,8 @@ idsrdr_hilbert.o : $(MKLDFT)
 
 #  *******************************************************************  #
 
-idisorder: what $(FDF) $(BTREE) $(MKLDFT) $(COMP_LIBS) $(OBJS) 
-	$(FC) -o $(EXEC) $(LDFLAGS) $(OBJS) $(FDF) $(BTREE) $(MKLDFT) \
+idisorder: what $(FDF) $(MKLDFT) $(COMP_LIBS) $(OBJS) 
+	$(FC) -o $(EXEC) $(LDFLAGS) $(OBJS) $(FDF) $(MKLDFT)            \
 	    $(COMP_LIBS) $(LIBS)
 
 #  *******************************************************************  #
@@ -120,10 +106,7 @@ clean:
 	@echo "==> Cleaning object, library, and executable files"
 	$(RM) i-disorder* *.o *.a *.mod *.h *~ \#~ .\#*
 	(cd fdf ; $(MAKE) clean)
-	(cd BTree ; $(MAKE) clean)
 	@if [ -d MKLDFT ] ; then (cd MKLDFT && $(MAKE) clean ) ; fi
-#	@if [ -d MPI ] ; then (cd MPI && $(MAKE) clean ) ; fi
-
 
 # DO NOT DELETE THIS LINE - used by make depend
 
@@ -143,6 +126,7 @@ clean:
 #idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o \
 #	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o \
 #	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o
+#idsrdr_opendirect.o :
 #idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o \
