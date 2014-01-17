@@ -291,9 +291,9 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    December 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
-!  integer nspin                : Number of spin components             !
-!  real*8 TBenerg0              : Tight-binding site energy             !
-!  real*8 TBcoupl0              : Tight-binding site couplings          !
+!  integer nspin                  : Number of spin components           !
+!  real*8 TBenerg                 : Tight-binding site energy           !
+!  real*8 TBcoupl                 : Tight-binding site couplings        !
 !  ***************************** OUTPUT ******************************  !
 !  complex(8) S0_L(NL,NL)         : Left lead PL overlap                !
 !  complex(8) S0_R(NR,NR)         : Right lead PL overlap               !
@@ -309,7 +309,7 @@ CONTAINS
 !
 !   Modules
 !
-    use idsrdr_options,  only: nspin, TBenerg0, TBcoupl0
+    use idsrdr_options,  only: nspin, TBenerg, TBcoupl
 
 !   Local variables.
     integer :: i, j, s
@@ -324,42 +324,42 @@ CONTAINS
     H1_R = 0.d0
 
     do i = 1,NL-1
-       H0_L(i,i,1) = DCMPLX(TBenerg0)
-       H0_L(i,i+1,1) = DCMPLX(TBcoupl0)
-       H0_L(i+1,i,1) = DCMPLX(TBcoupl0)
+       H0_L(i,i,1) = DCMPLX(TBenerg)
+       H0_L(i,i+1,1) = DCMPLX(TBcoupl)
+       H0_L(i+1,i,1) = DCMPLX(TBcoupl)
        S0_L(i,i) = (1.d0,0.d0)
     enddo
-    H0_L(i,i,1) = DCMPLX(TBenerg0)
+    H0_L(i,i,1) = DCMPLX(TBenerg)
     S0_L(i,i) = (1.d0,0.d0)
-    H1_L(NL,1,1) = DCMPLX(TBcoupl0)
+    H1_L(NL,1,1) = DCMPLX(TBcoupl)
 
     do i = 1,NR-1
-       H0_R(i,i,1) = DCMPLX(TBenerg0)
-       H0_R(i,i+1,1) = DCMPLX(TBcoupl0)
-       H0_R(i+1,i,1) = DCMPLX(TBcoupl0)
+       H0_R(i,i,1) = DCMPLX(TBenerg)
+       H0_R(i,i+1,1) = DCMPLX(TBcoupl)
+       H0_R(i+1,i,1) = DCMPLX(TBcoupl)
        S0_R(i,i) = (1.d0,0.d0)
     enddo
-    H0_R(i,i,1) = DCMPLX(TBenerg0)
+    H0_R(i,i,1) = DCMPLX(TBenerg)
     S0_R(i,i) = (1.d0,0.d0)
-    H1_R(NR,1,1) = DCMPLX(TBcoupl0)
+    H1_R(NR,1,1) = DCMPLX(TBcoupl)
 
     do s = 2,nspin ! over other spin components
 
        do i = 1,NL-1
-          H0_L(i,i,s) = DCMPLX(TBenerg0)
-          H0_L(i,i+1,s) = DCMPLX(TBcoupl0)
-          H0_L(i+1,i,s) = DCMPLX(TBcoupl0)
+          H0_L(i,i,s) = DCMPLX(TBenerg)
+          H0_L(i,i+1,s) = DCMPLX(TBcoupl)
+          H0_L(i+1,i,s) = DCMPLX(TBcoupl)
        enddo
-       H0_L(i,i,s) = DCMPLX(TBenerg0)
-       H1_L(NL,1,s) = DCMPLX(TBcoupl0)
+       H0_L(i,i,s) = DCMPLX(TBenerg)
+       H1_L(NL,1,s) = DCMPLX(TBcoupl)
 
        do i = 1,NR-1
-          H0_R(i,i,s) = DCMPLX(TBenerg0)
-          H0_R(i,i+1,s) = DCMPLX(TBcoupl0)
-          H0_R(i+1,i,s) = DCMPLX(TBcoupl0)
+          H0_R(i,i,s) = DCMPLX(TBenerg)
+          H0_R(i,i+1,s) = DCMPLX(TBcoupl)
+          H0_R(i+1,i,s) = DCMPLX(TBcoupl)
        enddo
-       H0_R(i,i,s) = DCMPLX(TBenerg0)
-       H1_R(NR,1,s) = DCMPLX(TBcoupl0)
+       H0_R(i,i,s) = DCMPLX(TBenerg)
+       H1_R(NR,1,s) = DCMPLX(TBcoupl)
 
     enddo
 

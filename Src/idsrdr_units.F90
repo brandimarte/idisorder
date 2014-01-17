@@ -443,15 +443,19 @@ CONTAINS
 !  Original version:    December 2013                                   !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode               : True if it is the I/O node            !
-!  integer ephIdx(ntypeunits+2)        : Unit index (those with e-ph)   !
-!  integer idxF(neph)                  : First dynamic atom orbital     !
-!  integer idxL(neph)                  : Last dynamic atom orbital      !
-!  real*8 TBenerg0              : Tight-binding site energy             !
-!  real*8 TBcoupl0              : Tight-binding site couplings          !
-!  real*8 TBenerg1              : Tight-binding defect 1 site energy    !
-!  real*8 TBcoupl1              : Tight-binding defect 1 coupling       !
-!  real*8 TBenerg2              : Tight-binding defect 2 site energy    !
-!  real*8 TBcoupl2              : Tight-binding defect 2 coupling       !
+!  integer ephIdx(ntypeunits+2) : Unit index (those with e-ph)          !
+!  integer idxF(neph)           : First dynamic atom orbital            !
+!  integer idxL(neph)           : Last dynamic atom orbital             !
+!  real*8 TBenerg            : Tight-binding site energy                !
+!  real*8 TBenergS           : Tight-binding simple defect site energy  !
+!  real*8 TBenergSDB         : Tight-binding simple defect site energy  !
+!                              (to DB)                                  !
+!  real*8 TBenergDB          : Tight-binding dangling bond site energy  !
+!  real*8 TBcoupl            : Tight-binding site couplings             !
+!  real*8 TBcouplS           : Tight-binding simple defect coupling     !
+!  real*8 TBcouplSDB         : Tight-binding simple defect coupling     !
+!                              (to DB)                                  !
+!  real*8 TBcouplDB          : Tight-binding dangling bond coupling     !
 !  ****************************** INPUT ******************************  !
 !  integer nspin                : Number of spin components             !
 !  integer ntypeunits           : Number of unit types                  !
@@ -475,8 +479,8 @@ CONTAINS
 !   Modules
 !
     use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
-    use idsrdr_options,  only: TBenerg0, TBcoupl0, TBenerg1, TBcoupl1,  &
-                               TBenerg2, TBcoupl2
+    use idsrdr_options,  only: TBenerg, TBenergS, TBenergSDB, TBenergDB,&
+                               TBcoupl, TBcouplS, TBcouplSDB, TBcouplDB
     use fdf
 
 #ifdef MPI
@@ -497,21 +501,21 @@ CONTAINS
     Sunits(I)%S = 0.d0
     Hunits(I)%H = 0.d0
     do r = 1,unitdimensions(I)-1
-       Hunits(I)%H(r,r,1) = TBenerg0
-       Hunits(I)%H(r,r+1,1) = TBcoupl0
-       Hunits(I)%H(r+1,r,1) = TBcoupl0
+       Hunits(I)%H(r,r,1) = TBenerg
+       Hunits(I)%H(r,r+1,1) = TBcoupl
+       Hunits(I)%H(r+1,r,1) = TBcoupl
        Sunits(I)%S(r,r) = 1.d0
     enddo
-    Hunits(I)%H(r,r,1) = TBenerg0
+    Hunits(I)%H(r,r,1) = TBenerg
     Sunits(I)%S(r,r) = 1.d0
     If (ephIndic(I) == 1) Then
        r = idxF(w) - 1
-       Hunits(I)%H(r,r+1,1) = TBcoupl1
-       Hunits(I)%H(r+1,r,1) = TBcoupl1
+       Hunits(I)%H(r,r+1,1) = TBcouplS
+       Hunits(I)%H(r+1,r,1) = TBcouplS
        do r = idxF(w),idxL(w)
-          Hunits(I)%H(r,r,1) = TBenerg1
-          Hunits(I)%H(r,r+1,1) = TBcoupl1
-          Hunits(I)%H(r+1,r,1) = TBcoupl1
+          Hunits(I)%H(r,r,1) = TBenergS
+          Hunits(I)%H(r,r+1,1) = TBcouplS
+          Hunits(I)%H(r+1,r,1) = TBcouplS
        enddo
        w = w + 1
     EndIf
@@ -521,35 +525,38 @@ CONTAINS
        Sunits(I)%S = 0.d0
        Hunits(I)%H = 0.d0
        do r = 1,unitdimensions(I)-1
-          Hunits(I)%H(r,r,1) = TBenerg0
-          Hunits(I)%H(r,r+1,1) = TBcoupl0
-          Hunits(I)%H(r+1,r,1) = TBcoupl0
+          Hunits(I)%H(r,r,1) = TBenerg
+          Hunits(I)%H(r,r+1,1) = TBcoupl
+          Hunits(I)%H(r+1,r,1) = TBcoupl
           Sunits(I)%S(r,r) = 1.d0
        enddo
-       Hunits(I)%H(r,r,1) = TBenerg0
+       Hunits(I)%H(r,r,1) = TBenerg
        Sunits(I)%S(r,r) = 1.d0
        If (ephIndic(I) == 1) Then
           if (ueph == 1) then
              r = idxF(w) - 1
-             Hunits(I)%H(r,r+1,1) = TBcoupl1
-             Hunits(I)%H(r+1,r,1) = TBcoupl1
+             Hunits(I)%H(r,r+1,1) = TBcouplS
+             Hunits(I)%H(r+1,r,1) = TBcouplS
              do r = idxF(w),idxL(w)
-                Hunits(I)%H(r,r,1) = TBenerg1
-                Hunits(I)%H(r,r+1,1) = TBcoupl1
-                Hunits(I)%H(r+1,r,1) = TBcoupl1
+                Hunits(I)%H(r,r,1) = TBenergS
+                Hunits(I)%H(r,r+1,1) = TBcouplS
+                Hunits(I)%H(r+1,r,1) = TBcouplS
              enddo
              w = w + 1
              ueph = ueph + 1
-          else ! Only in mind a 4x4 matrix here...
+          else ! Dangling Bond - only in mind a 4x4 matrix here...
              r = idxF(w) - 1
-             Hunits(I)%H(r,r+1,1) = TBcoupl2
-             Hunits(I)%H(r+1,r,1) = TBcoupl2
+             Hunits(I)%H(r-1,r,1) = TBcouplSDB
+             Hunits(I)%H(r,r-1,1) = TBcouplSDB
+             Hunits(I)%H(r,r,1) = TBenergSDB
+             Hunits(I)%H(r,r+1,1) = TBcouplDB
+             Hunits(I)%H(r+1,r,1) = TBcouplDB
              do r = idxF(w),idxL(w)
-                Hunits(I)%H(r,r,1) = TBenerg2
+                Hunits(I)%H(r,r,1) = TBenergDB
                 Hunits(I)%H(r,r+1,1) = 0.d0
                 Hunits(I)%H(r+1,r,1) = 0.d0
-                Hunits(I)%H(r-1,r+1,1) = TBcoupl2
-                Hunits(I)%H(r+1,r-1,1) = TBcoupl2
+                Hunits(I)%H(r-1,r+1,1) = TBcouplSDB
+                Hunits(I)%H(r+1,r-1,1) = TBcouplSDB
              enddo
              w = w + 1
           endif
@@ -557,27 +564,27 @@ CONTAINS
     enddo
     H1unit = 0.d0
     S1unit = 0.d0
-    H1unit(unitdimensions(I),1,1) = TBcoupl0
+    H1unit(unitdimensions(I),1,1) = TBcoupl
     
     I = ntypeunits+2
     Sunits(I)%S = 0.d0
     Hunits(I)%H = 0.d0
     do r = 1,unitdimensions(I)-1
-       Hunits(I)%H(r,r,1) = TBenerg0
-       Hunits(I)%H(r,r+1,1) = TBcoupl0
-       Hunits(I)%H(r+1,r,1) = TBcoupl0
+       Hunits(I)%H(r,r,1) = TBenerg
+       Hunits(I)%H(r,r+1,1) = TBcoupl
+       Hunits(I)%H(r+1,r,1) = TBcoupl
        Sunits(I)%S(r,r) = 1.d0
     enddo
-    Hunits(I)%H(r,r,1) = TBenerg0
+    Hunits(I)%H(r,r,1) = TBenerg
     Sunits(I)%S(r,r) = 1.d0
     If (ephIndic(I) == 1) Then
        r = idxF(w) - 1
-       Hunits(I)%H(r,r+1,1) = TBcoupl1
-       Hunits(I)%H(r+1,r,1) = TBcoupl1
+       Hunits(I)%H(r,r+1,1) = TBcouplS
+       Hunits(I)%H(r+1,r,1) = TBcouplS
        do r = idxF(w),idxL(w)
-          Hunits(I)%H(r,r,1) = TBenerg1
-          Hunits(I)%H(r,r+1,1) = TBcoupl1
-          Hunits(I)%H(r+1,r,1) = TBcoupl1
+          Hunits(I)%H(r,r,1) = TBenergS
+          Hunits(I)%H(r,r+1,1) = TBcouplS
+          Hunits(I)%H(r+1,r,1) = TBcouplS
        enddo
     EndIf
 
@@ -586,19 +593,19 @@ CONTAINS
        w = 1
        I = ntypeunits+1
        do r = 1,unitdimensions(I)-1
-          Hunits(I)%H(r,r,s) = TBenerg0
-          Hunits(I)%H(r,r+1,s) = TBcoupl0
-          Hunits(I)%H(r+1,r,s) = TBcoupl0
+          Hunits(I)%H(r,r,s) = TBenerg
+          Hunits(I)%H(r,r+1,s) = TBcoupl
+          Hunits(I)%H(r+1,r,s) = TBcoupl
        enddo
-       Hunits(I)%H(r,r,s) = TBenerg0
+       Hunits(I)%H(r,r,s) = TBenerg
        If (ephIndic(I) == 1) Then
           r = idxF(w) - 1
-          Hunits(I)%H(r,r+1,s) = TBcoupl1
-          Hunits(I)%H(r+1,r,s) = TBcoupl1
+          Hunits(I)%H(r,r+1,s) = TBcouplS
+          Hunits(I)%H(r+1,r,s) = TBcouplS
           do r = idxF(w),idxL(w)
-             Hunits(I)%H(r,r,s) = TBenerg1
-             Hunits(I)%H(r,r+1,s) = TBcoupl1
-             Hunits(I)%H(r+1,r,s) = TBcoupl1
+             Hunits(I)%H(r,r,s) = TBenergS
+             Hunits(I)%H(r,r+1,s) = TBcouplS
+             Hunits(I)%H(r+1,r,s) = TBcouplS
           enddo
           w = w + 1
        EndIf
@@ -606,55 +613,55 @@ CONTAINS
        ueph = 1
        do I = 1,ntypeunits
           do r = 1,unitdimensions(I)-1
-             Hunits(I)%H(r,r,s) = TBenerg0
-             Hunits(I)%H(r,r+1,s) = TBcoupl0
-             Hunits(I)%H(r+1,r,s) = TBcoupl0
+             Hunits(I)%H(r,r,s) = TBenerg
+             Hunits(I)%H(r,r+1,s) = TBcoupl
+             Hunits(I)%H(r+1,r,s) = TBcoupl
           enddo
-          Hunits(I)%H(r,r,s) = TBenerg0
+          Hunits(I)%H(r,r,s) = TBenerg
           If (ephIndic(I) == 1) Then
              if (ueph == 1) then
                 r = idxF(w) - 1
-                Hunits(I)%H(r,r+1,s) = TBcoupl1
-                Hunits(I)%H(r+1,r,s) = TBcoupl1
+                Hunits(I)%H(r,r+1,s) = TBcouplS
+                Hunits(I)%H(r+1,r,s) = TBcouplS
                 do r = idxF(w),idxL(w)
-                   Hunits(I)%H(r,r,s) = TBenerg1
-                   Hunits(I)%H(r,r+1,s) = TBcoupl1
-                   Hunits(I)%H(r+1,r,s) = TBcoupl1
+                   Hunits(I)%H(r,r,s) = TBenergS
+                   Hunits(I)%H(r,r+1,s) = TBcouplS
+                   Hunits(I)%H(r+1,r,s) = TBcouplS
                 enddo
                 w = w + 1
                 ueph = ueph + 1
              else ! Only in mind a 4x4 matrix here...
                 r = idxF(w) - 1
-                Hunits(I)%H(r,r+1,1) = TBcoupl2
-                Hunits(I)%H(r+1,r,1) = TBcoupl2
+                Hunits(I)%H(r,r+1,1) = TBcouplDB
+                Hunits(I)%H(r+1,r,1) = TBcouplDB
                 do r = idxF(w),idxL(w)
-                   Hunits(I)%H(r,r,1) = TBenerg2
+                   Hunits(I)%H(r,r,1) = TBenergDB
                    Hunits(I)%H(r,r+1,1) = 0.d0
                    Hunits(I)%H(r+1,r,1) = 0.d0
-                   Hunits(I)%H(r-1,r+1,1) = TBcoupl2
-                   Hunits(I)%H(r+1,r-1,1) = TBcoupl2
+                   Hunits(I)%H(r-1,r+1,1) = TBcouplDB
+                   Hunits(I)%H(r+1,r-1,1) = TBcouplDB
                 enddo
                 w = w + 1
              endif
           EndIf
        enddo
-       H1unit(unitdimensions(I),1,s) = TBcoupl0
+       H1unit(unitdimensions(I),1,s) = TBcoupl
     
        I = ntypeunits+2
        do r = 1,unitdimensions(I)-1
-          Hunits(I)%H(r,r,s) = TBenerg0
-          Hunits(I)%H(r,r+1,s) = TBcoupl0
-          Hunits(I)%H(r+1,r,s) = TBcoupl0
+          Hunits(I)%H(r,r,s) = TBenerg
+          Hunits(I)%H(r,r+1,s) = TBcoupl
+          Hunits(I)%H(r+1,r,s) = TBcoupl
        enddo
-       Hunits(I)%H(r,r,s) = TBenerg0
+       Hunits(I)%H(r,r,s) = TBenerg
        If (ephIndic(I) == 1) Then
           r = idxF(w) - 1
-          Hunits(I)%H(r,r+1,s) = TBcoupl1
-          Hunits(I)%H(r+1,r,s) = TBcoupl1
+          Hunits(I)%H(r,r+1,s) = TBcouplS
+          Hunits(I)%H(r+1,r,s) = TBcouplS
           do r = idxF(w),idxL(w)
-             Hunits(I)%H(r,r,s) = TBenerg1
-             Hunits(I)%H(r,r+1,s) = TBcoupl1
-             Hunits(I)%H(r+1,r,s) = TBcoupl1
+             Hunits(I)%H(r,r,s) = TBenergS
+             Hunits(I)%H(r,r+1,s) = TBcouplS
+             Hunits(I)%H(r+1,r,s) = TBcouplS
           enddo
        EndIf
 
