@@ -97,7 +97,7 @@ CONTAINS
     call zsytrf (LorU, n, A, n, ipiv, work, lwork, info)
 
     if (info .lt. 0) then
-       write(0,'(a,/,a,i,a)') "SMEAGOL: ERROR: In lapack zsytrf: ",     &
+       write(0,'(a,/,a,i,a)') "ERROR: In lapack zsytrf: ",              &
             " The ", -info, " argument had an illegal value!"
 #ifdef MPI
        call MPI_Abort (MPI_Comm_World, 1, MPIerror)
@@ -106,7 +106,7 @@ CONTAINS
        stop
 #endif
     elseif (info .gt. 0) then
-       write(0,'(a,/,a,/,a,/,a)') "SMEAGOL: ERROR: In lapack zsytrf: ", &
+       write(0,'(a,/,a,/,a,/,a)') "ERROR: In lapack zsytrf: ",          &
             " The factorization has been completed, but D is exactly",  &
             " singular, so division by 0 will occur if the D is",       &
             " used for solving a system of linear equations!"
@@ -175,7 +175,7 @@ CONTAINS
     call zsytri (LorU, n, A, n, ipiv, work, info)
 
     if (info .lt. 0) then
-       write(0,'(a,/,a,i,a)') "SMEAGOL: ERROR: In lapack zhetri: ",     &
+       write(0,'(a,/,a,i,a)') "ERROR: In lapack zhetri: ",              &
             " The ", -info, " argument had an illegal value!"
 #ifdef MPI
        call MPI_Abort (MPI_Comm_World, 1, MPIerror)
@@ -184,8 +184,7 @@ CONTAINS
        stop
 #endif
     elseif (info .gt. 0) then
-       write(0,'(a,/,a,i,a,/,a)')                                       &
-            "SMEAGOL: ERROR: In lapack zhetri: ",                       &
+       write(0,'(a,/,a,i,a,/,a)') "ERROR: In lapack zhetri: ",          &
             " The ", info, "-th diagonal element of D is zero, D is",   &
             " singular, and the inversion could not be completed!"
 #ifdef MPI
@@ -263,7 +262,7 @@ CONTAINS
     call zgetrf (n, n, A, n, ipiv, info)
 
     if (info .lt. 0) then
-       write(0,'(a,/,a,i,a)') "SMEAGOL: ERROR: In lapack zgetrf: ",     &
+       write(0,'(a,/,a,i,a)') "ERROR: In lapack zgetrf: ",              &
             " The ", -info, " argument had an illegal value!"
 #ifdef MPI
        call MPI_Abort (MPI_Comm_World, 1, MPIerror)
@@ -272,7 +271,7 @@ CONTAINS
        stop
 #endif
     elseif (info .gt. 0) then
-       write(0,'(a,/,a,/,a,/,a)') "SMEAGOL: ERROR: In lapack zgetrf: ", &
+       write(0,'(a,/,a,/,a,/,a)') "ERROR: In lapack zgetrf: ",          &
             " The factorization has been completed, but U is exactly",  &
             " singular, so division by 0 will occur if the factor U",   &
             " is used for solving a system of linear equations!"
@@ -339,7 +338,7 @@ CONTAINS
     call zgetri (n, A, n, ipiv, work, lwork, info)
 
     if (info .lt. 0) then
-       write(0,'(a,/,a,i,a)') "SMEAGOL: ERROR: In lapack zgetri: ",     &
+       write(0,'(a,/,a,i,a)') "ERROR: In lapack zgetri: ",              &
             " The ", -info, " argument had an illegal value!"
 #ifdef MPI
        call MPI_Abort (MPI_Comm_World, 1, MPIerror)
@@ -348,8 +347,7 @@ CONTAINS
        stop
 #endif
     elseif (info .gt. 0) then
-       write(0,'(a,/,a,i,a,/,a,/,a)')                                   &
-            "SMEAGOL: ERROR: In lapack zgetri: ",                       &
+       write(0,'(a,/,a,i,a,/,a,/,a)') "ERROR: In lapack zgetri: ",      &
             " The ", info, "-th diagonal element of the factor U",      &
             " is zero, U is singular, and the inversion could not",     &
             " be completed!"
@@ -424,7 +422,7 @@ CONTAINS
     call zhetrf (LorU, n, A, n, ipiv, work, lwork, info)
 
     if (info .lt. 0) then
-       write(0,'(a,/,a,i,a)') "SMEAGOL: ERROR: In lapack zhetrf: ",     &
+       write(0,'(a,/,a,i,a)') "ERROR: In lapack zhetrf: ",              &
             " The ", -info, " argument had an illegal value!"
 #ifdef MPI
        call MPI_Abort (MPI_Comm_World, 1, MPIerror)
@@ -433,7 +431,7 @@ CONTAINS
        stop
 #endif
     elseif (info .gt. 0) then
-       write(0,'(a,/,a,/,a,/,a)') "SMEAGOL: ERROR: In lapack zhetrf: ", &
+       write(0,'(a,/,a,/,a,/,a)') "ERROR: In lapack zhetrf: ",          &
             " The factorization has been completed, but D is exactly",  &
             " singular, so division by 0 will occur if the D is",       &
             " used for solving a system of linear equations!"
@@ -502,7 +500,7 @@ CONTAINS
     call zhetri (LorU, n, A, n, ipiv, work, info)
 
     if (info .lt. 0) then
-       write(0,'(a,/,a,i,a)') "SMEAGOL: ERROR: In lapack zhetri: ",     &
+       write(0,'(a,/,a,i,a)') "ERROR: In lapack zhetri: ",              &
             " The ", -info, " argument had an illegal value!"
 #ifdef MPI
        call MPI_Abort (MPI_Comm_World, 1, MPIerror)
@@ -511,8 +509,7 @@ CONTAINS
        stop
 #endif
     elseif (info .gt. 0) then
-       write(0,'(a,/,a,i,a,/,a)')                                       &
-            "SMEAGOL: ERROR: In lapack zhetri: ",                       &
+       write(0,'(a,/,a,i,a,/,a)') "ERROR: In lapack zhetri: ",          &
             " The ", info, "-th diagonal element of D is zero, D is",   &
             " singular, and the inversion could not be completed!"
 #ifdef MPI
