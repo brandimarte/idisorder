@@ -518,7 +518,7 @@ CONTAINS
        allocate (Gaft(dim,dim))
        allocate (ipiv(dim))
 
-!      ('Gaft = (E*S - H + V^T*Gbfr*V)^-1')
+!      ('Gaft = (E*S - H - V^T*Gbfr*V)^-1')
        Gaft = (Ei-unitshift(utype))*Sunits(utype)%S                     &
               - Hunits(utype)%H(:,:,ispin)
        Gaft(1:n,1:n) = Gaft(1:n,1:n) - aux1
@@ -723,7 +723,7 @@ CONTAINS
        allocate (Gaft(dim,dim))
        allocate (ipiv(dim))
 
-!      ('Gaft = (E*S - H + V^T*Gbfr*V)^-1')
+!      ('Gaft = (E*S - H - V^T*Gbfr*V)^-1')
        Gaft = (Ei-unitshift(utype))*Sunits(utype)%S                     &
               - Hunits(utype)%H(:,:,ispin)
        Gaft(dim-n+1:dim,dim-n+1:dim) = Gaft(dim-n+1:dim,dim-n+1:dim)    &
@@ -1366,13 +1366,13 @@ CONTAINS
     write (4102,'(e17.8e3,e17.8e3)') Ei, dosTot
 
 !   Write everything...
-!!$    do i = 1,dimTot
-!!$       do j = 1,dimTot
-!!$          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
-!!$               DIMAG(Gtot(i,j)) 
-!!$          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
-!!$       enddo
-!!$    enddo
+    do i = 1,dimTot
+       do j = 1,dimTot
+          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
+               DIMAG(Gtot(i,j)) 
+          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
+       enddo
+    enddo
 
 !   First unit.
     if (idx /= 0) then

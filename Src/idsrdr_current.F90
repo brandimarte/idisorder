@@ -128,9 +128,9 @@ CONTAINS
 
 !      Compute symmetric part of inelastic contribution.
 !      OBS.: exchange commmented lines for testing.
-       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
-!!$       call inelSymm (Isymm, ispin, NL, Gamma_L,                     &
-!!$                      NR, Gamma_R, Vbias, Ei)
+!!$       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+       call inelSymm (Isymm, ispin, NL, Gamma_L,                     &
+                      NR, Gamma_R, Vbias, Ei)
 
 !      Compute asymmetric part of inelastic contribution.
        call inelAsymm (Iasymm, ispin, NL, Gamma_L,                      &
@@ -738,9 +738,9 @@ CONTAINS
 
 !         [test] Compute the matrices multiplication with full matrices.
 !         OBS.: uncommment for testing.
-!!$          call testInelAsymm (Ei, ispin, NL, Gamma_L,                &
-!!$                              NR, Gamma_R, j, idx, norbDyn(idx),     &
-!!$                              Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
+          call testInelAsymm (Ei, ispin, NL, Gamma_L,                &
+                              NR, Gamma_R, j, idx, norbDyn(idx),     &
+                              Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
 
 !         Compute asymmetric pre-factor.
           Iasymm = asymmPre (Ei, freq(idx)%F(w), Vbias) * Iasymm
