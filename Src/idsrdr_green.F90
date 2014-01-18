@@ -133,10 +133,10 @@ CONTAINS
     IF (writeondisk) THEN
 
 !      Set Green's functions files ("LUN" and file name).
-       call greenFilesSet (41, 'GL_mm.GF', GL_mm_disk)
-       call greenFilesSet (42, 'GL_1m.GF', GL_1m_disk)
-       call greenFilesSet (43, 'GR_pp.GF', GR_pp_disk)
-       call greenFilesSet (44, 'GR_Mp.GF', GR_Mp_disk)
+       call greenFilesSet (41, 'GL_mm', GL_mm_disk)
+       call greenFilesSet (42, 'GL_1m', GL_1m_disk)
+       call greenFilesSet (43, 'GR_pp', GR_pp_disk)
+       call greenFilesSet (44, 'GR_Mp', GR_Mp_disk)
 
 !      Allocate index array (for reading 'GR_pp' and 'GR_Mp').
        if (ephIdx(ntypeunits+2) /= 0) then
@@ -2011,6 +2011,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
+!  integer Node                : Actual node (MPI_Comm_rank)            !
 !  character(60) directory     : Working directory                      !
 !  ****************************** INPUT ******************************  !
 !  integer lun                 : Logical unit number                    !
@@ -2023,6 +2024,7 @@ CONTAINS
 !
 !   Modules
 !
+    use parallel,        only: Node
     use idsrdr_options,  only: directory
 
 !   Input variables.
@@ -2031,13 +2033,19 @@ CONTAINS
     TYPE(greenfile), intent(out) :: GF
 
 !   Local variables.
+    character(len=7) :: suffix
     character(80), external :: paste
+    character(len=10), external :: pasbias2
 
 !   Set logical unit number.
     GF%lun = lun
 
 !   Set file name.
-    GF%fname = paste (directory, name)
+    write (suffix,'(i3)') Node
+    suffix = pasbias2 (suffix, '.GF')
+    suffix = paste ('_', suffix)
+    GF%fname = paste (name, suffix)
+    GF%fname = paste (directory, GF%fname)
 
 
   end subroutine greenFilesSet

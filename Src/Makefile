@@ -133,7 +133,7 @@ clean:
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o            \
-#	idsrdr_leads.o idsrdr_check.o idsrdr_iostream.o
+#	idsrdr_leads.o idsrdr_check.o idsrdr_iostream.o paste.o pasbias.o
 #idsrdr_hilbert.o : parallel.o idsrdr_options.o
 #idsrdr_init.o : parallel.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o          \
