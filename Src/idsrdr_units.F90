@@ -915,7 +915,7 @@ CONTAINS
 
 !   Calculate the number of units with eph 'nunitseph'.
     nunitseph = 0
-    if (ephIndic(ntypeunits+1)) eph_type(1) = unit_type(1)
+    if (ephIndic(ntypeunits+1)) nunitseph = nunitseph + 1
     do I = 2,nunits+1
        if (ephIndic(unit_type(I))) nunitseph = nunitseph + 1
     enddo
