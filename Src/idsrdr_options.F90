@@ -44,6 +44,7 @@ MODULE idsrdr_options
   logical :: calcdos      ! Calculate total DOS?
   logical :: readunitstf  ! Read 'UnitIndex' block?
   logical :: tightbinding ! Tight-binding calculation?
+  logical :: writeondisk  ! Write Green's functions on disk?
 
   integer :: NDefects     ! Number of defects blocks
   integer :: NTenerg      ! Number of transmission energy points
@@ -107,6 +108,7 @@ CONTAINS
 !  logical calcdos           : Calculate total DOS?                     !
 !  logical readunitstf       : Read 'UnitIndex' block?                  !
 !  logical tightbinding      : Tight-binding calculation?               !
+!  logical writeondisk       : Write Green's functions on disk?         !
 !  integer NDefects          : Number of defects blocks                 !
 !  integer NTenerg           : Number of transmission energy points     !
 !  integer nspin             : Number of spin components                !
@@ -401,6 +403,12 @@ CONTAINS
 
        endif
 
+!      Write Green's functions on disk?
+       writeondisk = fdf_boolean ('WriteOnDisk', .true.)
+       write (6,1)                                                      &
+            'readopt: Write Green s functions on disk?              =', &
+            writeondisk
+
        write (6,'(2a)') 'readopt: ', repeat('*', 70)
 
     endif ! if (IOnode)
@@ -467,6 +475,8 @@ CONTAINS
        call MPI_Bcast (TBcouplDB, 1, MPI_Double_Precision, 0,           &
                        MPI_Comm_world, MPIerror)
     endif
+    call MPI_Bcast (writeondisk, 1, MPI_Logical, 0,                     &
+                    MPI_Comm_world, MPIerror)
 !   It is not necessary to broadcast 'nunits' here.
 #endif
 

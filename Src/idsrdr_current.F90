@@ -127,10 +127,12 @@ CONTAINS
        call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
 !      Compute symmetric part of inelastic contribution.
-!      OBS.: exchange commmented lines for testing.
-!!$       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
-       call inelSymm (Isymm, ispin, NL, Gamma_L,                     &
+#ifdef DEBUG
+       call inelSymm (Isymm, ispin, NL, Gamma_L,                        &
                       NR, Gamma_R, Vbias, Ei)
+#else
+       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+#endif
 
 !      Compute asymmetric part of inelastic contribution.
        call inelAsymm (Iasymm, ispin, NL, Gamma_L,                      &
@@ -457,12 +459,12 @@ CONTAINS
              Isymm = Isymm + DREAL(Aux7(i,i))
           enddo
           
+#ifdef DEBUG
 !         [test] Compute the matrices multiplication with full matrices.
-          if (present(Ei)) then
-             call testInelSymm (Ei, ispin, NL, Gamma_L,                 &
-                                NR, Gamma_R, j, idx, norbDyn(idx),      &
-                                Meph(idx)%M(:,:,ispin,w), Aux4, Aux7)
-          endif
+          call testInelSymm (Ei, ispin, NL, Gamma_L,                    &
+                             NR, Gamma_R, j, idx, norbDyn(idx),         &
+                             Meph(idx)%M(:,:,ispin,w), Aux4, Aux7)
+#endif
 
 !         Compute symmetric pre-factor.
           foo = 2.d0 * Vbias * BoseEinstein (freq(idx)%F(w), temp)
@@ -736,11 +738,12 @@ CONTAINS
              Iasymm = Iasymm + DREAL(Aux6(i,i))
           enddo
 
+#ifdef DEBUG
 !         [test] Compute the matrices multiplication with full matrices.
-!         OBS.: uncommment for testing.
-          call testInelAsymm (Ei, ispin, NL, Gamma_L,                &
-                              NR, Gamma_R, j, idx, norbDyn(idx),     &
+          call testInelAsymm (Ei, ispin, NL, Gamma_L,                   &
+                              NR, Gamma_R, j, idx, norbDyn(idx),        &
                               Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
+#endif
 
 !         Compute asymmetric pre-factor.
           Iasymm = asymmPre (Ei, freq(idx)%F(w), Vbias) * Iasymm
