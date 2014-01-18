@@ -62,16 +62,15 @@ CONTAINS
 !  ****************************** INPUT ******************************  !
 !  character(*) file       : File system name                           !
 !  integer unit            : Data file logical unit number              !
-!  integer LRECL           : Size of items in the file                  !
 !  ***************************** OUTPUT ******************************  !
 !  integer IOSTAT          : [optional] Returns 0 if succeeds, else     !
 !                            returns a Fortran error code               !
 !  *******************************************************************  !
-  subroutine OPEN_DA (file, unit, LRECL, IOSTAT)
+  subroutine OPEN_DA (file, unit, IOSTAT)
 
 !   Input variables.
     character(*), intent(in) :: file
-    integer, intent(in) :: unit, LRECL
+    integer, intent(in) :: unit
     integer, intent (out), optional :: IOSTAT
 
 !   Local variables.
@@ -87,7 +86,7 @@ CONTAINS
        If (F_open) Then
           if (LUN == i) then
              inquire (FILE=file, ACCESS=acc, ACTION=act, FORM=frm)
-             if (acc(:1)//act(:1)//frm(:1) == "DRU") return
+             if (acc(:1)//act(:1)//frm(:1) == "SRU") return
           endif
           close (i)
        EndIf
@@ -97,7 +96,8 @@ CONTAINS
     ENDIF
 
     open (LUN, FILE=file, STATUS=merge("OLD","NEW",F_exist),            &
-         ACCESS="DIRECT", ACTION="READWRITE", RECL=LRECL, IOSTAT=Koderr)
+         ACCESS="STREAM", ACTION="READWRITE", POSITION='REWIND',        &
+         IOSTAT=Koderr)
 
     if (Koderr == 0) return
     if (present(IOSTAT)) IOSTAT = Koderr

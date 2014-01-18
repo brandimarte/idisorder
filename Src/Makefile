@@ -134,6 +134,9 @@ clean:
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o            \
 #	idsrdr_leads.o idsrdr_check.o
+# TEMP BEGIN
+#       io.o idsrdr_iodirect.o
+# TEMP END
 #idsrdr_hilbert.o : parallel.o idsrdr_options.o
 #idsrdr_init.o : parallel.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o          \

@@ -41,16 +41,27 @@ MODULE idsrdr_green
   use idsrdr_leads,    only: 
   use idsrdr_ephcoupl, only: 
   use idsrdr_check,    only: 
+! TEMP BEGIN
+  use idsrdr_iodirect, only: 
+! TEMP END
 
   implicit none
   
   PUBLIC  :: greeninit, greenfunctions, freegreen,                      &
              Gr_nn, Gr_1n, Gr_Mn, Gr_1M
-  PRIVATE :: LRsweep , RLsweep, GFfull, GFtest
+  PRIVATE :: LRsweep , RLsweep, GFfull, GFtest, greenFset, greenload
 
   TYPE green
      complex(8), pointer :: G(:,:) ! pointer to Green's function matrix
   END TYPE green
+
+! TEST BEGIN
+  TYPE greenTEST
+     integer :: lun ! logical unit number
+     character(len=80) :: fname ! file name
+  END TYPE greenTEST
+  TYPE(greenTEST) :: GL_mmTEST ! G^L_{n-1,n-1}
+! TEST END
 
   TYPE(green), allocatable, dimension (:) :: GL_mm ! G^L_{n-1,n-1}
   TYPE(green), allocatable, dimension (:) :: GL_1m ! G^L_{1,n-1}
@@ -68,6 +79,136 @@ MODULE idsrdr_green
 
 
 CONTAINS
+
+
+! TEST BEGIN
+!  *******************************************************************  !
+!                               greenFset                               !
+!  *******************************************************************  !
+!  Description: assign the Green's function data structure (logical     !
+!  unit number and system name file.                                    !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  character(60) directory     : Working directory                      !
+!  ****************************** INPUT ******************************  !
+!  integer lun                 : Logical unit number                    !
+!  character(*) name           : File name                              !
+!  ***************************** OUTPUT ******************************  !
+!  TYPE(greenTEST) GF          : Green's function data structure        !
+!  *******************************************************************  !
+  subroutine greenFset (lun, name, GF)
+
+!
+!   Modules
+!
+    use idsrdr_options,  only: directory
+
+!   Input variables.
+    integer, intent(in) :: lun
+    character(*), intent(in) :: name
+    TYPE(greenTEST), intent(out) :: GF
+
+!   Local variables.
+    character(80), external :: paste
+
+!   Set logical unit number.
+    GF%lun = lun
+
+!   Set file name.
+    GF%fname = paste (directory, name)
+
+
+  end subroutine greenFset
+
+
+!  *******************************************************************  !
+!                               greenload                               !
+!  *******************************************************************  !
+!  Description: open the Green's function file.                         !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  ****************************** INPUT ******************************  !
+!  TYPE(greenTEST) GF          : Green's function data structure        !
+!  *******************************************************************  !
+  subroutine greenload (GF)
+
+!
+!   Modules
+!
+    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
+
+!   Input variables.
+    TYPE(greenTEST), intent(in) :: GF
+
+!   Set logical unit number.
+    call OPEN_DA (GF%fname, GF%lun)
+
+
+  end subroutine greenload
+
+
+!  *******************************************************************  !
+!                               greenload                               !
+!  *******************************************************************  !
+!  Description: store the Green's function 'GFin' at 'GF' data          !
+!  structure.                                                           !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  ****************************** INPUT ******************************  !
+!  integer row                 : Number of rows of GFin                 !
+!  integer col                 : Number of colunms of GFin              !
+!  complex*8 GFin(row,col)     : Green's function to be stored          !
+!  TYPE(greenTEST) GF          : Green's function data structure        !
+!  *******************************************************************  !
+!!$  subroutine greenload (row, col, GFin, GF)
+!!$
+!!$!
+!!$!   Modules
+!!$!
+!!$    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
+!!$
+!!$!   Input variables.
+!!$    integer, intent(in) :: row, col
+!!$    complex(8), dimension (row,col), intent(in) :: GFin
+!!$    TYPE(greenTEST), intent(in) :: GF
+!!$
+!!$!   Local variables.
+!!$
+!!$    call OPEN_DA (GF%fname, GF%lun, 1)
+!!$
+!!$!   Set number of rows and colunms.
+!!$    GF%nrows = row
+!!$    GF%ncols = col
+!!$
+!!$!   Set logical unit number.
+!!$    call io_assign (GF%lun)
+!!$
+!!$!   Set file name.
+!!$    write (suffix,'(i3)') ueph
+!!$    suffix = pasbias2 (suffix, '.GF')
+!!$    suffix = paste ('_', suffix)
+!!$    GF%fname = paste (name, suffix)
+!!$    GF%fname = paste (directory, GF%fname)
+!!$
+!!$
+!!$  end subroutine greenwrite
+! TEST END
 
 
 !  *******************************************************************  !
@@ -105,6 +246,11 @@ CONTAINS
 
 !   Local variables.
     integer :: I, dim, dimbfr, dimaft, idx, ueph
+
+! TEST BEGIN
+!   Set Green's functions files ("LUN" and file name).
+    call greenFset (10, 'GLmm.GF', GL_mmTEST)
+! TEST BEGIN
 
 !   Allocate Green's functions pointer array.
     allocate (GL_mm(nunitseph))
@@ -222,7 +368,7 @@ CONTAINS
 
 !   [test] Compute the entire Green's function of scattering region.
 !   OBS.: uncommment for testing.
-!!$    call GFtest (Ei, ispin)
+    call GFtest (Ei, ispin)
 
 
   end subroutine greenfunctions
@@ -281,6 +427,9 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits, ephIndic
     use idsrdr_leads,    only: NL, Sigma_L
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+! TEMP BEGIN
+    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
+! TEMP END
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -300,6 +449,12 @@ CONTAINS
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing left-to-right sweep... '
+
+! TEMP BEGIN
+!   Open Green's functions files.
+    call OPEN_DA (GL_mmTEST%fname, GL_mmTEST%lun)
+    print *, "ABRIU! 1"
+! TEMP END
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
@@ -341,6 +496,10 @@ CONTAINS
 
 !      Store matrix if required.
        if (ephIndic(utype)) then
+! TEMP BEGIN
+          write (GL_mmTEST%lun) Gbfr
+          print *, "ESCREVEU!", ueph
+! TEMP END
           GL_mm(ueph)%G = Gbfr
           GL_1m(ueph)%G = Gbfr_1m
           ueph = ueph + 1
@@ -399,12 +558,22 @@ CONTAINS
 
 !   Store matrix if required.
     if (ephIndic(ntypeunits+2)) then
+! TEMP BEGIN
+       write (GL_mmTEST%lun) Gbfr
+       print *, "ESCREVEU!", ueph
+! TEMP END
        GL_mm(ueph)%G = Gbfr
        GL_1m(ueph)%G = Gbfr_1m
     else
        GL_nn = Gbfr
        GL_1N = Gbfr_1m
     endif
+
+! TEMP BEGIN
+!   Close Green's functions files.
+    call CLOSE_DA (GL_mmTEST%fname, GL_mmTEST%lun)
+    print *, "FECHOU! 1"
+! TEMP END
 
 !   Free memory.
     deallocate (V)
@@ -673,6 +842,9 @@ CONTAINS
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+! TEMP BEGIN
+    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
+! TEMP END
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -686,9 +858,19 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: foo1L, foo2L,           &
                                                 foo1R, foo2R, foo3
     external :: zsymm, zgemm
+! TEMP BEGIN
+    integer :: j, k
+    complex(8), allocatable, dimension (:,:) :: auxTEST
+! TEMP END
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing full Greens functions... '
+
+! TEMP BEGIN
+!   Open Green's functions files.
+    call OPEN_DA (GL_mmTEST%fname, GL_mmTEST%lun)
+    print *, "ABRIU! 2"
+! TEMP END
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
@@ -785,9 +967,29 @@ CONTAINS
                  - Hunits(utype)%H(:,:,ispin)
 
 !         ('aux2 = GL_mm*V')
-          aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+!!$          aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+!!$          call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
+!!$                      V, n, (0.d0,0.d0), aux2, n)
+! TEMP BEGIN
+          allocate (auxTEST(dimbfr,dimbfr))
+          print *, "QUER LER!", ueph
+          read (GL_mmTEST%lun) auxTEST
+          print *, "LEU!", ueph
+          aux1 = auxTEST(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
           call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
+          do j = 1,dimbfr
+             do k = 1,dimbfr
+                write (3422,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                  DREAL(GL_mm(ueph)%G(k,j)), DREAL(auxTEST(k,j)),       &
+                  DIMAG(GL_mm(ueph)%G(k,j)), DIMAG(auxTEST(k,j))
+                write (3423,'(e17.8e3,e17.8e3)')                        &
+                  DREAL(GL_mm(ueph)%G(k,j)) - DREAL(auxTEST(k,j)),      &
+                  DIMAG(GL_mm(ueph)%G(k,j)) - DIMAG(auxTEST(k,j))
+             enddo
+          enddo
+          deallocate (auxTEST)
+! TEMP END
 
 !         ('aux1 = V^dagger*aux2')
           call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,             &
@@ -869,9 +1071,29 @@ CONTAINS
                                         - Sigma_R
 
 !      ('aux2 = GL_mm*V')
-       aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+!!$       aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+!!$       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+!!$                   V, n, (0.d0,0.d0), aux2, n)
+! TEMP BEGIN
+       allocate (auxTEST(dimbfr,dimbfr))
+       print *, "QUER LER!", ueph
+       read (GL_mmTEST%lun) auxTEST
+       print *, "LEU!", ueph
+       aux1 = auxTEST(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
        call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
+       do j = 1,dimbfr
+          do k = 1,dimbfr
+             write (3422,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(GL_mm(ueph)%G(k,j)), DREAL(auxTEST(k,j)),       &
+                  DIMAG(GL_mm(ueph)%G(k,j)), DIMAG(auxTEST(k,j))
+             write (3423,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(GL_mm(ueph)%G(k,j)) - DREAL(auxTEST(k,j)),      &
+                  DIMAG(GL_mm(ueph)%G(k,j)) - DIMAG(auxTEST(k,j))
+          enddo
+       enddo
+       deallocate (auxTEST)
+! TEMP END
 
 !      ('aux1 = V^dagger*aux2')
        call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
@@ -925,7 +1147,7 @@ CONTAINS
                                         aux3(dim-NR+1:dim,dim-NR+1:dim) &
                                         - Sigma_R
 
-!      ('aux2 = GL_mm*V')
+!      ('aux2 = GL_nn*V')
        aux1 = GL_nn(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
        call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
@@ -961,6 +1183,12 @@ CONTAINS
        deallocate (aux3)
 
     endif
+
+! TEMP BEGIN
+!   Close Green's functions files.
+    call CLOSE_DA (GL_mmTEST%fname, GL_mmTEST%lun)
+    print *, "FECHOU! 2"
+! TEMP END
 
 !   Free memory.
     deallocate (V)
@@ -1138,13 +1366,13 @@ CONTAINS
     write (4102,'(e17.8e3,e17.8e3)') Ei, dosTot
 
 !   Write everything...
-    do i = 1,dimTot
-       do j = 1,dimTot
-          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
-               DIMAG(Gtot(i,j)) 
-          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
-       enddo
-    enddo
+!!$    do i = 1,dimTot
+!!$       do j = 1,dimTot
+!!$          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
+!!$               DIMAG(Gtot(i,j)) 
+!!$          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
+!!$       enddo
+!!$    enddo
 
 !   First unit.
     if (idx /= 0) then
