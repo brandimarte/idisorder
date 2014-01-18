@@ -460,7 +460,11 @@ CONTAINS
     utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    ueph = 1 ! eph units indexing
+    if (ephIndic(utype)) then ! eph units indexing
+       ueph = 2
+    else
+       ueph = 1
+    endif
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -669,7 +673,11 @@ CONTAINS
     utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    ueph = nunitseph ! eph units indexing
+    if (ephIndic(utype)) then ! eph units indexing
+       ueph = nunitseph - 1
+    else
+       ueph = nunitseph
+    endif
 
 !   Allocate matrices.
     allocate (V(n,n))
