@@ -63,7 +63,7 @@ what:
 OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o     \
 	zhsl.o zhsunits.o gauleg.o hsl.o hsunits.o identify.o           \
 	diagonal_alex.o decimate_leads.o leads_complex.o                \
-	idsrdr_random.o idsrdr_iodirect.o idsrdr_check.o                \
+	idsrdr_random.o idsrdr_iostream.o idsrdr_check.o                \
 	idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o  \
 	idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o                \
 	idsrdr_distrib.o idsrdr_green.o idsrdr_spectral.o               \
@@ -133,15 +133,12 @@ clean:
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o            \
-#	idsrdr_leads.o idsrdr_check.o
-# TEMP BEGIN
-#       io.o idsrdr_iodirect.o
-# TEMP END
+#	idsrdr_leads.o idsrdr_check.o idsrdr_iostream.o
 #idsrdr_hilbert.o : parallel.o idsrdr_options.o
 #idsrdr_init.o : parallel.o io.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o          \
 #	idsrdr_options.o decimate_leads.o leads_complex.o idsrdr_check.o
-#idsrdr_iodirect.o :
+#idsrdr_iostream.o :
 #idsrdr_options.o : parallel.o
 #idsrdr_random.o : parallel.o
 #idsrdr_spectral.o : parallel.o idsrdr_options.o idsrdr_engrid.o        \

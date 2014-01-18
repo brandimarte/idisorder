@@ -17,9 +17,9 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                        MODULE idsrdr_iodirect                         !
+!                        MODULE idsrdr_iostream                         !
 !  *******************************************************************  !
-!  Description: controlled opening/closing of a "direct" access file.   !
+!  Description: controlled opening/closing of a "stream" access file.   !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
@@ -29,27 +29,27 @@
 !  Original version:    January 2014                                    !
 !  *******************************************************************  !
 
-MODULE idsrdr_iodirect
+MODULE idsrdr_iostream
 
   implicit none
 
   PRIVATE ! default is private
-  PUBLIC :: OPEN_DA, CLOSE_DA
+  PUBLIC :: openstream, closestream
 
 
 CONTAINS
 
 
 !  *******************************************************************  !
-!                                OPEN_DA                                !
+!                              openstream                               !
 !  *******************************************************************  !
 !  Description: open the file with system name 'file' and logical unit  !
-!  number 'unit' for direct access (unformated) where 'LRECL' is the    !
+!  number 'lunit' for stream access (unformated) where 'LRECL' is the   !
 !  size of the items to be read/write in the file. In case of failure,  !
 !  the optional parameter 'IOSTAT' returns the Fortran code for the     !
 !  first error detected and an error message is always displayed. If    !
 !  the file is connected already to another logical unit number         !
-!  different from 'unit' or if 'unit' is already associated with        !
+!  different from 'lunit' or if 'lunit' is already associated with      !
 !  another file, the connection is closed to avoid conflict. If the     !
 !  file doesn't exist, it is created.                                   !
 !                                                                       !
@@ -61,16 +61,16 @@ CONTAINS
 !  Original version:    January 2014                                    !
 !  ****************************** INPUT ******************************  !
 !  character(*) file       : File system name                           !
-!  integer unit            : Data file logical unit number              !
+!  integer lunit           : Data file logical unit number              !
 !  ***************************** OUTPUT ******************************  !
 !  integer IOSTAT          : [optional] Returns 0 if succeeds, else     !
 !                            returns a Fortran error code               !
 !  *******************************************************************  !
-  subroutine OPEN_DA (file, unit, IOSTAT)
+  subroutine openstream (file, lunit, IOSTAT)
 
 !   Input variables.
     character(*), intent(in) :: file
-    integer, intent(in) :: unit
+    integer, intent(in) :: lunit
     integer, intent (out), optional :: IOSTAT
 
 !   Local variables.
@@ -78,7 +78,7 @@ CONTAINS
     character(11) :: acc, act, frm
     integer :: LUN, Koderr, i
 
-    LUN = ABS(unit)
+    LUN = ABS(lunit)
     if (present(IOSTAT)) IOSTAT = 0
     inquire (LUN, OPENED=U_open)
     inquire (FILE=file, OPENED=F_open, NUMBER=i, EXIST=F_exist)
@@ -106,17 +106,17 @@ CONTAINS
     print*, "Fortran error code = ", Koderr
 
 
-  end subroutine OPEN_DA
+  end subroutine openstream
 
 
 !  *******************************************************************  !
-!                               CLOSE_DA                                !
+!                              closestream                              !
 !  *******************************************************************  !
 !  Description: close the file with system name 'file' and logical      !
-!  unit number 'unit'. In case of failure, the optional parameter       !
+!  unit number 'lunit'. In case of failure, the optional parameter      !
 !  'IOSTAT' returns the Fortran code for the first error detected and   !
 !  an error message is always displayed. If the file is connected to a  !
-!  to another logical unit number different from 'unit' then a error    !
+!  to another logical unit number different from 'lunit' then a error   !
 !  message is displayed and the files lun is closed.                    !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
@@ -127,30 +127,30 @@ CONTAINS
 !  Original version:    January 2014                                    !
 !  ****************************** INPUT ******************************  !
 !  character(*) file       : File system name                           !
-!  integer unit            : Data file logical unit number              !
+!  integer lunit           : Data file logical unit number              !
 !  ***************************** OUTPUT ******************************  !
 !  integer IOSTAT          : [optional] Returns 0 if succeeds, else     !
 !                            returns a Fortran error code               !
 !  *******************************************************************  !
-  subroutine CLOSE_DA (file, unit, IOSTAT)
+  subroutine closestream (file, lunit, IOSTAT)
 
 !   Input variables.
     character(*), intent(in) :: file
-    integer, intent(in) :: unit
+    integer, intent(in) :: lunit
     integer, intent (out), optional :: IOSTAT
 
 !   Local variables.
     logical :: F_open, U_open, F_exist
     integer :: LUN, Koderr, i
 
-    LUN = ABS(unit)
+    LUN = ABS(lunit)
     if (present(IOSTAT)) IOSTAT = 0
     inquire (LUN, OPENED=U_open)
     inquire (FILE=file, OPENED=F_open, NUMBER=i, EXIST=F_exist)
     IF (U_open) THEN
        If (F_open) Then
           if (LUN /= i) then
-             print*, "ERROR: at CLOSE_DA: the logical unit ", LUN
+             print*, "ERROR: at closestream: the logical unit ", LUN
              print*, "       does not macth the file ", file
           endif
           close (i, IOSTAT=Koderr)
@@ -179,11 +179,10 @@ CONTAINS
     ENDIF
 
 
-
-  end subroutine CLOSE_DA
+  end subroutine closestream
 
 
 !  *******************************************************************  !
 
 
-END MODULE idsrdr_iodirect
+END MODULE idsrdr_iostream

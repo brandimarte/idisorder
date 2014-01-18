@@ -41,15 +41,14 @@ MODULE idsrdr_green
   use idsrdr_leads,    only: 
   use idsrdr_ephcoupl, only: 
   use idsrdr_check,    only: 
-! TEMP BEGIN
-  use idsrdr_iodirect, only: 
-! TEMP END
+  use idsrdr_iostream, only: 
 
   implicit none
   
   PUBLIC  :: greeninit, greenfunctions, freegreen,                      &
              Gr_nn, Gr_1n, Gr_Mn, Gr_1M
-  PRIVATE :: LRsweep , RLsweep, GFfull, GFtest, greenFset, greenload
+  PRIVATE :: LRsweep , RLsweep, GFfull, GFtest,                         &
+             greenFilesSet, greenload, greenloadR
 
   TYPE green
      complex(8), pointer :: G(:,:) ! pointer to Green's function matrix
@@ -60,13 +59,19 @@ MODULE idsrdr_green
      integer :: lun ! logical unit number
      character(len=80) :: fname ! file name
   END TYPE greenTEST
-  TYPE(greenTEST) :: GL_mmTEST ! G^L_{n-1,n-1}
+
+  TYPE(greenTEST) :: GL_mm ! G^L_{n-1,n-1}
+  TYPE(greenTEST) :: GL_1m ! G^L_{1,n-1}
+  TYPE(greenTEST) :: GR_pp ! G^R_{n+1,n+1}
+  TYPE(greenTEST) :: GR_Mp ! G^R_{M,n+1}
+
+! Index array with the positions of written
+! matrices (for reading 'GR_pp' and 'GR_Mp').
+  integer :: npos
+  integer, allocatable, dimension (:) :: pos_pp
+  integer, allocatable, dimension (:) :: pos_Mp
 ! TEST END
 
-  TYPE(green), allocatable, dimension (:) :: GL_mm ! G^L_{n-1,n-1}
-  TYPE(green), allocatable, dimension (:) :: GL_1m ! G^L_{1,n-1}
-  TYPE(green), allocatable, dimension (:) :: GR_pp ! G^R_{n+1,n+1}
-  TYPE(green), allocatable, dimension (:) :: GR_Mp ! G^R_{M,n+1}
   TYPE(green), allocatable, dimension (:) :: Gr_nn ! G^r_{n,n}
   TYPE(green), allocatable, dimension (:) :: Gr_1n ! G^r_{1,n}
   TYPE(green), allocatable, dimension (:) :: Gr_Mn ! G^r_{M,n}
@@ -81,9 +86,8 @@ MODULE idsrdr_green
 CONTAINS
 
 
-! TEST BEGIN
 !  *******************************************************************  !
-!                               greenFset                               !
+!                             greenFilesSet                             !
 !  *******************************************************************  !
 !  Description: assign the Green's function data structure (logical     !
 !  unit number and system name file.                                    !
@@ -102,7 +106,7 @@ CONTAINS
 !  ***************************** OUTPUT ******************************  !
 !  TYPE(greenTEST) GF          : Green's function data structure        !
 !  *******************************************************************  !
-  subroutine greenFset (lun, name, GF)
+  subroutine greenFilesSet (lun, name, GF)
 
 !
 !   Modules
@@ -124,13 +128,13 @@ CONTAINS
     GF%fname = paste (directory, name)
 
 
-  end subroutine greenFset
+  end subroutine greenFilesSet
 
 
 !  *******************************************************************  !
 !                               greenload                               !
 !  *******************************************************************  !
-!  Description: open the Green's function file.                         !
+!  Description: reads the required part of Green's function from file.  !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
@@ -139,30 +143,52 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    January 2014                                    !
 !  ****************************** INPUT ******************************  !
-!  TYPE(greenTEST) GF          : Green's function data structure        !
+!  integer GFlun               : Green's function logical unit number   !
+!  integer rdim                : Green's function number of rows        !
+!  integer cdim                : Green's function number of columns     !
+!  integer rIni                : Required initial row index             !
+!  integer rEnd                : Required final row index               !
+!  integer cIni                : Required initial colunm index          !
+!  integer cEnd                : Required final colunm index            !
+!  integer rgf                 : Number of rows of output matrix        !
+!  integer cgf                 : Number of columns of output matrix     !
+!  ***************************** OUTPUT ******************************  !
+!  complex*8 GFout(rgf,cgf)    : Required part of Green's function      !
+!                                read from file                         !
 !  *******************************************************************  !
-  subroutine greenload (GF)
-
-!
-!   Modules
-!
-    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
+  subroutine greenload (GFlun, rdim, cdim, rIni, rEnd, cIni, cEnd,      &
+                        GFout, rgf, cgf)
 
 !   Input variables.
-    TYPE(greenTEST), intent(in) :: GF
+    integer, intent(in) :: GFlun, rdim, cdim, rIni, rEnd, cIni, cEnd,   &
+                           rgf, cgf
+    complex(8), dimension (rgf,cgf), intent(out) :: GFout
 
-!   Set logical unit number.
-    call OPEN_DA (GF%fname, GF%lun)
+!   Local variables.
+    complex(8), allocatable, dimension (:,:) :: aux
+
+!   Allocate auxiliary matrix.
+    allocate (aux(rdim,cdim))
+
+!   Read Green's function from file.
+    read (GFlun) aux
+
+!   Copy the required part.
+    GFout = aux(rIni:rEnd,cIni:cEnd)
+
+!   Free memory.
+    deallocate (aux)
 
 
   end subroutine greenload
 
 
 !  *******************************************************************  !
-!                               greenload                               !
+!                              greenloadR                               !
 !  *******************************************************************  !
-!  Description: store the Green's function 'GFin' at 'GF' data          !
-!  structure.                                                           !
+!  Description: reads the required part of Green's function from file   !
+!  (for reading 'GR_pp' and 'GR_Mp' which are written backwards in the  !
+!  file, so the 'position' parameter is needed).                        !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
@@ -171,44 +197,45 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    January 2014                                    !
 !  ****************************** INPUT ******************************  !
-!  integer row                 : Number of rows of GFin                 !
-!  integer col                 : Number of colunms of GFin              !
-!  complex*8 GFin(row,col)     : Green's function to be stored          !
-!  TYPE(greenTEST) GF          : Green's function data structure        !
+!  integer GFlun               : Green's function logical unit number   !
+!  integer rdim                : Green's function number of rows        !
+!  integer cdim                : Green's function number of columns     !
+!  integer rIni                : Required initial row index             !
+!  integer rEnd                : Required final row index               !
+!  integer cIni                : Required initial colunm index          !
+!  integer cEnd                : Required final colunm index            !
+!  integer rgf                 : Number of rows of output matrix        !
+!  integer cgf                 : Number of columns of output matrix     !
+!  integer position            : Position in the file                   !
+!  ***************************** OUTPUT ******************************  !
+!  complex*8 GFout(rgf,cgf)    : Required part of Green's function      !
+!                                read from file                         !
 !  *******************************************************************  !
-!!$  subroutine greenload (row, col, GFin, GF)
-!!$
-!!$!
-!!$!   Modules
-!!$!
-!!$    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
-!!$
-!!$!   Input variables.
-!!$    integer, intent(in) :: row, col
-!!$    complex(8), dimension (row,col), intent(in) :: GFin
-!!$    TYPE(greenTEST), intent(in) :: GF
-!!$
-!!$!   Local variables.
-!!$
-!!$    call OPEN_DA (GF%fname, GF%lun, 1)
-!!$
-!!$!   Set number of rows and colunms.
-!!$    GF%nrows = row
-!!$    GF%ncols = col
-!!$
-!!$!   Set logical unit number.
-!!$    call io_assign (GF%lun)
-!!$
-!!$!   Set file name.
-!!$    write (suffix,'(i3)') ueph
-!!$    suffix = pasbias2 (suffix, '.GF')
-!!$    suffix = paste ('_', suffix)
-!!$    GF%fname = paste (name, suffix)
-!!$    GF%fname = paste (directory, GF%fname)
-!!$
-!!$
-!!$  end subroutine greenwrite
-! TEST END
+  subroutine greenloadR (GFlun, rdim, cdim, rIni, rEnd, cIni, cEnd,     &
+                         GFout, rgf, cgf, position)
+
+!   Input variables.
+    integer, intent(in) :: GFlun, rdim, cdim, rIni, rEnd, cIni, cEnd,   &
+                           rgf, cgf, position
+    complex(8), dimension (rgf,cgf), intent(out) :: GFout
+
+!   Local variables.
+    complex(8), allocatable, dimension (:,:) :: aux
+
+!   Allocate auxiliary matrix.
+    allocate (aux(rdim,cdim))
+
+!   Read Green's function from file.
+    read (GFlun, POS=position) aux
+
+!   Copy the required part.
+    GFout = aux(rIni:rEnd,cIni:cEnd)
+
+!   Free memory.
+    deallocate (aux)
+
+
+  end subroutine greenloadR
 
 
 !  *******************************************************************  !
@@ -247,16 +274,22 @@ CONTAINS
 !   Local variables.
     integer :: I, dim, dimbfr, dimaft, idx, ueph
 
-! TEST BEGIN
 !   Set Green's functions files ("LUN" and file name).
-    call greenFset (10, 'GLmm.GF', GL_mmTEST)
-! TEST BEGIN
+    call greenFilesSet (41, 'GL_mm.GF', GL_mm)
+    call greenFilesSet (42, 'GL_1m.GF', GL_1m)
+    call greenFilesSet (43, 'GR_pp.GF', GR_pp)
+    call greenFilesSet (44, 'GR_Mp.GF', GR_Mp)
+
+!   Allocate index array (for reading 'GR_pp' and 'GR_Mp').
+    if (ephIdx(ntypeunits+2) /= 0) then
+       npos = nunitseph - 1
+    else
+       npos = nunitseph
+    endif
+    allocate (pos_pp(npos))
+    allocate (pos_Mp(npos))
 
 !   Allocate Green's functions pointer array.
-    allocate (GL_mm(nunitseph))
-    allocate (GL_1m(nunitseph))
-    allocate (GR_pp(nunitseph))
-    allocate (GR_Mp(nunitseph))
     allocate (Gr_nn(nunitseph))
     allocate (Gr_1n(nunitseph))
     allocate (Gr_Mn(nunitseph))
@@ -271,10 +304,6 @@ CONTAINS
     idx = ephIdx(ntypeunits+1) ! e-ph unit type
     ueph = 1
     if (idx /= 0) then
-       allocate (GL_mm(ueph)%G(dimbfr,dimbfr))
-       allocate (GL_1m(ueph)%G(NL,dimbfr))
-       allocate (GR_pp(ueph)%G(dimaft,dimaft))
-       allocate (GR_Mp(ueph)%G(NR,dimaft))
        allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
        allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
        allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
@@ -287,10 +316,6 @@ CONTAINS
        dimaft = unitdimensions(unit_type(I+1)) ! next unit dimension
        idx = ephIdx(unit_type(I)) ! e-ph unit type
        if (idx /= 0) then
-          allocate (GL_mm(ueph)%G(dimbfr,dimbfr))
-          allocate (GL_1m(ueph)%G(NL,dimbfr))
-          allocate (GR_pp(ueph)%G(dimaft,dimaft))
-          allocate (GR_Mp(ueph)%G(NR,dimaft))
           allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
           allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
           allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
@@ -303,10 +328,6 @@ CONTAINS
     dimaft = unitdimensions(ntypeunits+2) ! next unit dimension
     idx = ephIdx(unit_type(I)) ! e-ph unit type
     if (idx /= 0) then
-       allocate (GL_mm(ueph)%G(dimbfr,dimbfr))
-       allocate (GL_1m(ueph)%G(NL,dimbfr))
-       allocate (GR_pp(ueph)%G(dimaft,dimaft))
-       allocate (GR_Mp(ueph)%G(NR,dimaft))
        allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
        allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
        allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
@@ -318,10 +339,6 @@ CONTAINS
     dimaft = NR ! next unit dimension
     idx = ephIdx(ntypeunits+2) ! e-ph unit type
     if (idx /= 0) then
-       allocate (GL_mm(ueph)%G(dimbfr,dimbfr))
-       allocate (GL_1m(ueph)%G(NL,dimbfr))
-       allocate (GR_pp(ueph)%G(dimaft,dimaft))
-       allocate (GR_Mp(ueph)%G(NR,dimaft))
        allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
        allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
        allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
@@ -427,16 +444,14 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits, ephIndic
     use idsrdr_leads,    only: NL, Sigma_L
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
-! TEMP BEGIN
-    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
-! TEMP END
+    use idsrdr_iostream, only: openstream, closestream
 
 !   Input variables.
     integer, intent(in) :: ispin
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: I, n, utype, dim, dimbfr, ueph
+    integer :: I, n, utype, dim, dimbfr
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: Gbfr ! GF before
@@ -452,19 +467,14 @@ CONTAINS
 
 ! TEMP BEGIN
 !   Open Green's functions files.
-    call OPEN_DA (GL_mmTEST%fname, GL_mmTEST%lun)
-    print *, "ABRIU! 1"
+    call openstream (GL_mm%fname, GL_mm%lun)
+    call openstream (GL_1m%fname, GL_1m%lun)
 ! TEMP END
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
-    if (ephIndic(utype)) then ! eph units indexing
-       ueph = 2
-    else
-       ueph = 1
-    endif
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -501,12 +511,9 @@ CONTAINS
 !      Store matrix if required.
        if (ephIndic(utype)) then
 ! TEMP BEGIN
-          write (GL_mmTEST%lun) Gbfr
-          print *, "ESCREVEU!", ueph
+          write (GL_mm%lun) Gbfr
+          write (GL_1m%lun) Gbfr_1m
 ! TEMP END
-          GL_mm(ueph)%G = Gbfr
-          GL_1m(ueph)%G = Gbfr_1m
-          ueph = ueph + 1
        endif
 
 !      ('aux2 = Gbfr*V')
@@ -563,11 +570,9 @@ CONTAINS
 !   Store matrix if required.
     if (ephIndic(ntypeunits+2)) then
 ! TEMP BEGIN
-       write (GL_mmTEST%lun) Gbfr
-       print *, "ESCREVEU!", ueph
+       write (GL_mm%lun) Gbfr
+       write (GL_1m%lun) Gbfr_1m
 ! TEMP END
-       GL_mm(ueph)%G = Gbfr
-       GL_1m(ueph)%G = Gbfr_1m
     else
        GL_nn = Gbfr
        GL_1N = Gbfr_1m
@@ -575,8 +580,8 @@ CONTAINS
 
 ! TEMP BEGIN
 !   Close Green's functions files.
-    call CLOSE_DA (GL_mmTEST%fname, GL_mmTEST%lun)
-    print *, "FECHOU! 1"
+    call closestream (GL_mm%fname, GL_mm%lun)
+    call closestream (GL_1m%fname, GL_1m%lun)
 ! TEMP END
 
 !   Free memory.
@@ -649,13 +654,14 @@ CONTAINS
                                ephIndic, nunitseph
     use idsrdr_leads,    only: NR, Sigma_R
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+    use idsrdr_iostream, only: openstream, closestream
 
 !   Input variables.
     integer, intent(in) :: ispin
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: I, n, utype, dim, ueph
+    integer :: I, n, utype, dim, ueph, nbytes_pp, nbytes_Mp
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: Gbfr ! GF before
@@ -669,6 +675,12 @@ CONTAINS
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing right-to-left sweep... '
 
+! TEMP BEGIN
+!   Open Green's functions files.
+    call openstream (GR_pp%fname, GR_pp%lun)
+    call openstream (GR_Mp%fname, GR_Mp%lun)
+! TEMP END
+
 !   Initialize variables.
     utype = ntypeunits + 2 ! current unit type (last unit)
     dim = unitdimensions(utype) ! current type dimension
@@ -678,6 +690,8 @@ CONTAINS
     else
        ueph = nunitseph
     endif
+    nbytes_pp = 1 ! position at 'GR_pp' file
+    nbytes_Mp = 1 ! position at 'GR_Mp' file
 
 !   Allocate matrices.
     allocate (V(n,n))
@@ -713,8 +727,14 @@ CONTAINS
 
 !      Store matrix if required.
        if (ephIndic(utype)) then
-          GR_pp(ueph)%G = Gbfr
-          GR_Mp(ueph)%G = Gbfr_Mp
+! TEMP BEGIN
+          write (GR_pp%lun) Gbfr
+          pos_pp(ueph) = nbytes_pp
+          nbytes_pp = nbytes_pp + sizeof(Gbfr)
+          write (GR_Mp%lun) Gbfr_Mp
+          pos_Mp(ueph) = nbytes_Mp
+          nbytes_Mp = nbytes_Mp + sizeof(Gbfr_Mp)
+! TEMP END
           ueph = ueph - 1
        endif
 
@@ -772,9 +792,19 @@ CONTAINS
 
 !   Store matrix if required.
     if (ephIndic(ntypeunits+1)) then
-       GR_pp(ueph)%G = Gbfr
-       GR_Mp(ueph)%G = Gbfr_Mp
+! TEMP BEGIN
+       write (GR_pp%lun) Gbfr
+       pos_pp(ueph) = nbytes_pp
+       write (GR_Mp%lun) Gbfr_Mp
+       pos_Mp(ueph) = nbytes_Mp
+! TEMP END
     endif
+
+! TEMP BEGIN
+!   Close Green's functions files.
+    call closestream (GR_pp%fname, GR_pp%lun)
+    call closestream (GR_Mp%fname, GR_Mp%lun)
+! TEMP END
 
 !   Free memory.
     deallocate (V)
@@ -850,39 +880,36 @@ CONTAINS
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
-! TEMP BEGIN
-    use idsrdr_iodirect, only: OPEN_DA, CLOSE_DA
-! TEMP END
+    use idsrdr_iostream, only: openstream, closestream
 
 !   Input variables.
     integer, intent(in) :: ispin
     real(8), intent(in) :: Ei
 
 !   Local variables.
-    integer :: I, n, utype, dim, dimbfr, idx, ueph
+    integer :: I, n, utype, dim, dimbfr, dimaft, idx, ueph
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
     complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
     complex(8), allocatable, dimension (:,:) :: foo1L, foo2L,           &
                                                 foo1R, foo2R, foo3
     external :: zsymm, zgemm
-! TEMP BEGIN
-    integer :: j, k
-    complex(8), allocatable, dimension (:,:) :: auxTEST
-! TEMP END
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing full Greens functions... '
 
 ! TEMP BEGIN
 !   Open Green's functions files.
-    call OPEN_DA (GL_mmTEST%fname, GL_mmTEST%lun)
-    print *, "ABRIU! 2"
+    call openstream (GL_mm%fname, GL_mm%lun)
+    call openstream (GL_1m%fname, GL_1m%lun)
+    call openstream (GR_pp%fname, GR_pp%lun)
+    call openstream (GR_Mp%fname, GR_Mp%lun)
 ! TEMP END
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
     dim = unitdimensions(utype) ! current type dimension
+    dimaft = unitdimensions(unit_type(2)) ! next unit dimension
     n = unitdimensions(ntypeunits) ! pristine dimension
     idx = ephIdx(utype) ! e-ph unit type
     ueph = 1 ! eph units indexing
@@ -911,9 +938,12 @@ CONTAINS
        aux3(1:NL,1:NL) = aux3(1:NL,1:NL) - Sigma_L
 
 !      ('aux2 = V*GR_pp')
-       aux1 = GR_pp(ueph)%G(1:n,1:n)
+! TEMP BEGIN
+       call greenloadR (GR_pp%lun, dimaft, dimaft, 1, n,                &
+                        1, n, aux1, n, n, pos_pp(ueph))
        call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
+! TEMP END
 
 !      ('aux1 = aux2*V^dagger')
        call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
@@ -939,9 +969,12 @@ CONTAINS
        allocate (foo3(n,norbDyn(idx)))
 
 !      ('foo2R = GR_Mp*V^dagger')
-       foo1R = GR_Mp(ueph)%G(1:NR,1:n)
+! TEMP BEGIN
+       call greenloadR (GR_Mp%lun, NR, dimaft, 1, NR,                &
+                        1, n, foo1R, NR, n, pos_Mp(ueph))
        call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,          &
                    V, n, (0.d0,0.d0), foo2R, NR)
+! TEMP END
 
 !      ('Gr_Mn = - foo2R * Gr_nn')
        foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
@@ -957,12 +990,13 @@ CONTAINS
     endif
 
 !   Loop over the blocks from left to right.
-    do I = 2,nunits+1
+    do I = 2,nunits
 
 !      Assign auxiliary variables.
        dimbfr = dim ! last unit dimension
        utype = unit_type(I) ! current unit type
        dim = unitdimensions(utype) ! current type dimension
+       dimaft = unitdimensions(unit_type(I+1)) ! next unit dimension
        idx = ephIdx(utype) ! e-ph unit type
 
        if (idx /= 0) then
@@ -975,28 +1009,11 @@ CONTAINS
                  - Hunits(utype)%H(:,:,ispin)
 
 !         ('aux2 = GL_mm*V')
-!!$          aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
-!!$          call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
-!!$                      V, n, (0.d0,0.d0), aux2, n)
 ! TEMP BEGIN
-          allocate (auxTEST(dimbfr,dimbfr))
-          print *, "QUER LER!", ueph
-          read (GL_mmTEST%lun) auxTEST
-          print *, "LEU!", ueph
-          aux1 = auxTEST(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+          call greenload (GL_mm%lun, dimbfr, dimbfr, dimbfr-n+1,        &
+                          dimbfr, dimbfr-n+1, dimbfr, aux1, n, n)
           call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
-          do j = 1,dimbfr
-             do k = 1,dimbfr
-                write (3422,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
-                  DREAL(GL_mm(ueph)%G(k,j)), DREAL(auxTEST(k,j)),       &
-                  DIMAG(GL_mm(ueph)%G(k,j)), DIMAG(auxTEST(k,j))
-                write (3423,'(e17.8e3,e17.8e3)')                        &
-                  DREAL(GL_mm(ueph)%G(k,j)) - DREAL(auxTEST(k,j)),      &
-                  DIMAG(GL_mm(ueph)%G(k,j)) - DIMAG(auxTEST(k,j))
-             enddo
-          enddo
-          deallocate (auxTEST)
 ! TEMP END
 
 !         ('aux1 = V^dagger*aux2')
@@ -1007,9 +1024,12 @@ CONTAINS
           aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
 
 !         ('aux2 = V*GR_pp')
-          aux1 = GR_pp(ueph)%G(1:n,1:n)
+! TEMP BEGIN
+          call greenloadR (GR_pp%lun, dimaft, dimaft, 1, n,             &
+                           1, n, aux1, n, n, pos_pp(ueph))
           call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
+! TEMP END
 
 !         ('aux1 = aux2*V^dagger')
           call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
@@ -1032,9 +1052,12 @@ CONTAINS
           allocate (foo3(n,norbDyn(idx)))
 
 !         ('foo2L = GL_1m*V')
-          foo1L = GL_1m(ueph)%G(1:NL,dimbfr-n+1:dimbfr)
+! TEMP BEGIN
+          call greenload (GL_1m%lun, NL, dimbfr, 1, NL,                 &
+                          dimbfr-n+1, dimbfr, foo1L, NL, n)
           call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,       &
                       V, n, (0.d0,0.d0), foo2L, NL)
+! TEMP END
 
 !         ('Gr_1n = - foo2L * Gr_nn')
           foo3 = aux3(1:n,idxF(idx):idxL(idx))
@@ -1042,9 +1065,12 @@ CONTAINS
                       foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(ueph)%G, NL)
 
 !         ('foo2R = GR_Mp*V^dagger')
-          foo1R = GR_Mp(ueph)%G(1:NR,1:n)
+! TEMP BEGIN
+          call greenloadR (GR_Mp%lun, NR, dimaft, 1, NR,                &
+                           1, n, foo1R, NR, n, pos_Mp(ueph))
           call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,       &
                       V, n, (0.d0,0.d0), foo2R, NR)
+! TEMP END
 
 !         ('Gr_Mn = - foo2R * Gr_nn')
           foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
@@ -1059,6 +1085,99 @@ CONTAINS
 
        endif
     enddo
+
+!   Assign auxiliary variables.
+    dimbfr = dim ! last unit dimension
+    utype = unit_type(I) ! current unit type
+    dim = unitdimensions(utype) ! current type dimension
+    dimaft = unitdimensions(ntypeunits+2) ! next unit dimension
+    idx = ephIdx(utype) ! e-ph unit type
+
+    if (idx /= 0) then
+
+!      Allocate auxiliary matrix.
+       allocate (aux3(dim,dim))
+
+!      ('aux3 = E*S - H')
+       aux3 = (Ei-unitshift(utype))*Sunits(utype)%S                     &
+              - Hunits(utype)%H(:,:,ispin)
+
+!      ('aux2 = GL_mm*V')
+! TEMP BEGIN
+       call greenload (GL_mm%lun, dimbfr, dimbfr, dimbfr-n+1,           &
+                       dimbfr, dimbfr-n+1, dimbfr, aux1, n, n)
+       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+                   V, n, (0.d0,0.d0), aux2, n)
+! TEMP END
+
+!      ('aux1 = V^dagger*aux2')
+       call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
+                   aux2, n, (0.d0,0.d0), aux1, n)
+
+!      ('aux3 = aux3 - aux1')
+       aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
+
+!      ('aux2 = V*GR_pp')
+! TEMP BEGIN
+       call greenloadR (GR_pp%lun, dimaft, dimaft, 1, n,                &
+                        1, n, aux1, n, n, pos_pp(ueph))
+       call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+                   V, n, (0.d0,0.d0), aux2, n)
+! TEMP END
+
+!      ('aux1 = aux2*V^dagger')
+       call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
+                   V, n, (0.d0,0.d0), aux1, n)
+
+!      ('aux3 = aux3 - aux1')
+       aux3(dim-n+1:dim,dim-n+1:dim) = aux3(dim-n+1:dim,dim-n+1:dim)    &
+                                       - aux1
+
+!      ('aux3 = aux3^-1')
+       allocate (ipiv(dim))
+       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+       call CHECKzsytri (dim, 'L', aux3, ipiv)
+       deallocate (ipiv)
+
+!      ('Gr_nn = aux3')
+       Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+
+!      Allocate auxiliary matrix.
+       allocate (foo3(n,norbDyn(idx)))
+
+!      ('foo2L = GL_1m*V')
+! TEMP BEGIN
+       call greenload (GL_1m%lun, NL, dimbfr, 1, NL,                    &
+                       dimbfr-n+1, dimbfr, foo1L, NL, n)
+       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
+                   V, n, (0.d0,0.d0), foo2L, NL)
+! TEMP END
+
+!      ('Gr_1n = - foo2L * Gr_nn')
+       foo3 = aux3(1:n,idxF(idx):idxL(idx))
+       call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),         &
+                   foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(ueph)%G, NL)
+
+!      ('foo2R = GR_Mp*V^dagger')
+! TEMP BEGIN
+       call greenloadR (GR_Mp%lun, NR, dimaft, 1, NR,                   &
+                        1, n, foo1R, NR, n, pos_Mp(ueph))
+       call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,          &
+                   V, n, (0.d0,0.d0), foo2R, NR)
+! TEMP END
+
+!      ('Gr_Mn = - foo2R * Gr_nn')
+       foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
+       call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),         &
+                   foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(ueph)%G, NR)
+
+!      Free memory.
+       deallocate (foo3)
+       deallocate (aux3)
+
+       ueph = ueph + 1
+
+    endif
 
 !   Assign auxiliary variables.
     dimbfr = dim ! last unit dimension
@@ -1079,28 +1198,11 @@ CONTAINS
                                         - Sigma_R
 
 !      ('aux2 = GL_mm*V')
-!!$       aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
-!!$       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
-!!$                   V, n, (0.d0,0.d0), aux2, n)
 ! TEMP BEGIN
-       allocate (auxTEST(dimbfr,dimbfr))
-       print *, "QUER LER!", ueph
-       read (GL_mmTEST%lun) auxTEST
-       print *, "LEU!", ueph
-       aux1 = auxTEST(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
+       call greenload (GL_mm%lun, dimbfr, dimbfr, dimbfr-n+1,           &
+                       dimbfr, dimbfr-n+1, dimbfr, aux1, n, n)
        call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
-       do j = 1,dimbfr
-          do k = 1,dimbfr
-             write (3422,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
-                  DREAL(GL_mm(ueph)%G(k,j)), DREAL(auxTEST(k,j)),       &
-                  DIMAG(GL_mm(ueph)%G(k,j)), DIMAG(auxTEST(k,j))
-             write (3423,'(e17.8e3,e17.8e3)')                           &
-                  DREAL(GL_mm(ueph)%G(k,j)) - DREAL(auxTEST(k,j)),      &
-                  DIMAG(GL_mm(ueph)%G(k,j)) - DIMAG(auxTEST(k,j))
-          enddo
-       enddo
-       deallocate (auxTEST)
 ! TEMP END
 
 !      ('aux1 = V^dagger*aux2')
@@ -1128,9 +1230,12 @@ CONTAINS
        allocate (aux1(NL,dim))
  
 !      ('foo2L = GL_1m*V')
-       foo1L = GL_1m(ueph)%G(1:NL,dimbfr-n+1:dimbfr)
+! TEMP BEGIN
+       call greenload (GL_1m%lun, NL, dimbfr, 1, NL,                    &
+                       dimbfr-n+1, dimbfr, foo1L, NL, n)
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
+! TEMP END
 
 !      ('Gr_1n = - foo2L * Gr_nn')
        foo3 = aux3(1:n,1:dim)
@@ -1177,9 +1282,12 @@ CONTAINS
        allocate (foo3(n,NR))
 
 !      ('foo2L = GL_1m*V')
-       foo1L = GL_1N(1:NL,dimbfr-n+1:dimbfr)
+! TEMP BEGIN
+       call greenload (GL_1m%lun, NL, dimbfr, 1, NL,                    &
+                       dimbfr-n+1, dimbfr, foo1L, NL, n)
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
+! TEMP END
 
 !      ('Gr_1n = - foo2L * G_nn')
        foo3 = aux3(1:n,dim-NR+1:dim)
@@ -1194,8 +1302,10 @@ CONTAINS
 
 ! TEMP BEGIN
 !   Close Green's functions files.
-    call CLOSE_DA (GL_mmTEST%fname, GL_mmTEST%lun)
-    print *, "FECHOU! 2"
+    call closestream (GL_mm%fname, GL_mm%lun)
+    call closestream (GL_1m%fname, GL_1m%lun)
+    call closestream (GR_pp%fname, GR_pp%lun)
+    call closestream (GR_Mp%fname, GR_Mp%lun)
 ! TEMP END
 
 !   Free memory.
@@ -1586,18 +1696,10 @@ CONTAINS
 
 !   First deallocates pointed matrices.
     do I = 1,nunitseph
-       deallocate (GL_mm(I)%G)
-       deallocate (GL_1m(I)%G)
-       deallocate (GR_pp(I)%G)
-       deallocate (GR_Mp(I)%G)
        deallocate (Gr_nn(I)%G)
        deallocate (Gr_1n(I)%G)
        deallocate (Gr_Mn(I)%G)
     enddo
-    deallocate (GL_mm)
-    deallocate (GL_1m)
-    deallocate (GR_pp)
-    deallocate (GR_Mp)
     deallocate (Gr_nn)
     deallocate (Gr_1n)
     deallocate (Gr_Mn)
@@ -1606,6 +1708,7 @@ CONTAINS
        deallocate (GL_1N)
     endif
     deallocate (Gr_1M)
+    deallocate (pos_pp, pos_Mp)
 
 
   end subroutine freegreen
