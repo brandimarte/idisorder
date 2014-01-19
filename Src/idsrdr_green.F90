@@ -45,12 +45,12 @@ MODULE idsrdr_green
 
   implicit none
   
-  PUBLIC  :: greeninit, greenfunctions, freegreen,                      &
-             Gr_nn, Gr_1n, Gr_Mn, Gr_1M
+  PUBLIC  :: greeninit, greenfunctions, freegreen, greenload,           &
+             Gr_nn, Gr_1n, Gr_Mn, Gr_1M, Gr_nn_disk
   PRIVATE :: LRsweep , RLsweep, GFfull, GL_mm, GL_1m, GR_pp, GR_Mp,     &
-             GFtest, LRsweepDisk , RLsweepDisk, GFfullDisk,             &
-             GL_mm_disk, GL_1m_disk, GR_pp_disk, GR_Mp_disk, npos,      &
-             pos_pp, pos_Mp, greenFilesSet, greenload, greenloadR
+             GFtest, LRsweepDisk , RLsweepDisk, GFfullDisk, GFtestDisk, &
+             GL_mm_disk, GL_1m_disk, GR_pp_disk, GR_Mp_disk,            &
+             npos, pos_pp, pos_Mp, greenFilesSet, greenloadR
 
 ! Type for storing Green's functions on memory.
   TYPE green
@@ -75,6 +75,8 @@ MODULE idsrdr_green
   TYPE(greenfile) :: GL_1m_disk ! G^L_{1,n-1}
   TYPE(greenfile) :: GR_pp_disk ! G^R_{n+1,n+1}
   TYPE(greenfile) :: GR_Mp_disk ! G^R_{M,n+1}
+  TYPE(greenfile) :: Gr_nn_disk ! G^r_{n,n}
+  TYPE(greenfile) :: Gr_1n_disk ! G^r_{1,n}
 
 ! Index array with the positions of written
 ! matrices (for reading 'GR_pp' and 'GR_Mp').
@@ -137,6 +139,8 @@ CONTAINS
        call greenFilesSet (42, 'GL_1m', GL_1m_disk)
        call greenFilesSet (43, 'GR_pp', GR_pp_disk)
        call greenFilesSet (44, 'GR_Mp', GR_Mp_disk)
+       call greenFilesSet (45, 'Gr_nn', Gr_nn_disk)
+       call greenFilesSet (46, 'Gr_1n', Gr_1n_disk)
 
 !      Allocate index array (for reading 'GR_pp' and 'GR_Mp').
        if (ephIdx(ntypeunits+2) /= 0) then
@@ -148,8 +152,6 @@ CONTAINS
        allocate (pos_Mp(npos))
 
 !      Allocate Green's functions pointer array.
-       allocate (Gr_nn(nunitseph))
-       allocate (Gr_1n(nunitseph))
        allocate (Gr_Mn(nunitseph))
 
 ! DUVIDA: GL_1m tem que ter dimensão NL mesmo?
@@ -162,8 +164,6 @@ CONTAINS
        idx = ephIdx(ntypeunits+1) ! e-ph unit type
        ueph = 1
        if (idx /= 0) then
-          allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
-          allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
           allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
           ueph = ueph + 1
        endif
@@ -174,8 +174,6 @@ CONTAINS
           dimaft = unitdimensions(unit_type(I+1)) ! next unit dimension
           idx = ephIdx(unit_type(I)) ! e-ph unit type
           if (idx /= 0) then
-             allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
-             allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
              allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
              ueph = ueph + 1
           endif
@@ -186,8 +184,6 @@ CONTAINS
        dimaft = unitdimensions(ntypeunits+2) ! next unit dimension
        idx = ephIdx(unit_type(I)) ! e-ph unit type
        if (idx /= 0) then
-          allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
-          allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
           allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
           ueph = ueph + 1
        endif
@@ -197,8 +193,6 @@ CONTAINS
        dimaft = NR ! next unit dimension
        idx = ephIdx(ntypeunits+2) ! e-ph unit type
        if (idx /= 0) then
-          allocate (Gr_nn(ueph)%G(norbDyn(idx),norbDyn(idx)))
-          allocate (Gr_1n(ueph)%G(NL,norbDyn(idx)))
           allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
        else
           allocate (GL_nn(dimbfr,dimbfr))
@@ -333,6 +327,11 @@ CONTAINS
 !      Compute the required full Green's functions.
        call GFfullDisk (Ei, ispin)
 
+#ifdef DEBUG
+!      Compute the entire Green's function of scattering region.
+       call GFtestDisk (Ei, ispin)
+#endif
+
     ELSE ! write on memory...
 
 !      Perform the left-to-right sweep.
@@ -344,12 +343,12 @@ CONTAINS
 !      Compute the required full Green's functions.
        call GFfull (Ei, ispin)
 
-    ENDIF ! IF (writeondisk)
-
 #ifdef DEBUG
-!   Compute the entire Green's function of scattering region.
-    call GFtest (Ei, ispin)
+!      Compute the entire Green's function of scattering region.
+       call GFtest (Ei, ispin)
 #endif
+
+    ENDIF ! IF (writeondisk)
 
 
   end subroutine greenfunctions
@@ -1595,7 +1594,7 @@ CONTAINS
     integer :: I, n, utype, dim, dimbfr, dimaft, idx, ueph
     integer, allocatable, dimension (:) :: ipiv
     complex(8), allocatable, dimension (:,:) :: V ! pristine coupling
-    complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
+    complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3, aux4
     complex(8), allocatable, dimension (:,:) :: foo1L, foo2L,           &
                                                 foo1R, foo2R, foo3
     external :: zsymm, zgemm
@@ -1608,6 +1607,8 @@ CONTAINS
     call openstream (GL_1m_disk%fname, GL_1m_disk%lun)
     call openstream (GR_pp_disk%fname, GR_pp_disk%lun)
     call openstream (GR_Mp_disk%fname, GR_Mp_disk%lun)
+    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
@@ -1661,10 +1662,12 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       write (Gr_nn_disk%lun)                                           &
+            aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      ('Gr_1n = aux3')
-       Gr_1n(ueph)%G = aux3(1:NL,idxF(idx):idxL(idx))
+       write (Gr_1n_disk%lun)                                           &
+            aux3(1:NL,idxF(idx):idxL(idx))
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,norbDyn(idx)))
@@ -1741,7 +1744,8 @@ CONTAINS
           deallocate (ipiv)
 
 !         ('Gr_nn = aux3')
-          Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+          write (Gr_nn_disk%lun)                                        &
+               aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !         Allocate auxiliary matrix.
           allocate (foo3(n,norbDyn(idx)))
@@ -1753,9 +1757,12 @@ CONTAINS
                       V, n, (0.d0,0.d0), foo2L, NL)
 
 !         ('Gr_1n = - foo2L * Gr_nn')
+          allocate (aux4(NL,norbDyn(idx)))
           foo3 = aux3(1:n,idxF(idx):idxL(idx))
           call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),      &
-                      foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(ueph)%G, NL)
+                      foo2L, NL, foo3, n, (0.d0,0.d0), aux4, NL)
+          write (Gr_1n_disk%lun) aux4
+          deallocate (aux4)
 
 !         ('foo2R = GR_Mp*V^dagger')
           call greenloadR (GR_Mp_disk%lun, NR, dimaft, 1, NR,           &
@@ -1827,7 +1834,8 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       write (Gr_nn_disk%lun)                                           &
+            aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,norbDyn(idx)))
@@ -1839,9 +1847,12 @@ CONTAINS
                    V, n, (0.d0,0.d0), foo2L, NL)
 
 !      ('Gr_1n = - foo2L * Gr_nn')
+       allocate (aux4(NL,norbDyn(idx)))
        foo3 = aux3(1:n,idxF(idx):idxL(idx))
        call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),         &
-                   foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(ueph)%G, NL)
+                   foo2L, NL, foo3, n, (0.d0,0.d0), aux4, NL)
+       write (Gr_1n_disk%lun) aux4
+       deallocate (aux4)
 
 !      ('foo2R = GR_Mp*V^dagger')
        call greenloadR (GR_Mp_disk%lun, NR, dimaft, 1, NR,              &
@@ -1900,7 +1911,8 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       write (Gr_nn_disk%lun)                                           &
+            aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      ('Gr_Mn = aux3')
        Gr_Mn(ueph)%G = aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
@@ -1920,7 +1932,7 @@ CONTAINS
        foo3 = aux3(1:n,1:dim)
        call zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2L, NL,       &
                    foo3, n, (0.d0,0.d0), aux1, NL)
-       Gr_1n(ueph)%G = aux1(1:NL,idxF(idx):idxL(idx))
+       write (Gr_1n_disk%lun) aux1(1:NL,idxF(idx):idxL(idx))
        Gr_1M = aux1(1:NL,dim-NR+1:dim)
 
 !      Free memory.
@@ -1982,6 +1994,8 @@ CONTAINS
     call closestream (GL_1m_disk%fname, GL_1m_disk%lun)
     call closestream (GR_pp_disk%fname, GR_pp_disk%lun)
     call closestream (GR_Mp_disk%fname, GR_Mp_disk%lun)
+    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
 
 !   Free memory.
     deallocate (V)
@@ -2506,6 +2520,416 @@ CONTAINS
 
 
 !  *******************************************************************  !
+!                              GFtestDisk                               !
+!  *******************************************************************  !
+!  Description: build the full hamiltonian of the scattering region     !
+!  and invert it to obtain the entire Green's function in order to      !
+!  compare with the Green's function obtained with the recursive        !
+!  method. (Green's functions are read from disk).                      !
+!                                                                       !
+!  ATENTION: the writting part only works in serial mode!               !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode                       : True if it is the I/O node    !
+!  integer ntypeunits                   : Number of unit types          !
+!  integer nunits                       : Total number of units         !
+!  integer unit_type(nunits+2)          : Units types                   !
+!  integer unitdimensions(ntypeunits+2) : Units number of orbitals      !
+!  real*8 unitshift(ntypeunits+2)       : Units shift                   !
+!  real*8 S1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits)) : Unit coupling overlap    !
+!  real*8 H1unit(unitdimensions(ntypeunits),                            !
+!                unitdimensions(ntypeunits),nspin) : Unit coupling      !
+!                                                    Hamiltonian        !
+!  TYPE(unitS) Sunits(ntypeunits+2)%S(unitdimensions,unitdimensions) :  !
+!                                         [real*8] Units overlap        !
+!  TYPE(unitH)                                                          !
+!        Hunits(ntypeunits+2)%H(unitdimensions,unitdimensions,nspin) :  !
+!                                         [real*8] Units hamiltonian    !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Sigma_L(NL,NL)           : Left-lead self-energy          !
+!  complex(8) Sigma_R(NR,NR)           : Right-lead self-energy         !
+!  integer ephIdx(ntypeunits+2)        : Unit index (those with e-ph)   !
+!  integer norbDyn(neph)               : Number of orbitals from        !
+!                                        dynamic atoms                  !
+!  integer idxF(neph)                  : First dynamic atom orbital     !
+!  integer idxL(neph)                  : Last dynamic atom orbital      !
+!  ****************************** INPUT ******************************  !
+!  integer ispin                        : Spin component index          !
+!  real*8 Ei                            : Energy grid point             !
+!  *******************************************************************  !
+  subroutine GFtestDisk (Ei, ispin)
+
+!
+!   Modules
+!
+    use parallel,        only: IOnode
+    use idsrdr_options,  only: ntypeunits, nunits
+    use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
+                               S1unit, H1unit, Sunits, Hunits
+    use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
+    use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
+    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
+    use idsrdr_iostream, only: openstream, closestream
+
+!   Input variables.
+    integer, intent(in) :: ispin
+    real(8), intent(in) :: Ei
+
+!   Local variables.
+    integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, idx, ueph
+    integer, allocatable, dimension (:) :: ipiv
+    real(8) :: dosTot
+    real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
+    real(8), allocatable, dimension (:,:) :: Stot
+    complex(8), allocatable, dimension (:,:) :: Htot, Gtot, aux
+
+    if (IOnode) write (6,'(a)', advance='no')                           &
+            '      computing TOTAL Greens function... '
+
+!   Get the total dimension.
+    dimTot = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
+    do I = 2,nunits+1
+       utype = unit_type(I) ! current unit type
+       dimTot = dimTot + unitdimensions(utype)
+    enddo
+
+!   Allocate and initialize matrices.
+    allocate (Stot(dimTot,dimTot))
+    allocate (Htot(dimTot,dimTot))
+    allocate (Gtot(dimTot,dimTot))
+    allocate (ipiv(dimTot))
+    Stot = 0.d0
+    Htot = 0.d0
+
+!   Build total hamiltonian and overlap matrices.
+    dimCpl = unitdimensions(ntypeunits) ! coupling unit dimensions
+    utype = ntypeunits+1 ! current unit type (first unit)
+    dim = unitdimensions(utype) ! current unit dimensions
+    idx = ephIdx(utype) ! e-ph unit type
+    ueph = 1 ! eph units indexing
+
+    Stot(1:dim,1:dim) = (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+    Htot(1:dim,1:dim) = Hunits(utype)%H(:,:,ispin)
+    Stot(dim-dimCpl+1:dim,dim+1:dim+dimCpl) =                           &
+         (Ei-unitshift(ntypeunits))*S1unit
+    Htot(dim-dimCpl+1:dim,dim+1:dim+dimCpl) = H1unit(:,:,ispin)
+    Stot(dim+1:dim+dimCpl,dim-dimCpl+1:dim) =                           &
+         (Ei-unitshift(ntypeunits))*TRANSPOSE(S1unit)
+    Htot(dim+1:dim+dimCpl,dim-dimCpl+1:dim) =                           &
+         TRANSPOSE(H1unit(:,:,ispin))
+
+    idxAnt = dim + 1
+    do k = 2,nunits+1
+       utype = unit_type(k) ! current unit type
+       dim = unitdimensions(utype) ! current unit dimensions
+
+       Stot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                  &
+            (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+       Htot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                  &
+            Hunits(utype)%H(:,:,ispin)
+       Stot(idxAnt+dim-dimCpl:idxAnt+dim-1,                             &
+            idxAnt+dim:idxAnt+dim+dimCpl-1) =                           &
+            (Ei-unitshift(ntypeunits))*S1unit
+       Htot(idxAnt+dim-dimCpl:idxAnt+dim-1,                             &
+            idxAnt+dim:idxAnt+dim+dimCpl-1) = H1unit(:,:,ispin)
+       Stot(idxAnt+dim:idxAnt+dim+dimCpl-1,                             &
+            idxAnt+dim-dimCpl:idxAnt+dim-1) =                           &
+            (Ei-unitshift(ntypeunits))*TRANSPOSE(S1unit)
+       Htot(idxAnt+dim:idxAnt+dim+dimCpl-1,                             &
+            idxAnt+dim-dimCpl:idxAnt+dim-1) =                           &
+            TRANSPOSE(H1unit(:,:,ispin))
+
+       idxAnt = idxAnt + dim
+
+    enddo
+
+    utype = ntypeunits + 2 ! current unit type (last unit)
+    dim = unitdimensions(utype) ! current unit dimensions
+
+    Stot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
+         (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
+    Htot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
+         Hunits(utype)%H(:,:,ispin)
+
+!   Green's function.
+    Gtot = Stot - Htot
+    Gtot(1:NL,1:NL) = Gtot(1:NL,1:NL) - Sigma_L
+    Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                       &
+         Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
+    call CHECKzgetrf (dimTot, Gtot, ipiv)
+    call CHECKzgetri (dimTot, Gtot, ipiv)
+
+!   Free memory.
+    deallocate (Htot)
+    deallocate (Stot)
+    deallocate (ipiv)
+
+    if (IOnode) write(6,'(a)') " ok!"
+
+!   Compute the total density of states.
+    dosTot = 0.d0
+    do i = 1,dimTot
+       dosTot = dosTot - DIMAG(Gtot(i,i))
+    enddo
+!!$    dosTot = dosTot / pi
+    write (4102,'(e17.8e3,e17.8e3)') Ei, dosTot
+
+!   Write everything...
+    do i = 1,dimTot
+       do j = 1,dimTot
+          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
+               DIMAG(Gtot(i,j)) 
+          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
+       enddo
+    enddo
+
+!   Open Green's functions files.
+    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+
+!   First unit.
+    if (idx /= 0) then
+
+!      Auxiliary matrix to copy 'Gr_nn' from file.
+       allocate (aux(norbDyn(idx),norbDyn(idx)))
+       call greenload (Gr_nn_disk%lun, norbDyn(idx), norbDyn(idx),      &
+                       1, norbDyn(idx), 1, norbDyn(idx), aux,           &
+                       norbDyn(idx), norbDyn(idx))
+
+       do j = idxF(idx),idxL(idx)
+          do i = idxF(idx),idxL(idx)
+             write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(i,j)),                                     &
+                  DREAL(aux(i-idxF(idx)+1,j-idxF(idx)+1)),              &
+                  DIMAG(Gtot(i,j)),                                     &
+                  DIMAG(aux(i-idxF(idx)+1,j-idxF(idx)+1))
+             write (2102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(i,j)) -                                    &
+                  DREAL(aux(i-idxF(idx)+1,j-idxF(idx)+1)),              &
+                  DIMAG(Gtot(i,j)) -                                    &
+                  DIMAG(aux(i-idxF(idx)+1,j-idxF(idx)+1))
+          enddo
+       enddo
+
+!      Free memory.
+       deallocate (aux)
+
+!      Auxiliary matrix to copy 'Gr_nn' from file.
+       allocate (aux(NL,norbDyn(idx)))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
+                       1, norbDyn(idx), 1, norbDyn(idx), aux,           &
+                       NL, norbDyn(idx))
+
+       do j = idxF(idx),idxL(idx)
+          do i = 1,NL
+             write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(i,j)), DREAL(aux(i,j-idxF(idx)+1)),        &
+                  DIMAG(Gtot(i,j)), DIMAG(aux(i,j-idxF(idx)+1))
+             write (5102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(i,j)) - DREAL(aux(i,j-idxF(idx)+1)),       &
+                  DIMAG(Gtot(i,j)) - DIMAG(aux(i,j-idxF(idx)+1))
+          enddo
+       enddo
+
+!      Free memory.
+       deallocate (aux)
+
+       do j = idxF(idx),idxL(idx)
+          do i = 1,NR
+             write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(dimTot-NR+i,j)),                           &
+                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DIMAG(Gtot(dimTot-NR+i,j)),                           &
+                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+             write (7102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(dimTot-NR+i,j)) -                          &
+                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DIMAG(Gtot(dimTot-NR+i,j)) -                          &
+                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+          enddo
+       enddo
+
+       ueph = ueph + 1
+
+    endif
+
+!   Units in the middle.
+    idxAnt = unitdimensions(ntypeunits+1) ! last unit dimensions
+    do k = 2,nunits+1
+
+       utype = unit_type(k) ! current unit type
+       dim = unitdimensions(utype) ! current unit dimensions
+       idx = ephIdx(utype) ! e-ph unit type
+
+       if (idx /= 0) then
+
+!         Auxiliary matrix to copy 'Gr_nn' from file.
+          allocate (aux(norbDyn(idx),norbDyn(idx)))
+          call greenload (Gr_nn_disk%lun, norbDyn(idx), norbDyn(idx),   &
+                          1, norbDyn(idx), 1, norbDyn(idx), aux,        &
+                          norbDyn(idx), norbDyn(idx))
+
+          do j = idxF(idx),idxL(idx)
+             do i = idxF(idx),idxL(idx)
+                write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                     DREAL(Gtot(idxAnt+i,idxAnt+j)),                    &
+                     DREAL(aux(i-idxF(idx)+1,j-idxF(idx)+1)),           &
+                     DIMAG(Gtot(idxAnt+i,idxAnt+j)),                    &
+                     DIMAG(aux(i-idxF(idx)+1,j-idxF(idx)+1))
+                write (2102,'(e17.8e3,e17.8e3)')                        &
+                     DREAL(Gtot(idxAnt+i,idxAnt+j)) -                   &
+                     DREAL(aux(i-idxF(idx)+1,j-idxF(idx)+1)),           &
+                     DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                   &
+                     DIMAG(aux(i-idxF(idx)+1,j-idxF(idx)+1))
+             enddo
+          enddo
+
+!         Free memory.
+          deallocate (aux)
+
+!         Auxiliary matrix to copy 'Gr_nn' from file.
+          allocate (aux(NL,norbDyn(idx)))
+          call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),             &
+                          1, norbDyn(idx), 1, norbDyn(idx), aux,        &
+                          NL, norbDyn(idx))
+
+          do j = idxF(idx),idxL(idx)
+             do i = 1,NL
+                write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                     DREAL(Gtot(i,idxAnt+j)),                           &
+                     DREAL(aux(i,j-idxF(idx)+1)),                       &
+                     DIMAG(Gtot(i,idxAnt+j)),                           &
+                     DIMAG(aux(i,j-idxF(idx)+1))
+                write (5102,'(e17.8e3,e17.8e3)')                        &
+                     DREAL(Gtot(i,idxAnt+j)) -                          &
+                     DREAL(aux(i,j-idxF(idx)+1)),                       &
+                     DIMAG(Gtot(i,idxAnt+j)) -                          &
+                     DIMAG(aux(i,j-idxF(idx)+1))
+             enddo
+          enddo
+
+!         Free memory.
+          deallocate (aux)
+
+          do j = idxF(idx),idxL(idx)
+             do i = 1,NR
+                write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
+                     DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                 &
+                     DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),             &
+                     DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                 &
+                     DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                write (7102,'(e17.8e3,e17.8e3)')                        &
+                     DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                &
+                     DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),             &
+                     DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                &
+                     DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+             enddo
+          enddo
+
+          ueph = ueph + 1
+
+       endif
+
+       idxAnt = idxAnt + dim
+
+    enddo
+
+!   Last unit.
+    idx = ephIdx(ntypeunits+2) ! e-ph unit type
+    if (idx /= 0) then
+
+!      Auxiliary matrix to copy 'Gr_nn' from file.
+       allocate (aux(norbDyn(idx),norbDyn(idx)))
+       call greenload (Gr_nn_disk%lun, norbDyn(idx), norbDyn(idx),      &
+                       1, norbDyn(idx), 1, norbDyn(idx), aux,           &
+                       norbDyn(idx), norbDyn(idx))
+
+       do j = idxF(idx),idxL(idx)
+          do i = idxF(idx),idxL(idx)
+             write (3102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(idxAnt+i,idxAnt+j)),                       &
+                  DREAL(aux(i-idxF(idx)+1,j-idxF(idx)+1)),    &
+                  DIMAG(Gtot(idxAnt+i,idxAnt+j)),                       &
+                  DIMAG(aux(i-idxF(idx)+1,j-idxF(idx)+1))
+             write (2102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(idxAnt+i,idxAnt+j)) -                      &
+                  DREAL(aux(i-idxF(idx)+1,j-idxF(idx)+1)),    &
+                  DIMAG(Gtot(idxAnt+i,idxAnt+j)) -                      &
+                  DIMAG(aux(i-idxF(idx)+1,j-idxF(idx)+1))
+          enddo
+       enddo
+
+!      Free memory.
+       deallocate (aux)
+
+!      Auxiliary matrix to copy 'Gr_nn' from file.
+       allocate (aux(NL,norbDyn(idx)))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
+                       1, norbDyn(idx), 1, norbDyn(idx), aux,           &
+                       NL, norbDyn(idx))
+
+       do j = idxF(idx),idxL(idx)
+          do i = 1,NL
+             write (6102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(i,idxAnt+j)), DREAL(aux(i,j-idxF(idx)+1)), &
+                  DIMAG(Gtot(i,idxAnt+j)), DIMAG(aux(i,j-idxF(idx)+1))
+             write (5102,'(e17.8e3,e17.8e3)')                           &
+                 DREAL(Gtot(i,idxAnt+j)) - DREAL(aux(i,j-idxF(idx)+1)), &
+                 DIMAG(Gtot(i,idxAnt+j)) - DIMAG(aux(i,j-idxF(idx)+1))
+          enddo
+       enddo
+
+!      Free memory.
+       deallocate (aux)
+
+       do j = idxF(idx),idxL(idx)
+          do i = 1,NR
+             write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
+                  DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                    &
+                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                    &
+                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+             write (7102,'(e17.8e3,e17.8e3)')                           &
+                  DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
+                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
+                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+          enddo
+       enddo
+
+    endif
+
+    do j = 1,NR
+       do i = 1,NL
+          write (310,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')               &
+               DREAL(Gtot(i,dimTot-NR+j)), DREAL(Gr_1M(i,j)),           &
+               DIMAG(Gtot(i,dimTot-NR+j)), DIMAG(Gr_1M(i,j))
+          write (210,'(e17.8e3,e17.8e3)')                               &
+               DREAL(Gtot(i,dimTot-NR+j)) - DREAL(Gr_1M(i,j)),          &
+               DIMAG(Gtot(i,dimTot-NR+j)) - DIMAG(Gr_1M(i,j))
+       enddo
+    enddo
+
+!   Close Green's functions files.
+    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+
+!   Free memory.
+    deallocate (Gtot)
+
+
+  end subroutine GFtestDisk
+
+
+!  *******************************************************************  !
 !                               freegreen                               !
 !  *******************************************************************  !
 !  Description: free allocated vectors.                                 !
@@ -2536,12 +2960,8 @@ CONTAINS
 
 !      First deallocates pointed matrices.
        do I = 1,nunitseph
-          deallocate (Gr_nn(I)%G)
-          deallocate (Gr_1n(I)%G)
           deallocate (Gr_Mn(I)%G)
        enddo
-       deallocate (Gr_nn)
-       deallocate (Gr_1n)
        deallocate (Gr_Mn)
 
     ELSE ! wrote on memory...

@@ -17,6 +17,8 @@
 #  distributed along with this program or at                            #
 #  <http://www.gnu.org/licenses/gpl.html>).                             #
 #  *******************************************************************  #
+#                               Makefile                                #
+#  *******************************************************************  #
 #  Description: makefile to build 'I-Disorder code.                     #
 #                                                                       #
 #  Written by Pedro Brandimarte, Sep 2013.                              #
@@ -50,7 +52,7 @@ what:
 	@if [ "$(VPATH)" = . ]; then                                    \
            echo "** You can not build I-Disorder in Src." ;             \
            echo "** Go to the Obj directory and see the README file." ; \
-           false ;\
+           false ;                                                      \
          fi
 	@echo "Compilation architecture to be used: ${IDISORDER_ARCH}"
 	@echo "If this is not what you want, create the right"
@@ -125,7 +127,8 @@ clean:
 #idsrdr_check.o : 
 #idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o         \
 #	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o   \
-#	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o
+#	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o              \
+#	idsrdr_iostream.o
 #idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o        \

@@ -50,7 +50,8 @@ MODULE idsrdr_current
   
   PUBLIC  :: current
   PRIVATE :: elastic, transmission, inelSymm, inelAsymm, writeTransm,   &
-             testInelSymm, testInelAsymm, asymmPre, kbTol, eoverh
+             testInelSymm, testInelAsymm, asymmPre, kbTol, eoverh,      &
+             inelSymmDisk, inelAsymmDisk
 
   real(8), parameter :: kbTol = 18.d0 ! tolerance value for temperature
 
@@ -85,6 +86,7 @@ CONTAINS
 !  integer NIVP                 : Number of bias potential points       !
 !  real*8 VInitial              : Initial value of the bias potential   !
 !  real*8 dV                    : Bias potential step                   !
+!  logical writeondisk          : Write GFs on disk?                    !
 !  ****************************** INPUT ******************************  !
 !  real*8 Ei                    : Energy grid point                     !
 !  integer ispin                : Spin component index                  !
@@ -96,7 +98,7 @@ CONTAINS
 !
     use parallel,        only: IOnode
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
-    use idsrdr_options,  only: NIVP, VInitial, dV
+    use idsrdr_options,  only: NIVP, VInitial, dV, writeondisk
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -121,44 +123,91 @@ CONTAINS
          '      computing current... '
 
     Vbias = VInitial
-    do i = 1,NIVP ! over bias points
 
-!      Compute elastic contribution.
-       call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
+    IF (writeondisk) THEN
 
-!      Compute symmetric part of inelastic contribution.
+       do i = 1,NIVP ! over bias points
+
+!         Compute elastic contribution.
+          call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
+
+!         Compute symmetric part of inelastic contribution.
 #ifdef DEBUG
-       call inelSymm (Isymm, ispin, NL, Gamma_L,                        &
-                      NR, Gamma_R, Vbias, Ei)
+          call inelSymmDisk (Isymm, ispin, NL, Gamma_L,                 &
+                             NR, Gamma_R, Vbias, Ei)
 #else
-       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+          call inelSymmDisk (Isymm, ispin, NL, Gamma_L,                 &
+                             NR, Gamma_R, Vbias)
 #endif
 
-!      Compute asymmetric part of inelastic contribution.
-       call inelAsymm (Iasymm, ispin, NL, Gamma_L,                      &
-                       NR, Gamma_R, Vbias, Ei)
+!         Compute asymmetric part of inelastic contribution.
+          call inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,               &
+                              NR, Gamma_R, Vbias, Ei)
 
-!      Write transmissions to outputfiles.
-!!$       call writeTransm (Ei, Iel, Isymm, Iasymm)
+!         Write transmissions to outputfiles.
+!!$          call writeTransm (Ei, Iel, Isymm, Iasymm)
 
 ! TEMP BEGIN
-       write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-            Vbias*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
-       write (6662,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-            Ei*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
-       write (6663,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
-            Ei*13.60569253D0, Vbias*13.60569253D0, Iel
-       write (6664,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
-            Ei*13.60569253D0, Vbias*13.60569253D0, Isymm
-       write (6665,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
-            Ei*13.60569253D0, Vbias*13.60569253D0, Iasymm
-       write (6666,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
-            Ei*13.60569253D0, Vbias*13.60569253D0, Iel+Isymm+Iasymm
+          write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
+               Vbias*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+          write (6662,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
+               Ei*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+          write (6663,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Iel
+          write (6664,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Isymm
+          write (6665,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Iasymm
+          write (6666,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Iel+Isymm+Iasymm
 ! TEMP END
 
-       Vbias = Vbias + dV
+          Vbias = Vbias + dV
 
-    enddo
+       enddo
+
+    ELSE ! write on memory...
+
+       do i = 1,NIVP ! over bias points
+
+!         Compute elastic contribution.
+          call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
+
+!         Compute symmetric part of inelastic contribution.
+#ifdef DEBUG
+          call inelSymm (Isymm, ispin, NL, Gamma_L,                     &
+                         NR, Gamma_R, Vbias, Ei)
+#else
+          call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+#endif
+
+!         Compute asymmetric part of inelastic contribution.
+          call inelAsymm (Iasymm, ispin, NL, Gamma_L,                   &
+                          NR, Gamma_R, Vbias, Ei)
+
+!         Write transmissions to outputfiles.
+!!$          call writeTransm (Ei, Iel, Isymm, Iasymm)
+
+! TEMP BEGIN
+          write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
+               Vbias*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+          write (6662,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
+               Ei*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
+          write (6663,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Iel
+          write (6664,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Isymm
+          write (6665,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Iasymm
+          write (6666,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
+               Ei*13.60569253D0, Vbias*13.60569253D0, Iel+Isymm+Iasymm
+! TEMP END
+
+          Vbias = Vbias + dV
+
+       enddo
+
+    ENDIF ! IF (writeondisk)
 
 ! TEMP BEGIN
        write (6663,'(/)',advance="no")
@@ -494,6 +543,231 @@ CONTAINS
 
 
 !  *******************************************************************  !
+!                             inelSymmDisk                              !
+!  *******************************************************************  !
+!  Description: compute the symmetric part of inelastic transmission    !
+!  (Green's functions are read from disk).                              !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nModes(neph)        : Number of vibrational modes            !
+!  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
+!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
+!                                   [complex*8] E-ph coupling matrices  !
+!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
+!                                       frequencies                     !
+!  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
+!  integer nunitseph                  : Number of units with eph        !
+!  integer eph_type(nunitseph)        : Units types with eph            !
+!  TYPE(green) Gr_Mn(nunitseph)%G(NR,unitdimensions) : [complex]        !
+!                                                      G^r_{M,n}        !
+!  TYPE(green) Gr_1n(nunitseph)%G(NL,unitdimensions) : [complex]        !
+!                                                      G^r_{1,n}        !
+!  TYPE(green) Gr_nn(nunitseph)%G(unitdimensions,unitdimensions) :      !
+!                                                  [complex] G^r_{n,n}  !
+!  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
+!  real*8 temp                 : Electronic temperature                 !
+!  ****************************** INPUT ******************************  !
+!  integer ispin                       : Spin component index           !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
+!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  real*8 Vbias                        : Bias potential                 !
+!  real*8 Ei                           : [optional] Energy grid point   !
+!  ***************************** OUTPUT ******************************  !
+!  real*8 Isymm                : Symmetric part of inelastic current    !
+!  *******************************************************************  !
+  subroutine inelSymmDisk (Isymm, ispin, NL, Gamma_L,                   &
+                           NR, Gamma_R, Vbias, Ei)
+
+!
+!   Modules
+!
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_units,    only: nunitseph, eph_type
+    use idsrdr_green,    only: Gr_Mn, Gr_1M, Gr_1n_disk, Gr_nn_disk,    &
+                               greenload
+    use idsrdr_options,  only: temp
+    use idsrdr_distrib,  only: BoseEinstein
+    use idsrdr_iostream, only: openstream, closestream
+
+!   Input variables.
+    integer, intent(in) :: ispin, NL, NR
+    real(8), intent(out) :: Isymm
+    real(8), intent(in) :: Vbias
+    real(8), optional, intent(in) :: Ei
+    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
+    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
+
+!   Local variables.
+    integer :: j, w, i, idx
+    real(8) :: foo
+    complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
+    complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
+                                               Aux5, Aux6, Aux7, GrCJG, &
+                                               A, auxGr_1n
+    external :: zsymm, zhemm, zgemm
+
+!   Initialize variable.
+    Isymm = 0.d0
+
+!   Open Green's functions files.
+    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+
+    do j = 1,nunitseph ! over unit with e-ph
+
+       idx = ephIdx(eph_type(j))
+
+!      Allocate auxiliary matrices.
+       allocate (GrCJG(NR,norbDyn(idx)))
+       allocate (A(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux1(NR,norbDyn(idx)))
+       allocate (Aux2(NR,norbDyn(idx)))
+       allocate (Aux3(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux4(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux5(NL,norbDyn(idx)))
+       allocate (Aux6(NL,norbDyn(idx)))
+       allocate (Aux7(NR,NR))
+
+!      Spectral matrix (obs.: 'Gr_nn' is symmetric).
+       call greenload (Gr_nn_disk%lun, norbDyn(idx), norbDyn(idx),      &
+                       1, norbDyn(idx), 1, norbDyn(idx), Aux3,          &
+                       norbDyn(idx), norbDyn(idx))
+       A = zi * (Aux3 - DCONJG(Aux3))
+
+!      Copy 'Gr_1n' from file to auxiliary matrix.
+       allocate (auxGr_1n(NL,norbDyn(idx)))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
+                       1, norbDyn(idx), 1, norbDyn(idx), auxGr_1n,      &
+                       NL, norbDyn(idx))
+
+!      Copy the complex conjugate of 'Gr_Mn'.
+       GrCJG = DCONJG(Gr_Mn(j)%G)
+
+       do w = 1,nModes(idx) ! over phonon modes
+
+!         -- 1st PART: 'G*Meph*G*Gamma_R*G^dagger*Meph' --
+
+!         ('Aux1 = Gamma_R * Gr_Mn^*')
+          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Gamma_R, NR, GrCJG, NR, (0.d0,0.d0), Aux1, NR)
+
+!         ('Aux2 = Aux1 * Meph')
+          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
+                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+
+!         ('Aux3 = Gr_Mn^T * Aux2')
+          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
+                      (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
+                      (0.d0,0.d0), Aux3, norbDyn(idx))
+
+!         ('Aux4 = Meph * Aux3')
+          call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.d0,0.d0), Meph(idx)%M(:,:,ispin,w),            &
+                      norbDyn(idx), Aux3, norbDyn(idx), (0.d0,0.d0),    &
+                      Aux4, norbDyn(idx))
+
+!         ('Aux5 = Gr_1n * Aux4')
+          call zgemm ('N', 'N', NL, norbDyn(idx), norbDyn(idx),         &
+                      (1.d0,0.d0), auxGr_1n, NL, Aux4,                  &
+                      norbDyn(idx), (0.d0,0.d0), Aux5, NL)
+
+!         -- 2nd PART: 'Gamma_R*G^dagger*Meph*A*Meph' --
+
+!         ('Aux1 = Aux2 * A') (where 'Aux2 = Gamma_R * Gr_Mn^* * Meph')
+          call zhemm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      A, norbDyn(idx), Aux2, NR, (0.d0,0.d0), Aux1, NR)
+
+!         ('Aux2 = Aux1 * Meph')
+          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
+                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+
+!         -- 3rd PART: 'G^dagger*Gamma_L*(1st PART + i/2*G*2nd PART)' --
+
+!         ('Aux5 = i/2 * Gr_1M * Aux2 + Aux5')
+          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (0.d0,0.5d0),     &
+                      Gr_1M, NL, Aux2, NR, (1.d0,0.d0), Aux5, NL)
+
+!         ('Aux6 = Gamma_L * Aux5')
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
+                      Gamma_L, NL, Aux5, NL, (0.d0,0.d0), Aux6, NL)
+
+!         ('Aux4 = Gr_1n^dagger * Aux6')
+          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
+                      (1.d0,0.d0), auxGr_1n, NL, Aux6, NL,              &
+                      (0.d0,0.d0), Aux4, norbDyn(idx))
+
+!         -- 4rd PART: 'G^dagger*Gamma_L*G*(-i/2 * H.c.)' --
+
+!         ('Aux6 = Gamma_L * Gr_1n')
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
+                      NL, auxGr_1n, NL, (0.d0,0.d0), Aux6, NL)
+
+!         ('Aux1 = Gr_1M^dagger * Aux6')
+          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
+                      Gr_1M, NL, Aux6, NL, (0.d0,0.d0), Aux1, NR)
+
+!         ('Aux7 = Aux1 * (-i/2 * H.c.)') (where 'H.c. = Aux2^dagger')
+          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (0.d0,-0.5d0),    &
+                      Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
+
+!         Compute the trace.
+          do i = 1,norbDyn(idx)
+             Isymm = Isymm + DREAL(Aux4(i,i))
+          enddo
+          do i = 1,NR
+             Isymm = Isymm + DREAL(Aux7(i,i))
+          enddo
+          
+#ifdef DEBUG
+!         [test] Compute the matrices multiplication with full matrices.
+          call testInelSymm (Ei, ispin, NL, Gamma_L,                    &
+                             NR, Gamma_R, j, idx, norbDyn(idx),         &
+                             Meph(idx)%M(:,:,ispin,w), Aux4, Aux7)
+#endif
+
+!         Compute symmetric pre-factor.
+          foo = 2.d0 * Vbias * BoseEinstein (freq(idx)%F(w), temp)
+          foo = foo + (freq(idx)%F(w) - Vbias)                          &
+                * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
+          foo = foo - (freq(idx)%F(w) + Vbias)                          &
+                * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
+          Isymm = eoverh * foo * Isymm
+
+       enddo ! do w = 1,nModes(idx)
+
+!      Free memory.
+       deallocate (GrCJG)
+       deallocate (A)
+       deallocate (Aux1)
+       deallocate (Aux2)
+       deallocate (Aux3)
+       deallocate (Aux4)
+       deallocate (Aux5)
+       deallocate (Aux6)
+       deallocate (Aux7)
+       deallocate (auxGr_1n)
+
+    enddo ! do j = 1,nunitseph
+
+!   Close Green's functions files.
+    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+
+
+  end subroutine inelSymmDisk
+
+
+!  *******************************************************************  !
 !                               asymmPre                                !
 !  *******************************************************************  !
 !  Description: compute pre-factors from the asymmetric part of         !
@@ -764,6 +1038,210 @@ CONTAINS
 
 
   end subroutine inelAsymm
+
+
+!  *******************************************************************  !
+!                             inelAsymmDisk                             !
+!  *******************************************************************  !
+!  Description: compute the asymmetric part of inelastic transmission.  !
+!  (Green's functions are read from disk).                              !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nModes(neph)        : Number of vibrational modes            !
+!  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
+!  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
+!                                   [complex*8] E-ph coupling matrices  !
+!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
+!                                       frequencies                     !
+!  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
+!  integer nunitseph                  : Number of units with eph        !
+!  integer eph_type(nunitseph)        : Units types with eph            !
+!  TYPE(green) Gr_Mn(nunitseph)%G(NR,unitdimensions) : [complex]        !
+!                                                      G^r_{M,n}        !
+!  TYPE(green) Gr_1n(nunitseph)%G(NL,unitdimensions) : [complex]        !
+!                                                      G^r_{1,n}        !
+!  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
+!  ****************************** INPUT ******************************  !
+!  integer ispin                       : Spin component index           !
+!  integer NL                          : Number of left lead orbitals   !
+!  integer NR                          : Number of right lead orbitals  !
+!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
+!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  real*8 Vbias                        : Bias potential                 !
+!  real*8 Ei                           : Energy grid point              !
+!  ***************************** OUTPUT ******************************  !
+!  real*8 Iasymm               : Asymmetric part of inelastic current   !
+!  *******************************************************************  !
+  subroutine inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,                 &
+                            NR, Gamma_R, Vbias, Ei)
+
+!
+!   Modules
+!
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_units,    only: nunitseph, eph_type
+    use idsrdr_green,    only: Gr_Mn, Gr_1M, Gr_1n_disk, greenload
+    use idsrdr_iostream, only: openstream, closestream
+
+!   Input variables.
+    integer, intent(in) :: ispin, NL, NR
+    real(8), intent(in) :: Ei, Vbias
+    real(8), intent(out) :: Iasymm
+    complex(8), dimension (NL,NL), intent(in) :: Gamma_L
+    complex(8), dimension (NR,NR), intent(in) :: Gamma_R
+
+!   Local variables.
+    integer :: j, w, i, idx
+    complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
+    complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
+                                               Aux4, Aux5, Aux6,        &
+                                               Gr_MnCJG, Gr_1nCJG,      &
+                                               auxGr_1n
+    external :: zsymm, zhemm, zgemm
+
+!   Initialize variable.
+    Iasymm = 0.d0
+
+!   Open Green's functions files.
+    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+
+    do j = 1,nunitseph ! over unit with e-ph
+
+       idx = ephIdx(eph_type(j))
+
+!      Allocate auxiliary matrices.
+       allocate (Gr_MnCJG(NR,norbDyn(idx)))
+       allocate (Gr_1nCJG(NL,norbDyn(idx)))
+       allocate (Aux1(NR,norbDyn(idx)))
+       allocate (Aux2(NR,norbDyn(idx)))
+       allocate (Aux3(norbDyn(idx),norbDyn(idx)))
+       allocate (Aux4(NL,norbDyn(idx)))
+       allocate (Aux5(NL,norbDyn(idx)))
+       allocate (Aux6(NR,NR))
+
+!      Copy 'Gr_1n' from file to auxiliary matrix.
+       allocate (auxGr_1n(NL,norbDyn(idx)))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
+                       1, norbDyn(idx), 1, norbDyn(idx), auxGr_1n,      &
+                       NL, norbDyn(idx))
+
+!      Copy the complex conjugate of 'Gr_Mn' and 'Gr_1n'.
+       Gr_MnCJG = DCONJG(Gr_Mn(j)%G)
+       Gr_1nCJG = DCONJG(auxGr_1n)
+
+       do w = 1,nModes(idx) ! over phonon modes
+
+!         -- 1st PART: 'G*Gamma_R*G^dagger*Meph' --
+
+!         ('Aux1 = Gamma_R * Gr_Mn^*')
+          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Gamma_R, NR, Gr_MnCJG, NR, (0.d0,0.d0), Aux1, NR)
+
+!         ('Aux2 = Aux1 * Meph')
+          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
+                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+
+!         ('Aux3 = Gr_Mn^T * Aux2')
+          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
+                      (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
+                      (0.d0,0.d0), Aux3, norbDyn(idx))
+
+!         -- 2nd PART: '-G*Gamma_L*G^dagger*Meph + 1st PART' --
+
+!         ('Aux4 = Gr_1n^* * Meph')
+          call zsymm ('R', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
+                      Gr_1nCJG, NL, (0.d0,0.d0), Aux4, NL)
+
+!         ('Aux5 = Gamma_L * Aux4')
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
+                      Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
+
+!         ('Aux3 = - Gr_1n^T * Aux5 + Aux3')
+          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NL,         &
+                      (-1.d0,0.d0), auxGr_1n, NL, Aux5, NL,             &
+                      (1.d0,0.d0), Aux3, norbDyn(idx))
+
+!         -- 3rd PART:
+!                'G^dagger*Gamma_L*G*Gamma_R*G^dagger*Meph*(2nd Part)' --
+
+!         ('Aux1 = Aux2 * Aux3') (where 'Aux2= Gamma_R * Gr_Mn^* * Meph')
+          call zgemm ('N', 'N', NR, norbDyn(idx), norbDyn(idx),         &
+                      (1.d0,0.d0), Aux2, NR, Aux3,                      &
+                      norbDyn(idx), (0.d0,0.d0), Aux1, NR)
+
+!         ('Aux4 = Gr_1M * Aux1')
+          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (1.d0,0.d0),      &
+                      Gr_1M, NL, Aux1, NR, (0.d0,0.d0), Aux4, NL)
+
+!         ('Aux5 = Gamma_L*Aux4')
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
+                      NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
+
+!         ('Aux3 = Gr_1n^dagger * Aux5')
+          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
+                      (1.d0,0.d0), auxGr_1n, NL, Aux5, NL,              &
+                      (0.d0,0.d0), Aux3, norbDyn(idx))
+
+!         -- 4rd PART: 'G^dagger*Gamma_L*G*(H.c.)' --
+
+!         ('Aux4 = Gamma_L * Gr_1n')
+          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
+                      NL, auxGr_1n, NL, (0.d0,0.d0), Aux4, NL)
+
+!         ('Aux2 = Gr_1M^dagger * Aux4')
+          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
+                      Gr_1M, NL, Aux4, NL, (0.d0,0.d0), Aux2, NR)
+
+!         ('Aux6 = Aux2 * (H.c.)') ('H.c. = Aux1^dagger')
+          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (1.d0,0.0d0),     &
+                      Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
+
+!         Compute the trace.
+          do i = 1,norbDyn(idx)
+             Iasymm = Iasymm + DREAL(Aux3(i,i))
+          enddo
+          do i = 1,NR
+             Iasymm = Iasymm + DREAL(Aux6(i,i))
+          enddo
+
+#ifdef DEBUG
+!         [test] Compute the matrices multiplication with full matrices.
+          call testInelAsymm (Ei, ispin, NL, Gamma_L,                   &
+                              NR, Gamma_R, j, idx, norbDyn(idx),        &
+                              Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
+#endif
+
+!         Compute asymmetric pre-factor.
+          Iasymm = asymmPre (Ei, freq(idx)%F(w), Vbias) * Iasymm
+          
+       enddo ! do w = 1,nModes(idx)
+
+!      Free memory.
+       deallocate (Gr_MnCJG)
+       deallocate (Gr_1nCJG)
+       deallocate (Aux1)
+       deallocate (Aux2)
+       deallocate (Aux3)
+       deallocate (Aux4)
+       deallocate (Aux5)
+       deallocate (Aux6)
+       deallocate (auxGr_1n)
+
+    enddo ! do j = 1,nunitseph
+
+!   Close Green's functions files.
+    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+
+
+  end subroutine inelAsymmDisk
 
 
 !  *******************************************************************  !
