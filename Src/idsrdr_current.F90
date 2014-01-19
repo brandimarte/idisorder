@@ -591,8 +591,8 @@ CONTAINS
 !
     use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
-    use idsrdr_green,    only: Gr_Mn, Gr_1M, Gr_1n_disk, Gr_nn_disk,    &
-                               greenload
+    use idsrdr_green,    only: Gr_Mn_disk, Gr_1n_disk, Gr_nn_disk,      &
+                               Gr_1M, greenload
     use idsrdr_options,  only: temp
     use idsrdr_distrib,  only: BoseEinstein
     use idsrdr_iostream, only: openstream, closestream
@@ -611,7 +611,7 @@ CONTAINS
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, &
-                                               A, auxGr_1n
+                                               A, auxGr_1n, auxGr_Mn
     external :: zsymm, zhemm, zgemm
 
 !   Initialize variable.
@@ -620,6 +620,7 @@ CONTAINS
 !   Open Green's functions files.
     call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
     call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
     do j = 1,nunitseph ! over unit with e-ph
 
@@ -644,12 +645,16 @@ CONTAINS
 
 !      Copy 'Gr_1n' from file to auxiliary matrix.
        allocate (auxGr_1n(NL,norbDyn(idx)))
-       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
-                       1, norbDyn(idx), 1, norbDyn(idx), auxGr_1n,      &
-                       NL, norbDyn(idx))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx), 1, NL,         &
+                       1, norbDyn(idx), auxGr_1n, NL, norbDyn(idx))
+
+!      Copy 'Gr_Mn' from file to auxiliary matrix.
+       allocate (auxGr_Mn(NR,norbDyn(idx)))
+       call greenload (Gr_Mn_disk%lun, NR, norbDyn(idx), 1, NR,         &
+                       1, norbDyn(idx), auxGr_Mn, NR, norbDyn(idx))
 
 !      Copy the complex conjugate of 'Gr_Mn'.
-       GrCJG = DCONJG(Gr_Mn(j)%G)
+       GrCJG = DCONJG(auxGr_Mn)
 
        do w = 1,nModes(idx) ! over phonon modes
 
@@ -666,7 +671,7 @@ CONTAINS
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
           call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
-                      (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
+                      (1.d0,0.d0), auxGr_Mn, NR, Aux2, NR,              &
                       (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         ('Aux4 = Meph * Aux3')
@@ -756,12 +761,14 @@ CONTAINS
        deallocate (Aux6)
        deallocate (Aux7)
        deallocate (auxGr_1n)
+       deallocate (auxGr_Mn)
 
     enddo ! do j = 1,nunitseph
 
 !   Close Green's functions files.
     call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
     call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 
   end subroutine inelSymmDisk
@@ -1086,7 +1093,7 @@ CONTAINS
 !
     use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
-    use idsrdr_green,    only: Gr_Mn, Gr_1M, Gr_1n_disk, greenload
+    use idsrdr_green,    only: Gr_Mn_disk, Gr_1n_disk, Gr_1M, greenload
     use idsrdr_iostream, only: openstream, closestream
 
 !   Input variables.
@@ -1102,7 +1109,7 @@ CONTAINS
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG,      &
-                                               auxGr_1n
+                                               auxGr_1n, auxGr_Mn
     external :: zsymm, zhemm, zgemm
 
 !   Initialize variable.
@@ -1110,6 +1117,7 @@ CONTAINS
 
 !   Open Green's functions files.
     call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
     do j = 1,nunitseph ! over unit with e-ph
 
@@ -1127,12 +1135,16 @@ CONTAINS
 
 !      Copy 'Gr_1n' from file to auxiliary matrix.
        allocate (auxGr_1n(NL,norbDyn(idx)))
-       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
-                       1, norbDyn(idx), 1, norbDyn(idx), auxGr_1n,      &
-                       NL, norbDyn(idx))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx), 1, NL,         &
+                       1, norbDyn(idx), auxGr_1n, NL, norbDyn(idx))
+
+!      Copy 'Gr_Mn' from file to auxiliary matrix.
+       allocate (auxGr_Mn(NR,norbDyn(idx)))
+       call greenload (Gr_Mn_disk%lun, NR, norbDyn(idx), 1, NR,         &
+                       1, norbDyn(idx), auxGr_Mn, NR, norbDyn(idx))
 
 !      Copy the complex conjugate of 'Gr_Mn' and 'Gr_1n'.
-       Gr_MnCJG = DCONJG(Gr_Mn(j)%G)
+       Gr_MnCJG = DCONJG(auxGr_Mn)
        Gr_1nCJG = DCONJG(auxGr_1n)
 
        do w = 1,nModes(idx) ! over phonon modes
@@ -1150,7 +1162,7 @@ CONTAINS
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
           call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
-                      (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
+                      (1.d0,0.d0), auxGr_Mn, NR, Aux2, NR,              &
                       (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 2nd PART: '-G*Gamma_L*G^dagger*Meph + 1st PART' --
@@ -1234,11 +1246,13 @@ CONTAINS
        deallocate (Aux5)
        deallocate (Aux6)
        deallocate (auxGr_1n)
+       deallocate (auxGr_Mn)
 
     enddo ! do j = 1,nunitseph
 
 !   Close Green's functions files.
     call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 
   end subroutine inelAsymmDisk

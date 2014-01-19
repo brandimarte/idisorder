@@ -77,6 +77,7 @@ MODULE idsrdr_green
   TYPE(greenfile) :: GR_Mp_disk ! G^R_{M,n+1}
   TYPE(greenfile) :: Gr_nn_disk ! G^r_{n,n}
   TYPE(greenfile) :: Gr_1n_disk ! G^r_{1,n}
+  TYPE(greenfile) :: Gr_Mn_disk ! G^r_{M,n}
 
 ! Index array with the positions of written
 ! matrices (for reading 'GR_pp' and 'GR_Mp').
@@ -141,6 +142,7 @@ CONTAINS
        call greenFilesSet (44, 'GR_Mp', GR_Mp_disk)
        call greenFilesSet (45, 'Gr_nn', Gr_nn_disk)
        call greenFilesSet (46, 'Gr_1n', Gr_1n_disk)
+       call greenFilesSet (47, 'Gr_Mn', Gr_Mn_disk)
 
 !      Allocate index array (for reading 'GR_pp' and 'GR_Mp').
        if (ephIdx(ntypeunits+2) /= 0) then
@@ -151,50 +153,12 @@ CONTAINS
        allocate (pos_pp(npos))
        allocate (pos_Mp(npos))
 
-!      Allocate Green's functions pointer array.
-       allocate (Gr_Mn(nunitseph))
-
 ! DUVIDA: GL_1m tem que ter dimensão NL mesmo?
 ! E GR_Mp tem que ter dimensão NL mesmo?
 
 !      Allocate Green's functions matrices.
-       dim = unitdimensions(ntypeunits+1) ! current unit dimension
-       dimbfr = NL ! last unit dimension
-       dimaft = unitdimensions(unit_type(2)) ! next unit dimension
-       idx = ephIdx(ntypeunits+1) ! e-ph unit type
-       ueph = 1
-       if (idx /= 0) then
-          allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
-          ueph = ueph + 1
-       endif
-
-       do I = 2,nunits
-          dimbfr = dim ! last unit dimension
-          dim = unitdimensions(unit_type(I)) ! current unit dimension
-          dimaft = unitdimensions(unit_type(I+1)) ! next unit dimension
-          idx = ephIdx(unit_type(I)) ! e-ph unit type
-          if (idx /= 0) then
-             allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
-             ueph = ueph + 1
-          endif
-       enddo
-
-       dimbfr = dim ! last unit dimension
-       dim = unitdimensions(unit_type(I)) ! current unit dimension
-       dimaft = unitdimensions(ntypeunits+2) ! next unit dimension
-       idx = ephIdx(unit_type(I)) ! e-ph unit type
-       if (idx /= 0) then
-          allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
-          ueph = ueph + 1
-       endif
-
-       dimbfr = dim ! last unit dimension
-       dim = unitdimensions(ntypeunits+2) ! current unit dimension
-       dimaft = NR ! next unit dimension
-       idx = ephIdx(ntypeunits+2) ! e-ph unit type
-       if (idx /= 0) then
-          allocate (Gr_Mn(ueph)%G(NR,norbDyn(idx)))
-       else
+       if (ephIdx(ntypeunits+2) == 0) then
+          dimbfr = unitdimensions(unit_type(nunits+1))
           allocate (GL_nn(dimbfr,dimbfr))
           allocate (GL_1N(NL,dimbfr))
        endif
@@ -1609,6 +1573,7 @@ CONTAINS
     call openstream (GR_Mp_disk%fname, GR_Mp_disk%lun)
     call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
     call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
@@ -1679,9 +1644,12 @@ CONTAINS
                    V, n, (0.d0,0.d0), foo2R, NR)
 
 !      ('Gr_Mn = - foo2R * Gr_nn')
+       allocate (aux4(NR,norbDyn(idx)))
        foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
        call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),         &
-                   foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(ueph)%G, NR)
+                   foo2R, NR, foo3, n, (0.d0,0.d0), aux4, NR)
+       write (Gr_Mn_disk%lun) aux4
+       deallocate (aux4)
 
 !      Free memory.
        deallocate (foo3)
@@ -1771,9 +1739,12 @@ CONTAINS
                       V, n, (0.d0,0.d0), foo2R, NR)
 
 !         ('Gr_Mn = - foo2R * Gr_nn')
+          allocate (aux4(NR,norbDyn(idx)))
           foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
           call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),      &
-                      foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(ueph)%G, NR)
+                      foo2R, NR, foo3, n, (0.d0,0.d0), aux4, NR)
+          write (Gr_Mn_disk%lun) aux4
+          deallocate (aux4)
 
 !         Free memory.
           deallocate (foo3)
@@ -1861,9 +1832,12 @@ CONTAINS
                    V, n, (0.d0,0.d0), foo2R, NR)
 
 !      ('Gr_Mn = - foo2R * Gr_nn')
+       allocate (aux4(NR,norbDyn(idx)))
        foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
        call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),         &
-                   foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(ueph)%G, NR)
+                   foo2R, NR, foo3, n, (0.d0,0.d0), aux4, NR)
+       write (Gr_Mn_disk%lun) aux4
+       deallocate (aux4)
 
 !      Free memory.
        deallocate (foo3)
@@ -1915,7 +1889,8 @@ CONTAINS
             aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      ('Gr_Mn = aux3')
-       Gr_Mn(ueph)%G = aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
+       write (Gr_Mn_disk%lun)                                           &
+            aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,dim))
@@ -1996,6 +1971,7 @@ CONTAINS
     call closestream (GR_Mp_disk%fname, GR_Mp_disk%lun)
     call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
     call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   Free memory.
     deallocate (V)
@@ -2694,6 +2670,7 @@ CONTAINS
 !   Open Green's functions files.
     call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
     call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   First unit.
     if (idx /= 0) then
@@ -2722,11 +2699,10 @@ CONTAINS
 !      Free memory.
        deallocate (aux)
 
-!      Auxiliary matrix to copy 'Gr_nn' from file.
+!      Auxiliary matrix to copy 'Gr_1n' from file.
        allocate (aux(NL,norbDyn(idx)))
-       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
-                       1, norbDyn(idx), 1, norbDyn(idx), aux,           &
-                       NL, norbDyn(idx))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx), 1, NL,         &
+                       1, norbDyn(idx), aux, NL, norbDyn(idx))
 
        do j = idxF(idx),idxL(idx)
           do i = 1,NL
@@ -2742,20 +2718,28 @@ CONTAINS
 !      Free memory.
        deallocate (aux)
 
+!      Auxiliary matrix to copy 'Gr_Mn' from file.
+       allocate (aux(NR,norbDyn(idx)))
+       call greenload (Gr_Mn_disk%lun, NR, norbDyn(idx), 1, NR,         &
+                       1, norbDyn(idx), aux, NR, norbDyn(idx))
+
        do j = idxF(idx),idxL(idx)
           do i = 1,NR
              write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(dimTot-NR+i,j)),                           &
-                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DREAL(aux(i,j-idxF(idx)+1)),                          &
                   DIMAG(Gtot(dimTot-NR+i,j)),                           &
-                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                  DIMAG(aux(i,j-idxF(idx)+1))
              write (7102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(dimTot-NR+i,j)) -                          &
-                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DREAL(aux(i,j-idxF(idx)+1)),                          &
                   DIMAG(Gtot(dimTot-NR+i,j)) -                          &
-                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                  DIMAG(aux(i,j-idxF(idx)+1))
           enddo
        enddo
+
+!      Free memory.
+       deallocate (aux)
 
        ueph = ueph + 1
 
@@ -2795,11 +2779,10 @@ CONTAINS
 !         Free memory.
           deallocate (aux)
 
-!         Auxiliary matrix to copy 'Gr_nn' from file.
+!         Auxiliary matrix to copy 'Gr_1n' from file.
           allocate (aux(NL,norbDyn(idx)))
-          call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),             &
-                          1, norbDyn(idx), 1, norbDyn(idx), aux,        &
-                          NL, norbDyn(idx))
+          call greenload (Gr_1n_disk%lun, NL, norbDyn(idx), 1, NL,      &
+                          1, norbDyn(idx), aux, NL, norbDyn(idx))
 
           do j = idxF(idx),idxL(idx)
              do i = 1,NL
@@ -2819,20 +2802,28 @@ CONTAINS
 !         Free memory.
           deallocate (aux)
 
+!         Auxiliary matrix to copy 'Gr_Mn' from file.
+          allocate (aux(NR,norbDyn(idx)))
+          call greenload (Gr_Mn_disk%lun, NR, norbDyn(idx), 1, NR,      &
+                          1, norbDyn(idx), aux, NR, norbDyn(idx))
+
           do j = idxF(idx),idxL(idx)
              do i = 1,NR
                 write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')        &
                      DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                 &
-                     DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),             &
+                     DREAL(aux(i,j-idxF(idx)+1)),                       &
                      DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                 &
-                     DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                     DIMAG(aux(i,j-idxF(idx)+1))
                 write (7102,'(e17.8e3,e17.8e3)')                        &
                      DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                &
-                     DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),             &
+                     DREAL(aux(i,j-idxF(idx)+1)),                       &
                      DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                &
-                     DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                     DIMAG(aux(i,j-idxF(idx)+1))
              enddo
           enddo
+
+!         Free memory.
+          deallocate (aux)
 
           ueph = ueph + 1
 
@@ -2870,11 +2861,10 @@ CONTAINS
 !      Free memory.
        deallocate (aux)
 
-!      Auxiliary matrix to copy 'Gr_nn' from file.
+!      Auxiliary matrix to copy 'Gr_1n' from file.
        allocate (aux(NL,norbDyn(idx)))
-       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx),                &
-                       1, norbDyn(idx), 1, norbDyn(idx), aux,           &
-                       NL, norbDyn(idx))
+       call greenload (Gr_1n_disk%lun, NL, norbDyn(idx), 1, NL,         &
+                       1, norbDyn(idx), aux, NL, norbDyn(idx))
 
        do j = idxF(idx),idxL(idx)
           do i = 1,NL
@@ -2890,20 +2880,28 @@ CONTAINS
 !      Free memory.
        deallocate (aux)
 
+!      Auxiliary matrix to copy 'Gr_Mn' from file.
+       allocate (aux(NR,norbDyn(idx)))
+       call greenload (Gr_Mn_disk%lun, NR, norbDyn(idx), 1, NR,         &
+                       1, norbDyn(idx), aux, NR, norbDyn(idx))
+
        do j = idxF(idx),idxL(idx)
           do i = 1,NR
              write (8102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')           &
                   DREAL(Gtot(dimTot-NR+i,idxAnt+j)),                    &
-                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DREAL(aux(i,j-idxF(idx)+1)),                          &
                   DIMAG(Gtot(dimTot-NR+i,idxAnt+j)),                    &
-                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                  DIMAG(aux(i,j-idxF(idx)+1))
              write (7102,'(e17.8e3,e17.8e3)')                           &
                   DREAL(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
-                  DREAL(Gr_Mn(ueph)%G(i,j-idxF(idx)+1)),                &
+                  DREAL(aux(i,j-idxF(idx)+1)),                          &
                   DIMAG(Gtot(dimTot-NR+i,idxAnt+j)) -                   &
-                  DIMAG(Gr_Mn(ueph)%G(i,j-idxF(idx)+1))
+                  DIMAG(aux(i,j-idxF(idx)+1))
           enddo
        enddo
+
+!      Free memory.
+       deallocate (aux)
 
     endif
 
@@ -2921,6 +2919,7 @@ CONTAINS
 !   Close Green's functions files.
     call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
     call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   Free memory.
     deallocate (Gtot)
@@ -2957,12 +2956,6 @@ CONTAINS
     IF (writeondisk) THEN
 
        deallocate (pos_pp, pos_Mp)
-
-!      First deallocates pointed matrices.
-       do I = 1,nunitseph
-          deallocate (Gr_Mn(I)%G)
-       enddo
-       deallocate (Gr_Mn)
 
     ELSE ! wrote on memory...
 
