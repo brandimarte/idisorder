@@ -1496,7 +1496,11 @@ CONTAINS
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
-       ueph = 1 ! eph units indexing
+       if (ephIdx(ntypeunits+1) /= 0) then ! first unit has eph?
+          ueph = 2 ! eph units indexing
+       else
+          ueph = 1 ! eph units indexing
+       endif
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
           if (ephIdx(utype) /= 0) then ! unit with eph?
@@ -1620,7 +1624,11 @@ CONTAINS
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
-       ueph = 1 ! eph units indexing
+       if (ephIdx(ntypeunits+1) /= 0) then ! first unit has eph?
+          ueph = 2 ! eph units indexing
+       else
+          ueph = 1 ! eph units indexing
+       endif
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
           if (ephIdx(utype) /= 0) then ! unit with eph?
@@ -1859,7 +1867,11 @@ CONTAINS
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
-       ueph = 1 ! eph units indexing
+       if (ephIdx(ntypeunits+1) /= 0) then ! first unit has eph?
+          ueph = 2 ! eph units indexing
+       else
+          ueph = 1 ! eph units indexing
+       endif
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
           if (ephIdx(utype) /= 0) then ! unit with eph?
@@ -1979,7 +1991,11 @@ CONTAINS
        enddo
     else
        dim = unitdimensions(ntypeunits+1)
-       ueph = 1 ! eph units indexing
+       if (ephIdx(ntypeunits+1) /= 0) then ! first unit has eph?
+          ueph = 2 ! eph units indexing
+       else
+          ueph = 1 ! eph units indexing
+       endif
        do k = 2,nunits+1
           utype = unit_type(k) ! current unit type
           if (ephIdx(utype) /= 0) then ! unit with eph?
