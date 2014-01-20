@@ -146,7 +146,7 @@ clean:
 #idsrdr_random.o : parallel.o
 #idsrdr_spectral.o : parallel.o idsrdr_options.o idsrdr_engrid.o        \
 #	idsrdr_ephcoupl.o idsrdr_units.o idsrdr_green.o paste.o         \
-#	pasbias.o io.o
+#	pasbias.o io.o idsrdr_iostream.o
 #idsrdr_units.o : parallel.o idsrdr_options.o idsrdr_leads.o            \
 #	idsrdr_init.o idsrdr_random.o io.o hsunits.o idsrdr_ephcoupl.o
 #io.o : parallel.o

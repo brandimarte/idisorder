@@ -83,7 +83,7 @@ PROGRAM IDISORDER
         call greenfunctions (Ei(ienergy), ispin)
 
 !       Compute spectral function and DOS for units with e-ph.
-!!$        call spectral (ienergy, ispin)
+        call spectral (ienergy, ispin)
 
 !       Calculate the current.
         call current (Ei(ienergy), ispin)

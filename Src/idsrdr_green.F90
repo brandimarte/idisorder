@@ -1627,12 +1627,16 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       write (Gr_nn_disk%lun)                                           &
-            aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       allocate (aux4(norbDyn(idx),norbDyn(idx)))
+       aux4 = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       write (Gr_nn_disk%lun) aux4
+       deallocate (aux4)
 
 !      ('Gr_1n = aux3')
-       write (Gr_1n_disk%lun)                                           &
-            aux3(1:NL,idxF(idx):idxL(idx))
+       allocate (aux4(NL,norbDyn(idx)))
+       aux4 = aux3(1:NL,idxF(idx):idxL(idx))
+       write (Gr_1n_disk%lun) aux4
+       deallocate (aux4)
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,norbDyn(idx)))
@@ -1712,8 +1716,10 @@ CONTAINS
           deallocate (ipiv)
 
 !         ('Gr_nn = aux3')
-          write (Gr_nn_disk%lun)                                        &
-               aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+          allocate (aux4(norbDyn(idx),norbDyn(idx)))
+          aux4 = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+          write (Gr_nn_disk%lun) aux4
+          deallocate (aux4)
 
 !         Allocate auxiliary matrix.
           allocate (foo3(n,norbDyn(idx)))
@@ -1805,8 +1811,10 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       write (Gr_nn_disk%lun)                                           &
-            aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       allocate (aux4(norbDyn(idx),norbDyn(idx)))
+       aux4 = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       write (Gr_nn_disk%lun) aux4
+       deallocate (aux4)
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,norbDyn(idx)))
@@ -1885,12 +1893,16 @@ CONTAINS
        deallocate (ipiv)
 
 !      ('Gr_nn = aux3')
-       write (Gr_nn_disk%lun)                                           &
-            aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       allocate (aux4(norbDyn(idx),norbDyn(idx)))
+       aux4 = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
+       write (Gr_nn_disk%lun) aux4
+       deallocate (aux4)
 
 !      ('Gr_Mn = aux3')
-       write (Gr_Mn_disk%lun)                                           &
-            aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
+       allocate (aux4(NR,norbDyn(idx)))
+       aux4 = aux3(dim-NR+1:dim,idxF(idx):idxL(idx))
+       write (Gr_Mn_disk%lun) aux4
+       deallocate (aux4)
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,dim))
@@ -1907,7 +1919,10 @@ CONTAINS
        foo3 = aux3(1:n,1:dim)
        call zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2L, NL,       &
                    foo3, n, (0.d0,0.d0), aux1, NL)
-       write (Gr_1n_disk%lun) aux1(1:NL,idxF(idx):idxL(idx))
+       allocate (aux4(NL,norbDyn(idx)))
+       aux4 = aux1(1:NL,idxF(idx):idxL(idx))
+       write (Gr_1n_disk%lun) aux4
+       deallocate (aux4)
        Gr_1M = aux1(1:NL,dim-NR+1:dim)
 
 !      Free memory.
@@ -1948,8 +1963,7 @@ CONTAINS
        allocate (foo3(n,NR))
 
 !      ('foo2L = GL_1m*V')
-       call greenload (GL_1m_disk%lun, NL, dimbfr, 1, NL,               &
-                       dimbfr-n+1, dimbfr, foo1L, NL, n)
+       foo1L = GL_1N(1:NL,dimbfr-n+1:dimbfr)
        call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
 
@@ -2016,6 +2030,7 @@ CONTAINS
 !
     use parallel,        only: Node
     use idsrdr_options,  only: directory
+    use idsrdr_iostream, only: openstreamnew, closestream
 
 !   Input variables.
     integer, intent(in) :: lun
@@ -2036,6 +2051,10 @@ CONTAINS
     suffix = paste ('_', suffix)
     GF%fname = paste (name, suffix)
     GF%fname = paste (directory, GF%fname)
+
+!   Create a new file.
+    call openstreamnew (GF%fname, GF%lun)
+    call closestream (GF%fname, GF%lun)
 
 
   end subroutine greenFilesSet
@@ -2311,9 +2330,9 @@ CONTAINS
 !   Write everything...
     do i = 1,dimTot
        do j = 1,dimTot
-          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
+          write (102,'(i5,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
                DIMAG(Gtot(i,j)) 
-          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
+          write (202,'(i5,e17.8e3)') j, CDABS(Gtot(i,j))
        enddo
     enddo
 
@@ -2661,9 +2680,9 @@ CONTAINS
 !   Write everything...
     do i = 1,dimTot
        do j = 1,dimTot
-          write (102,'(i2,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
+          write (102,'(i5,e17.8e3,e17.8e3)') j, DREAL(Gtot(i,j)),       &
                DIMAG(Gtot(i,j)) 
-          write (202,'(i2,e17.8e3)') j, CDABS(Gtot(i,j))
+          write (202,'(i5,e17.8e3)') j, CDABS(Gtot(i,j))
        enddo
     enddo
 

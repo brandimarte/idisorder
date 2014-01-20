@@ -147,9 +147,12 @@ MPI_INCLUDE   = -I/opt/local/include
 # MPI is self-explanatory.
 FPPFLAGS_MPI = -DMPI
 
+# Debug (print tests).
+#FPPFLAGS_DEBUG = -DDEBUG
+
 # Other definitions might be needed to work around some glitch in the
 # compiler. For old versions of gfortran, add -DGFORTRAN.
-FPPFLAGS = $(FPPFLAGS_MPI)
+FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_DEBUG)
 
 # All included flags.
 INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)

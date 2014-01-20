@@ -45,6 +45,7 @@ MODULE idsrdr_current
   use idsrdr_recipes,  only: 
   use idsrdr_distrib,  only: 
   use idsrdr_hilbert,  only: 
+  use idsrdr_iostream, only: 
 
   implicit none
   
@@ -376,11 +377,16 @@ CONTAINS
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
 !  real*8 Vbias                        : Bias potential                 !
-!  real*8 Ei                           : [optional] Energy grid point   !
+!  real*8 Ei                           : [DEBUG] Energy grid point      !
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
-  subroutine inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias, Ei)
+  subroutine inelSymm (Isymm, ispin, NL, Gamma_L,                       &
+#ifdef DEBUG
+                       NR, Gamma_R, Vbias, Ei)
+#else
+                       NR, Gamma_R, Vbias)
+#endif
 
 !
 !   Modules
@@ -395,7 +401,9 @@ CONTAINS
     integer, intent(in) :: ispin, NL, NR
     real(8), intent(out) :: Isymm
     real(8), intent(in) :: Vbias
-    real(8), optional, intent(in) :: Ei
+#ifdef DEBUG
+    real(8), intent(in) :: Ei
+#endif
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
@@ -584,7 +592,11 @@ CONTAINS
 !  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
   subroutine inelSymmDisk (Isymm, ispin, NL, Gamma_L,                   &
+#ifdef DEBUG
                            NR, Gamma_R, Vbias, Ei)
+#else
+                           NR, Gamma_R, Vbias)
+#endif
 
 !
 !   Modules
@@ -601,7 +613,9 @@ CONTAINS
     integer, intent(in) :: ispin, NL, NR
     real(8), intent(out) :: Isymm
     real(8), intent(in) :: Vbias
+#ifdef DEBUG
     real(8), optional, intent(in) :: Ei
+#endif
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 

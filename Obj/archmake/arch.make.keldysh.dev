@@ -57,7 +57,7 @@ FC = mpif90
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O2 -xHost -traceback -C \
+FFLAGS = -O2 -xHost -traceback -C -fpe0 \
          -warn unused,truncated_source,uncalled,declarations,usage
 
 # Some systems do not have 'ranlib'. If so,
@@ -149,9 +149,12 @@ MPI_INCLUDE   = -I/opt/versatushpc/libraries/openmpi-1.6.5/intel-14.0/include
 # MPI is self-explanatory.
 FPPFLAGS_MPI = -DMPI
 
+# Debug (print tests).
+FPPFLAGS_DEBUG = -DDEBUG
+
 # Other definitions might be needed to work around some glitch in the
 # compiler. For old versions of gfortran, add -DGFORTRAN.
-FPPFLAGS = $(FPPFLAGS_MPI)
+FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_DEBUG)
 
 # All included flags.
 INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
