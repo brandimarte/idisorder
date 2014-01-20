@@ -45,7 +45,7 @@ RM = /bin/rm -f
 
 mkl_dfti.o: 
 	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $(FPPFLAGS_fixed_F) \
-	$(VPATH)/$*.F90
+	$(VPATH)/$*.f90
 
 #  *******************************************************************  #
 

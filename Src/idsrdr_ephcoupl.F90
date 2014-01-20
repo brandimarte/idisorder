@@ -114,6 +114,9 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
     use idsrdr_options,  only: nspin, directory
 
 #ifdef MPI
@@ -143,7 +146,7 @@ CONTAINS
     endif
 
 #ifdef MPI
-    call MPI_Bcast (neph, 1, MPI_Integer, 0, MPI_Comm_World, MPIerror)
+    call MPI_Bcast (neph, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
 #endif
 
     if (neph == 0) then
@@ -198,7 +201,7 @@ CONTAINS
                   "EPHread: ERROR: Electron-phonon coupling"     //     &
                   " calculated with different spin number."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -212,7 +215,7 @@ CONTAINS
                   " electron-phonon coupling matrix is greater" //      &
                   " than the total number of orbitals."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -297,7 +300,7 @@ CONTAINS
                      "EPHread: ERROR: Electron-phonon coupling" //      &
                      " calculated with different spin number."
 #ifdef MPI
-                call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+                call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
                 stop
 #else
                 stop
@@ -311,7 +314,7 @@ CONTAINS
                      " electron-phonon coupling matrix is greater" //   &
                      " than the total number of orbitals."
 #ifdef MPI
-                call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+                call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
                 stop
 #else
                 stop
@@ -397,7 +400,7 @@ CONTAINS
                   "EPHread: ERROR: Electron-phonon coupling"     //     &
                   " calculated with different spin number."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -411,7 +414,7 @@ CONTAINS
                   " electron-phonon coupling matrix is greater" //      &
                   " than the total number of orbitals."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -462,15 +465,15 @@ CONTAINS
 !   Broadcast read variables.
 #ifdef MPI
     call MPI_Bcast (nModes, neph, MPI_Integer, 0,                       &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (norbDyn, neph, MPI_Integer, 0,                      &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (idxF, neph, MPI_Integer, 0,                         &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (idxL, neph, MPI_Integer, 0,                         &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (ephIdx, ntypeunits+2, MPI_Integer, 0,               &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     if (.not. IOnode) then
        do idx = 1,neph
           allocate (freq(idx)%F(nModes(idx)))
@@ -480,12 +483,13 @@ CONTAINS
     endif
     do idx = 1,neph
        call MPI_Bcast (freq(idx)%F, nModes(idx), MPI_Double_Precision,  &
-                       0, MPI_Comm_World, MPIerror)
+                       0, MPI_Comm_MyWorld, MPIerror)
        call MPI_Bcast (Meph(idx)%M, norbDyn(idx)*norbDyn(idx)           &
                        *nspin*nModes(idx), MPI_Double_Complex, 0,       &
-                       MPI_Comm_World, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
     enddo
 #endif
+
 
     RETURN
 
@@ -493,7 +497,7 @@ CONTAINS
        write (6,'(/,a,/)') "EPHread: ERROR: Couldn't open " //          &
             "electron-phonon coupling file."
 #ifdef MPI
-       call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+       call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
        stop
 #else
        stop
@@ -502,8 +506,7 @@ CONTAINS
        RETURN
     endif
 
-
-  end subroutine EPHread
+end subroutine EPHread
 
 
 !  *******************************************************************  !

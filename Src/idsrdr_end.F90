@@ -28,6 +28,9 @@
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
 !  *******************************************************************  !
+#ifdef MASTER_SLAVE
+#include "master-slave.h"
+#endif
 
 MODULE idsrdr_end
 
@@ -77,6 +80,12 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: IOnode
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#ifdef MASTER_SLAVE
+    use parallel,        only: Master
+#endif
+#endif
     use idsrdr_init,     only: time_begin
     use idsrdr_options,  only: label_length, slabel, freeopt
     use idsrdr_leads,    only: freeleads
@@ -98,7 +107,9 @@ CONTAINS
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
-    call MPI_Barrier (MPI_Comm_world, MPIerror)
+#ifdef MPI
+    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
+#endif
 
 !   Free memory.
     if (IOnode) write (6,'(/,30("*"),a,30("*"))')                       &
@@ -127,6 +138,13 @@ CONTAINS
             time_end - time_begin, " seconds"
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif
+
+#ifdef MASTER_SLAVE
+    if (IOnode) &
+       call MPI_Send(TASK_EXIT, 1, MPI_INTEGER, Master, TASK_TAG, MPI_Comm_World, MPIerror) 
+
+    call MPI_Barrier (MPI_Comm_World, MPIerror)  ! Barrier for Master & Slaves
+#endif
 
 !   Finalizes MPI.
 #ifdef MPI

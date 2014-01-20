@@ -29,6 +29,9 @@
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
 !  *******************************************************************  !
+#ifdef MASTER_SLAVE
+#include "master-slave.h"
+#endif
 
 PROGRAM IDISORDER
 
@@ -36,6 +39,9 @@ PROGRAM IDISORDER
 ! Modules
 !
   use parallel,        only: IOnode
+#ifdef MASTER_SLAVE
+  use master_slave,    only: Master_SetupLoop, Slave_AskWork
+#endif
   use idsrdr_init,     only: init
   use idsrdr_units,    only: makeunits
   use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
@@ -43,6 +49,9 @@ PROGRAM IDISORDER
   use idsrdr_spectral, only: spectralinit, spectral, writespectral
   use idsrdr_green,    only: greeninit, greenfunctions
   use idsrdr_options,  only: nspin
+#ifdef MASTER_SLAVE
+  use idsrdr_options,  only: NTenerg
+#endif
   use idsrdr_leads,    only: leadsSelfEn
   use idsrdr_current,  only: current
   use idsrdr_end,      only: finalize
@@ -73,7 +82,14 @@ PROGRAM IDISORDER
   if (IOnode) write (6,'(/,28("*"),a,28("*"),/)')                     &
        ' Transport Calculation '
 
+#ifdef MASTER_SLAVE
+  call Master_SetupLoop(NTenerg_div)
+  do while (.true.)
+     call Slave_AskWork(ienergy)
+     if (ienergy == ENDWORK_MSG) exit
+#else
   do ienergy = 1,NTenerg_div ! over energy grid
+#endif
      do ispin = 1,nspin ! over spin components
 
 !       Calculate lead's self-energies.

@@ -78,6 +78,9 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
     use idsrdr_options,  only: nAsymmPts
 
 #ifdef MPI
@@ -138,7 +141,7 @@ CONTAINS
 !   Distribute 'ker' to all nodes.
 #ifdef MPI
     call MPI_Bcast (ker, 2*nAsymmPts, MPI_Double_Complex, 0,            &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 

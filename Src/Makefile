@@ -60,7 +60,13 @@ what:
 	@sleep 2
 
 # All objects.
-OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o \
+ifneq (,$(findstring DMASTER_SLAVE,$(FPPFLAGS)))
+# if -DMASTER_SLAVE is set, include master-slave.F90
+OBJS= parallel.o master-slave.o
+else
+OBJS= parallel.o
+endif
+OBJS+= paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o \
 	zhsl.o zhsunits.o gauleg.o hsl.o hsunits.o identify.o \
 	diagonal_alex.o decimate_leads.o leads_complex.o \
 	idsrdr_random.o idsrdr_check.o idsrdr_recipes.o \
@@ -69,7 +75,7 @@ OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o \
 	idsrdr_spectral.o idsrdr_hilbert.o idsrdr_current.o \
 	idsrdr_end.o idisorder.o
 
-	@echo "==> $(OBJS)"
+#	@echo "==> $(OBJS)"
 
 #  *******************************************************************  #
 
@@ -103,6 +109,9 @@ $(MKLDFT):
 	@chmod a+x $(VPATH)/MKLDFT/*
 	@chmod u+w $(VPATH)/MKLDFT/*
 	(cd MKLDFT ; $(MAKE) "VPATH=$(VPATH)/MKLDFT" module)
+
+#  *******************************************************************  #
+
 
 # Routines using fdf calls.
 idsrdr_hilbert.o : $(MKLDFT)

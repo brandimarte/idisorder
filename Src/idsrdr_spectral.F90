@@ -321,6 +321,9 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode, Node, Nodes
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
     use idsrdr_options,  only: nspin, label_length, slabel, directory
     use idsrdr_engrid,   only: NTenerg_div, Ei
     use idsrdr_units,    only: nunitseph
@@ -400,25 +403,25 @@ CONTAINS
 #ifdef MPI
           elseif (Node == n) then
              call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
-                            0, 1, MPI_Comm_world, MPIerror)
+                            0, 1, MPI_Comm_MyWorld, MPIerror)
              call MPI_Send (spctrl(1,1,J), NTenerg_div*nspin,           &
                             MPI_Double_Precision, 0, 2,                 &
-                            MPI_Comm_world, MPIerror)
+                            MPI_Comm_MyWorld, MPIerror)
              call MPI_Send (dos(1,1,J), NTenerg_div*nspin,              &
                             MPI_Double_Precision, 0, 3,                 &
-                            MPI_Comm_world, MPIerror)
+                            MPI_Comm_MyWorld, MPIerror)
           elseif (Node == 0) then
              call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,  &
-                            n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+                            n, 1, MPI_Comm_MyWorld, MPIstatus, MPIerror)
              call MPI_Recv (buffSpc, NTenerg_div*nspin,                 &
                             MPI_Double_Precision, n, 2,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
+                            MPI_Comm_MyWorld, MPIstatus, MPIerror)
              call MPI_Recv (buffDos, NTenerg_div*nspin,                 &
                             MPI_Double_Precision, n, 3,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
+                            MPI_Comm_MyWorld, MPIstatus, MPIerror)
           endif
           if (n /= 0) then
-             call MPI_Barrier (MPI_Comm_world, MPIerror)
+             call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
              if (Node == 0) then
                 do e = 1,NTenerg_div
                    write (iuSpc, '(/,e17.8e3)', advance='no')           &

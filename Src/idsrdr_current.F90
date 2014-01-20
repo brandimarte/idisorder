@@ -788,9 +788,11 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: IOnode
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
 
     include "mpif.h"
+#endif
 
 !   Input variables.
     real(8), intent(in) :: Ei, Iel, Isymm, Iasymm
@@ -799,15 +801,15 @@ CONTAINS
     real(8) :: IelTot, IsymmTot, IasymmTot
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
-#endif
 
 !   Sum the computed transmissions from all nodes.
     call MPI_Reduce (Iel, IelTot, 1, MPI_Double_Precision,              &
-                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
+                     MPI_Sum, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Reduce (Isymm, IsymmTot, 1, MPI_Double_Precision,          &
-                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
+                     MPI_Sum, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Reduce (Iasymm, IasymmTot, 1, MPI_Double_Precision,        &
-                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
+                     MPI_Sum, 0, MPI_Comm_MyWorld, MPIerror)
+#endif
 
     if (IOnode) then
 

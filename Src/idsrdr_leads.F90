@@ -132,6 +132,9 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
     use idsrdr_options,  only: nspin, temp, directory,                  &
                                tightbinding, TBeFermi
 
@@ -201,10 +204,10 @@ CONTAINS
     endif
 
 #ifdef MPI
-    call MPI_Bcast (NL, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
-    call MPI_Bcast (NR, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+    call MPI_Bcast (NL, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (NR, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (EfLead, 1 ,MPI_Double_Precision, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 !   Allocate hamiltonians and overlap matrices.
@@ -233,21 +236,21 @@ CONTAINS
 
 #ifdef MPI
     call MPI_Bcast (H0_L, NL*NL*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S0_L, NL*NL, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (H1_L, NL*NL*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S1_L, NL*NL, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (H0_R, NR*NR*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S0_R, NR*NR, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (H1_R, NR*NR*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S1_R, NR*NR, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 

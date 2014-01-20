@@ -9,6 +9,9 @@ C
 !   Modules
 !
       use parallel,        only: IOnode
+#ifdef MPI
+      use parallel,        only: MPI_Comm_MyWorld
+#endif
 
       implicit none
 
@@ -56,15 +59,15 @@ C
 
 #ifdef MPI
       call MPI_Bcast (Q, N*N*nspin, MPI_Double_Complex, 0,
-     &                MPI_Comm_world, MPIerror)
+     &                MPI_Comm_MyWorld, MPIerror)
       call MPI_Bcast (VH, N*N*nspin, MPI_Double_Complex, 0,
-     &                MPI_Comm_world, MPIerror)
+     &                MPI_Comm_MyWorld, MPIerror)
       call MPI_Bcast (VS, N*N*nspin, MPI_Double_Complex, 0,
-     &                MPI_Comm_world, MPIerror)
+     &                MPI_Comm_MyWorld, MPIerror)
       call MPI_Bcast (number_rank, nspin, MPI_Integer, 0,
-     &                MPI_Comm_world, MPIerror)
+     &                MPI_Comm_MyWorld, MPIerror)
       call MPI_Bcast (side_rank, nspin, MPI_Character, 0,
-     &                MPI_Comm_world, MPIerror)
+     &                MPI_Comm_MyWorld, MPIerror)
 #endif
 
 

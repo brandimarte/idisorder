@@ -69,6 +69,9 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
 #ifndef IBM
     use ifport
 #endif
@@ -150,9 +153,9 @@ CONTAINS
 
 #ifdef MPI
     call MPI_Bcast (theta, NDefects, MPI_Double_Precision, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (dist, NDefects, MPI_Double_Precision, 0,            &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 

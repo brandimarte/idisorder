@@ -153,6 +153,9 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode, Node, Nodes
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
     use idsrdr_options,  only: integraltype
 
 #ifdef MPI
@@ -262,10 +265,10 @@ CONTAINS
 #ifdef MPI
        call MPI_Scatter (Energaux, NTenerg_div, MPI_Double_Precision,   &
                          Ei, NTenerg_div, MPI_Double_Precision,         &
-                         0, MPI_Comm_world, MPIerror)
+                         0, MPI_Comm_MyWorld, MPIerror)
        call MPI_Scatter (gweightaux, NTenerg_div, MPI_Double_Precision, &
                          gweight, NTenerg_div, MPI_Double_Precision,    &
-                         0, MPI_Comm_world, MPIerror)
+                         0, MPI_Comm_MyWorld, MPIerror)
        write (6,*) "Precision :", 0.5D0*SUM(gweight)
 #else
        Ei = Energaux
@@ -319,7 +322,7 @@ CONTAINS
        enddo
     ELSE
 #ifdef MPI
-       call MPI_Abort (MPI_Comm_world, 1, MPIerror)
+       call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
 #else
        stop
 #endif

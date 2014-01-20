@@ -80,6 +80,13 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: Node, Nodes, IOnode
+#ifdef MPI
+    use parallel,        only: MPI_Comm_MyWorld
+#endif
+#ifdef MASTER_SLAVE
+    use parallel,        only: Master, IamMaster
+    use master_slave,    only: Init_Master, Kill_Master
+#endif
     use idsrdr_options,  only: readopt
     use idsrdr_leads,    only: readleads
 
@@ -89,14 +96,18 @@ CONTAINS
 !   Local variables.
     integer :: MPIerror ! Return error code in MPI routines
 #endif
+#ifdef MASTER_SLAVE
+    integer :: group_World, group_Slave ! MPI groups
+#endif
 
 
 !   Initialise MPI and set processor number.
 #ifdef MPI
     call MPI_Init (MPIerror)
-    call MPI_Comm_rank (MPI_Comm_world, Node, MPIerror)
-    call MPI_Comm_size (MPI_Comm_world, Nodes, MPIerror)
+    call MPI_Comm_rank (MPI_Comm_World, Node, MPIerror)
+    call MPI_Comm_size (MPI_Comm_World, Nodes, MPIerror)
 #endif
+
 
     IOnode = (Node == 0)
 
@@ -110,6 +121,34 @@ CONTAINS
        call cpu_time (time_begin)
 
     endif
+
+
+!## Alberto:
+#ifdef MASTER_SLAVE
+    Master = Nodes-1                      ! Defining Master as the last process (rank)
+    if (Node == Master) IamMaster=.true.  ! Slaves get the default .false.
+
+!   Create "world" communicator for slaves: MPI_Comm_MyWorld
+    call MPI_Comm_group (MPI_Comm_World, group_World, MPIerror)
+    call MPI_Group_excl (group_World, 1, Master, group_Slave, MPIerror)
+    call MPI_Comm_create(MPI_Comm_World, group_Slave, MPI_Comm_MyWorld, MPIerror)
+
+    Nodes = Nodes - 1
+    call MPI_Barrier (MPI_Comm_World, MPIerror)
+    if (IamMaster) then
+       call Init_Master
+       call Kill_Master
+    endif
+#else
+!   No master, no slave; and we are all equals:
+    MPI_Comm_MyWorld = MPI_Comm_World
+#endif
+!   ***
+!   Use MPI_Comm_World only to communicate with the Master,
+!   otherwise use MPI_Comm_MyWorld
+!   ***
+!## End Alberto
+
 
 !   Initialise read.
     call initread
@@ -252,6 +291,8 @@ CONTAINS
          values(5), ':', values(6), ':', values(7)
     write (6,'(/,a,a)') '      ', 'Written by Alexandre Reily Rocha' // &
          ' and Pedro Brandimarte, 2007-2013'
+    write (6,'(/,a,a)') '      ', 'CUDA implememtation by Alberto '  // &
+         'Torres, 2014'
     write (6,'(/,a,a)') '      ', 'Copyright (c), All Rights Reserved'
     write (6,'(/,a,a)') '      ', 'This program is free software. '  // &
          'You can redistribute it and/or'
