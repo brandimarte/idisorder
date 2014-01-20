@@ -50,6 +50,9 @@ MODULE idsrdr_init
 ! Initial processor time in seconds (processor-dependent approximation).
   real(8) :: time_begin
 
+! Output file name for transmission.
+  character, dimension(:), allocatable :: Ftransm
+
 
 CONTAINS
 
@@ -271,11 +274,52 @@ CONTAINS
        write(6,'(/,a,i4,a)') '* Running in serial mode with MPI'
     endif
 #else
-       write(6,'(/,a,i4,a)') '* Running in serial mode'
+    write(6,'(/,a,i4,a)') '* Running in serial mode'
 #endif
 
 
   end subroutine header
+
+
+!  *******************************************************************  !
+!                               outFiles                                !
+!  *******************************************************************  !
+!  Description: sets the output file names and open them.               !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  *******************************************************************  !
+!!$  subroutine outFiles
+!!$
+!!$!   Local variables.
+!!$    integer, dimension(8) :: values
+!!$
+!!$    if (IOnode) then
+!!$
+!!$!      Set file's names and open it.
+!!$       write (suffix,'(i3)') J
+!!$       suffix = pasbias2 (suffix, '.SPCTR')
+!!$       suffix = paste ('_', suffix)
+!!$       fnSpc = paste (slabel, suffix)
+!!$       fnSpc = paste (directory, fnSpc)
+!!$       write (suffix,'(i3)') J
+!!$       suffix = pasbias2 (suffix, '.DOS')
+!!$       suffix = paste ('_', suffix)
+!!$       fnDos = paste (slabel, suffix)
+!!$       fnDos = paste (directory, fnDos)
+!!$       call io_assign (iuSpc)
+!!$       open (iuSpc, file=fnSpc, form='formatted', status='unknown')
+!!$       call io_assign (iuDos)
+!!$       open (iuDos, file=fnDos, form='formatted', status='unknown')
+!!$
+!!$    endif
+!!$
+!!$
+!!$  end subroutine outFiles
 
 
 !  *******************************************************************  !

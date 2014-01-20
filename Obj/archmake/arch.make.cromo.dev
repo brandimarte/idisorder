@@ -57,7 +57,7 @@ FC = /export/apps/mpi/openmpi-intel/1.3/bin/mpif90
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O2 -xHost -traceback -C -openmp \
+FFLAGS = -O2 -xHost -traceback -C -fpe0 -openmp \
          -warn unused,truncated_source,uncalled,declarations,usage
 
 # Some systems do not have 'ranlib'. If so,
@@ -150,9 +150,12 @@ MPI_INCLUDE   = -I/export/apps/mpi/openmpi-intel/1.3/include
 # MPI is self-explanatory.
 FPPFLAGS_MPI = -DMPI
 
+# Debug (print tests).
+FPPFLAGS_DEBUG = -DDEBUG
+
 # Other definitions might be needed to work around some glitch in the
 # compiler. For old versions of gfortran, add -DGFORTRAN.
-FPPFLAGS = $(FPPFLAGS_MPI)
+FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_DEBUG)
 
 # All included flags.
 INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
