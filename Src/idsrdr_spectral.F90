@@ -376,13 +376,28 @@ CONTAINS
           allocate (buffEn(NTenerg_div))
           allocate (buffSpc(NTenerg_div,nspin))
           allocate (buffDos(NTenerg_div,nspin))
-
+#ifdef MASTER_SLAVE
+       else
+          allocate (buffSpc(NTenerg_div,nspin))
+          allocate (buffDos(NTenerg_div,nspin))
+#endif
        endif
 
 !      Write to the output files (energies in eV (from CODATA - 2012)).
-#ifdef MPI
+#ifdef MASTER_SLAVE
+!      Reduce the reults to the IOnode and write
+       call MPI_Reduce (spctrl(1,1,J), buffSpc, NTenerg_div*nspin,      &
+                        MPI_Double_Precision, MPI_SUM, 0,               &
+                        MPI_Comm_MyWorld, MPIerror)
+       call MPI_Reduce (dos(1,1,J), buffDos, NTenerg_div*nspin,         &
+                        MPI_Double_Precision, MPI_SUM, 0,               & 
+                        MPI_Comm_MyWorld, MPIerror)
+       if (IOnode) then
+          spctrl(:,:,J) = buffSpc(:,:)
+          dos(:,:,J)    = buffDos(:,:)
+#elif defined MPI
        do n = 0,Nodes-1
-          if (Node == n .and. Node == 0) then
+          if (Node == n .and. IOnode) then
 #endif
              do e = 1,NTenerg_div
                 write (iuSpc, '(/,e17.8e3)', advance='no')              &
@@ -400,7 +415,9 @@ CONTAINS
                         dos(e,s,J) !Ry
                 enddo
              enddo
-#ifdef MPI
+#ifdef MASTER_SLAVE
+       end if ! IOnode
+#elif defined MPI
           elseif (Node == n) then
              call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
                             0, 1, MPI_Comm_MyWorld, MPIerror)
@@ -441,11 +458,11 @@ CONTAINS
                 enddo
              endif
           endif
-       enddo
+       enddo ! n = 0,Nodes-1
 #endif
 
 !      Close files and free buffers memory.
-       if (Node.eq.0) then
+       if (IOnode) then
 
           call io_close (iuSpc)
           call io_close (iuDos)
@@ -453,7 +470,11 @@ CONTAINS
           deallocate (buffEn)
           deallocate (buffSpc)
           deallocate (buffDos)
-
+#ifdef MASTER_SLAVE
+       else
+          deallocate (buffSpc)
+          deallocate (buffDos)
+#endif
        endif
 
     enddo ! do J = 1,nunitseph

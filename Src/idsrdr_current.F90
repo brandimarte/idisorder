@@ -788,8 +788,9 @@ CONTAINS
 !
 !   Modules
 !
+    use parallel,        only: IOnode
 #ifdef MPI
-    use parallel,        only: IOnode, MPI_Comm_MyWorld
+    use parallel,        only: MPI_Comm_MyWorld
 
     include "mpif.h"
 #endif

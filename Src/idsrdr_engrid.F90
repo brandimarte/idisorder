@@ -30,9 +30,19 @@
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
+!                                                                       !
+!  Modified by Alberto Torres, Jan 2014.                                !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: alberto.trj@gmail.com                                        !
+!                                                                       !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
+
+#ifdef MASTER_SLAVE
+#include "master-slave.h"
+#endif
 
 MODULE idsrdr_engrid
 
@@ -50,8 +60,11 @@ MODULE idsrdr_engrid
 
   integer :: NTenerg_div ! number of energy grid points per node
 
-  real(8), allocatable, dimension (:) :: Ei ! energy grid points
-  real(8), allocatable, dimension (:) :: gweight ! energy grid weights
+#ifdef MASTER_SLAVE
+  integer, allocatable, dimension (:) :: MyEiRecord ! Keep track what node does which Ei
+#endif
+  double precision, allocatable, dimension (:) :: Ei ! energy grid points
+  double precision, allocatable, dimension (:) :: gweight ! energy grid weights
 
 
 CONTAINS
@@ -93,7 +106,9 @@ CONTAINS
 
     if (IOnode) write (6,'(/,a)') 'engrid: Computing energy grid...'
 
-#ifdef MPI
+#ifdef MASTER_SLAVE
+    NTenerg_div = NTenerg
+#elif defined MPI
     NTenerg_div = NTenerg / Nodes
     if (NTenerg_div == 0) NTenerg_div = 1
 #else
@@ -102,6 +117,10 @@ CONTAINS
 
 !   Allocate the energy grid points and weights arrays.
     allocate (Ei(NTenerg_div), gweight(NTenerg_div))
+#ifdef MASTER_SLAVE
+    allocate(MyEiRecord(NTenerg_div))
+    MyEiRecord = NOT_ME
+#endif
 
 !   Compute the energy grid.
     if (NTenerg == 0) then

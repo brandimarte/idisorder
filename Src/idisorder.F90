@@ -26,6 +26,11 @@
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
+!                                                                       !
+!  Modified by Alberto Torres, Jan 2014.                                !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
 !  *******************************************************************  !
@@ -40,7 +45,9 @@ PROGRAM IDISORDER
 !
   use parallel,        only: IOnode
 #ifdef MASTER_SLAVE
+  use parallel,        only: Node
   use master_slave,    only: Master_SetupLoop, Slave_AskWork
+  use idsrdr_engrid,   only: MyEiRecord
 #endif
   use idsrdr_init,     only: init
   use idsrdr_units,    only: makeunits
@@ -83,10 +90,12 @@ PROGRAM IDISORDER
        ' Transport Calculation '
 
 #ifdef MASTER_SLAVE
-  call Master_SetupLoop(NTenerg_div)
+  call Master_SetupLoop(NTenerg)
   do while (.true.)
      call Slave_AskWork(ienergy)
+     write(*,'(a,i2,a,i4)') 'Node ', Node, ' received iE= ', ienergy 
      if (ienergy == ENDWORK_MSG) exit
+     MyEiRecord(ienergy) = Node ! Keep track which energies I (the node) calculate
 #else
   do ienergy = 1,NTenerg_div ! over energy grid
 #endif
