@@ -104,7 +104,7 @@ CONTAINS
 
          ! The program is ending. Time to exit.
          case(TASK_EXIT)
-            write(*,*) "Master: exiting"
+            call Kill_Master
             return
 
          ! I will distribute energy loop iterations!
@@ -120,7 +120,6 @@ CONTAINS
             ! Prepare your backs, slaves!
             ! Assuming the loop begins at 1, in steps of 1.
             call Master_Distribute (1, Ntotal, 1)
-            return
 
        end select
 
@@ -157,6 +156,7 @@ CONTAINS
        call MPI_Abort(MPI_Comm_World, 666, MPIerror)
     end if
     call MPI_Barrier (MPI_Comm_World, MPIerror)  ! Barrier for Master & Slaves
+    write(*,'(a)') "Master: exiting"
     call MPI_Finalize (MPIerror)
 
   end subroutine Kill_Master
@@ -183,7 +183,7 @@ CONTAINS
 !
 ! Modules
 !
-    use parallel, only : Nodes
+    use parallel, only : Nodes, Node
 
     implicit none
 
@@ -215,6 +215,7 @@ CONTAINS
                       WhoWantsWork,       & ! destination
                       WORK_TAG,           & ! message tag
                       MPI_Comm_World, MPIerror)
+        write(*,'(a,i4,a,i2)') 'Master: Sending i= ',i,' to node ',WhoWantsWork
     end do
 
 !   I must tell my slaves the work is done.
@@ -286,7 +287,7 @@ CONTAINS
     end if
 
 !   Syncronize before requesting work
-    call MPI_Barrier(MPI_Comm_MyWorld, MPIerror) ! Precisa? Testar!
+!    call MPI_Barrier(MPI_Comm_MyWorld, MPIerror) ! Precisa? Testar!
 
   end subroutine Master_SetupLoop
 

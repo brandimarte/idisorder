@@ -140,6 +140,7 @@ CONTAINS
     endif
 
 #ifdef MASTER_SLAVE
+!   Send the EXIT message to the master, causing him to finalize his existence (by his own hands!)
     if (IOnode) &
        call MPI_Send(TASK_EXIT, 1, MPI_INTEGER, Master, TASK_TAG, MPI_Comm_World, MPIerror) 
 

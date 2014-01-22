@@ -137,9 +137,9 @@ CONTAINS
     call MPI_Barrier (MPI_Comm_World, MPIerror)
     if (IamMaster) then
        call Init_Master
-       call Kill_Master
+       call exit(0)
     endif
-#else
+#elif defined MPI
 !   No master, no slave; and we are all equals:
     MPI_Comm_MyWorld = MPI_Comm_World
 #endif
@@ -291,7 +291,7 @@ CONTAINS
          values(5), ':', values(6), ':', values(7)
     write (6,'(/,a,a)') '      ', 'Written by Alexandre Reily Rocha' // &
          ' and Pedro Brandimarte, 2007-2013'
-    write (6,'(/,a,a)') '      ', 'CUDA implememtation by Alberto '  // &
+    write (6,'(/,a,a)') '      ', 'CUDA implementation by Alberto '  // &
          'Torres, 2014'
     write (6,'(/,a,a)') '      ', 'Copyright (c), All Rights Reserved'
     write (6,'(/,a,a)') '      ', 'This program is free software. '  // &

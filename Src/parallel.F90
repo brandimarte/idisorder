@@ -36,11 +36,11 @@ MODULE parallel
 
   PUBLIC ! default is public
 
-  integer, save :: Node = 0    ! Actual node (rank)
+  integer, save :: Node = 0          ! Actual node (rank)
 
-  integer, save :: Nodes = 1   ! Total number of nodes (comm_size)
+  integer, save :: Nodes = 1         ! Total number of nodes (comm_size)
 
-  logical, save :: IOnode = 0  ! True if it is the I/O node
+  logical, save :: IOnode = .false.  ! True if it is the I/O node
 
 
 !## Alberto:

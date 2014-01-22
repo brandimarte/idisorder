@@ -8,3 +8,5 @@
 #define WORK_TAG         3
 
 #define ENDWORK_MSG     -1
+
+#define NOT_ME          -1
