@@ -264,6 +264,10 @@ CONTAINS
 
 !      Number of transmission energy points.
        NTenerg = fdf_integer ('NumberTransmPoints', 100)
+       if (NTenerg == 0) NTenerg = 1
+       do while (MOD(NTenerg,Nodes) /= 0)
+          NTenerg = NTenerg + 1
+       enddo
        write (6,4)                                                      &
             'readopt: Number of transmission energy points          =', &
             NTenerg
