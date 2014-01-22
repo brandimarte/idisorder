@@ -108,9 +108,7 @@ CONTAINS
 
     if (IOnode) write (6,'(/,a)') 'engrid: Computing energy grid...'
 
-#ifdef MASTER_SLAVE
-    NTenerg_div = NTenerg
-#elif defined MPI
+#if defined MPI && !defined MASTER_SLAVE
     NTenerg_div = NTenerg / Nodes
     if (NTenerg_div == 0) NTenerg_div = 1
 #else
@@ -118,11 +116,7 @@ CONTAINS
 #endif
 
 !   Allocate the energy grid points and weights arrays.
-<<<<<<< HEAD
     allocate (Ei(NTenerg_div))
-=======
-    allocate (Ei(NTenerg_div), gweight(NTenerg_div))
->>>>>>> 40457181c7fb271ec55b64376e8d1278429bed74
 #ifdef MASTER_SLAVE
     allocate(MyEiRecord(NTenerg_div))
     MyEiRecord = NOT_ME
