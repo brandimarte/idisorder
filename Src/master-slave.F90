@@ -215,6 +215,7 @@ CONTAINS
                       WhoWantsWork,       & ! destination
                       WORK_TAG,           & ! message tag
                       MPI_Comm_World, MPIerror)
+        write(*,'(a,i4,a,i2)') 'Master: Sending i= ',i,' to node ',WhoWantsWork
     end do
 
 !   I must tell my slaves the work is done.

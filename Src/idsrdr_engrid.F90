@@ -64,6 +64,10 @@ MODULE idsrdr_engrid
   integer, allocatable, dimension (:) :: MyEiRecord ! Keep track what node does which Ei
 #endif
   double precision, allocatable, dimension (:) :: Ei ! energy grid points
+<<<<<<< HEAD
+=======
+  double precision, allocatable, dimension (:) :: gweight ! energy grid weights
+>>>>>>> 40457181c7fb271ec55b64376e8d1278429bed74
 
 
 CONTAINS
@@ -114,7 +118,11 @@ CONTAINS
 #endif
 
 !   Allocate the energy grid points and weights arrays.
+<<<<<<< HEAD
     allocate (Ei(NTenerg_div))
+=======
+    allocate (Ei(NTenerg_div), gweight(NTenerg_div))
+>>>>>>> 40457181c7fb271ec55b64376e8d1278429bed74
 #ifdef MASTER_SLAVE
     allocate(MyEiRecord(NTenerg_div))
     MyEiRecord = NOT_ME
