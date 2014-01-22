@@ -64,10 +64,7 @@ MODULE idsrdr_engrid
   integer, allocatable, dimension (:) :: MyEiRecord ! Keep track what node does which Ei
 #endif
   double precision, allocatable, dimension (:) :: Ei ! energy grid points
-<<<<<<< HEAD
-=======
-  double precision, allocatable, dimension (:) :: gweight ! energy grid weights
->>>>>>> 40457181c7fb271ec55b64376e8d1278429bed74
+
 
 
 CONTAINS
