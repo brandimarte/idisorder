@@ -49,10 +49,21 @@ MODULE idsrdr_current
 
   implicit none
   
-  PUBLIC  :: current
-  PRIVATE :: elastic, transmission, inelSymm, inelAsymm, writeTransm,   &
-             testInelSymm, testInelAsymm, asymmPre, kbTol, eoverh,      &
-             inelSymmDisk, inelAsymmDisk
+  PUBLIC  :: currentinit, current, calcCurr, freecurr
+  PRIVATE :: elastic, transmission, inelSymm, inelSymmDisk, asymmPre,   &
+             inelAsymm, inelAsymmDisk, testInelSymm, testInelAsymm,     &
+             kbTol, eoverh
+              
+
+! Type for storing calculated currents.
+  TYPE calcCurr
+     sequence
+     real(8) :: el ! elastic part
+     real(8) :: isymm ! inelastic symmetric
+     real(8) :: iasymm ! inelastic asymmetric
+  END TYPE calcCurr
+
+  TYPE(calcCurr), allocatable, dimension (:,:,:) :: allcurr
 
   real(8), parameter :: kbTol = 18.d0 ! tolerance value for temperature
 
@@ -64,6 +75,40 @@ MODULE idsrdr_current
                                  4.135667516D0
 
 CONTAINS
+
+
+!  *******************************************************************  !
+!                              currentinit                              !
+!  *******************************************************************  !
+!  Description: allocate array of type 'current' for storing            !
+!  calculated currents.                                                 !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nspin               : Number of spin components              !
+!  integer NTenerg_div         : Number of energy grid points per node  !
+!  *******************************************************************  !
+  subroutine currentinit
+
+!
+!   Modules
+!
+    use idsrdr_options,  only: nspin, NIVP
+    use idsrdr_engrid,   only: NTenerg_div
+
+!   Allocate and initializes current array.
+    allocate (allcurr(NTenerg_div,nspin,NIVP))
+    allcurr%el = 0.d0
+    allcurr%isymm = 0.d0
+    allcurr%iasymm = 0.d0
+
+
+  end subroutine currentinit
 
 
 !  *******************************************************************  !
@@ -90,9 +135,10 @@ CONTAINS
 !  logical writeondisk          : Write GFs on disk?                    !
 !  ****************************** INPUT ******************************  !
 !  real*8 Ei                    : Energy grid point                     !
+!  integer ienergy              : Energy grid index                     !
 !  integer ispin                : Spin component index                  !
 !  *******************************************************************  !
-  subroutine current (Ei, ispin)
+  subroutine current (Ei, ienergy, ispin)
 
 !
 !   Modules
@@ -102,7 +148,7 @@ CONTAINS
     use idsrdr_options,  only: NIVP, VInitial, dV, writeondisk
 
 !   Input variables.
-    integer, intent(in) :: ispin
+    integer, intent(in) :: ispin, ienergy
     real(8), intent(in) :: Ei
 
 !   Local variables.
@@ -145,23 +191,10 @@ CONTAINS
           call inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,               &
                               NR, Gamma_R, Vbias, Ei)
 
-!         Write transmissions to outputfiles.
-!!$          call writeTransm (Ei, Iel, Isymm, Iasymm)
-
-! TEMP BEGIN
-          write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
-               Vbias*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
-          write (6662,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
-               Ei*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
-          write (6663,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Iel
-          write (6664,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Isymm
-          write (6665,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Iasymm
-          write (6666,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Iel+Isymm+Iasymm
-! TEMP END
+!         Store calculated currents.
+          allcurr(ienergy,ispin,i)%el = Iel
+          allcurr(ienergy,ispin,i)%isymm = Isymm
+          allcurr(ienergy,ispin,i)%iasymm = Iasymm
 
           Vbias = Vbias + dV
 
@@ -186,36 +219,16 @@ CONTAINS
           call inelAsymm (Iasymm, ispin, NL, Gamma_L,                   &
                           NR, Gamma_R, Vbias, Ei)
 
-!         Write transmissions to outputfiles.
-!!$          call writeTransm (Ei, Iel, Isymm, Iasymm)
-
-! TEMP BEGIN
-          write (6661,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
-               Vbias*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
-          write (6662,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3)')      &
-               Ei*13.60569253D0, Iel, Isymm, Iasymm, Iel+Isymm+Iasymm
-          write (6663,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Iel
-          write (6664,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Isymm
-          write (6665,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Iasymm
-          write (6666,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')              &
-               Ei*13.60569253D0, Vbias*13.60569253D0, Iel+Isymm+Iasymm
-! TEMP END
+!         Store calculated currents.
+          allcurr(ienergy,ispin,i)%el = Iel
+          allcurr(ienergy,ispin,i)%isymm = Isymm
+          allcurr(ienergy,ispin,i)%iasymm = Iasymm
 
           Vbias = Vbias + dV
 
        enddo
 
     ENDIF ! IF (writeondisk)
-
-! TEMP BEGIN
-       write (6663,'(/)',advance="no")
-       write (6664,'(/)',advance="no")
-       write (6665,'(/)',advance="no")
-       write (6666,'(/)',advance="no")
-! TEMP END
 
     if (IOnode) write(6,'(a)') " ok!"
 
@@ -1273,64 +1286,6 @@ CONTAINS
 
 
 !  *******************************************************************  !
-!                              writeTransm                              !
-!  *******************************************************************  !
-!  Description: write the transmissions (components and total) to       !
-!  output file.                                                         !
-!                                                                       !
-!  Written by Pedro Brandimarte, Nov 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    November 2013                                   !
-!  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode              : True if it is the I/O node             !
-!  ****************************** INPUT ******************************  !
-!  real*8 Ei               : Energy grid point                          !
-!  real*8 Iel              : Elastic current                            !
-!  real*8 Isymm            : Symmetric part of inelastic current        !
-!  real*8 Iasymm           : Asymmetric part of inelastic current       !
-!  *******************************************************************  !
-  subroutine writeTransm (Ei, Iel, Isymm, Iasymm)
-
-!
-!   Modules
-!
-    use parallel,        only: IOnode
-
-    include "mpif.h"
-
-!   Input variables.
-    real(8), intent(in) :: Ei, Iel, Isymm, Iasymm
-
-!   Local variables.
-    real(8) :: IelTot, IsymmTot, IasymmTot
-#ifdef MPI
-    integer :: MPIerror ! Return error code in MPI routines
-#endif
-
-!   Sum the computed transmissions from all nodes.
-    call MPI_Reduce (Iel, IelTot, 1, MPI_Double_Precision,              &
-                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
-    call MPI_Reduce (Isymm, IsymmTot, 1, MPI_Double_Precision,          &
-                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
-    call MPI_Reduce (Iasymm, IasymmTot, 1, MPI_Double_Precision,        &
-                     MPI_Sum, 0, MPI_Comm_World, MPIerror)
-
-    if (IOnode) then
-
-       write (1102,'(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')                 &
-              Ei, Iel, -Isymm+Iasymm, Iel-Isymm+Iasymm
-       
-
-    endif
-
-
-  end subroutine writeTransm
-
-
-!  *******************************************************************  !
 !                             testInelSymm                              !
 !  *******************************************************************  !
 !  Description: build the full hamiltonian of the scattering region     !
@@ -1612,7 +1567,6 @@ CONTAINS
     do i = 1,dimTot
        foo = foo + Aux1(i,i)
     enddo
-!!$    print *, "AQUI1", ephtype, foo
 
     if (ephtype == ephIdx(ntypeunits+1)) then
        do j = idxF(ephtype),idxL(ephtype)
@@ -1979,7 +1933,6 @@ CONTAINS
     do i = 1,dimTot
        foo = foo + Aux1(i,i)
     enddo
-!!$    print *, "AQUI3", ephtype, foo
 
     if (ephtype == ephIdx(ntypeunits+1)) then
        do j = idxF(ephtype),idxL(ephtype)
@@ -2066,6 +2019,28 @@ CONTAINS
 
 
   end subroutine testInelAsymm
+
+
+!  *******************************************************************  !
+!                               freecurr                                !
+!  *******************************************************************  !
+!  Description: free allocated memory.                                  !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *******************************************************************  !
+  subroutine freecurr
+
+
+!   Free memory.
+    deallocate (allcurr)
+
+
+  end subroutine freecurr
 
 
 !  *******************************************************************  !

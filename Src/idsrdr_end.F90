@@ -44,6 +44,7 @@ MODULE idsrdr_end
   use idsrdr_green,    only: 
   use idsrdr_spectral, only: 
   use idsrdr_hilbert,  only: 
+  use idsrdr_current,  only: 
 
   implicit none
 
@@ -86,6 +87,7 @@ CONTAINS
     use idsrdr_green,    only: freegreen
     use idsrdr_spectral, only: freespectral
     use idsrdr_hilbert,  only: freehilb
+    use idsrdr_current,  only: freecurr
 
 #ifdef MPI
     include "mpif.h"
@@ -114,6 +116,7 @@ CONTAINS
     call freegreen
     call freespectral
     call freehilb
+    call freecurr
 
     if (IOnode) then
 
@@ -121,9 +124,7 @@ CONTAINS
        call cpu_time (time_end)
 
        write (6,'(a,/)') ' done!'
-       write (6,'(a,a)') "Total transmission written to file: ",        &
-            paste (slabel,'.TRC') 
-       write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
+       write (6,'(a,f12.4,a)') "Time of calculation was ",              &
             time_end - time_begin, " seconds"
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif

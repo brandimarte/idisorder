@@ -40,11 +40,12 @@ PROGRAM IDISORDER
   use idsrdr_units,    only: makeunits
   use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
   use idsrdr_hilbert,  only: hilbertkernel
-  use idsrdr_spectral, only: spectralinit, spectral, writespectral
+  use idsrdr_spectral, only: spectralinit, spectral
   use idsrdr_green,    only: greeninit, greenfunctions
   use idsrdr_options,  only: nspin
   use idsrdr_leads,    only: leadsSelfEn
-  use idsrdr_current,  only: current
+  use idsrdr_current,  only: currentinit, current
+  use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
 
   implicit none
@@ -67,6 +68,9 @@ PROGRAM IDISORDER
 ! Initialize spectral function and DOS arrays.
   call spectralinit
 
+! Initialize calculated current array.
+  call currentinit
+
 ! Initialize Green's functions structures.
   call greeninit
 
@@ -86,13 +90,13 @@ PROGRAM IDISORDER
         call spectral (ienergy, ispin)
 
 !       Calculate the current.
-        call current (Ei(ienergy), ispin)
+        call current (Ei(ienergy), ienergy, ispin)
 
      enddo
   enddo
 
-! Write spectral function and DOS to file.
-  call writespectral
+! Write calculated values at output files.
+  call output
 
 ! Proper ending.
   call finalize

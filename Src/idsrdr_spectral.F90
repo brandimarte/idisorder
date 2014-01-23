@@ -49,7 +49,7 @@ MODULE idsrdr_spectral
   real(8), dimension(:,:,:), allocatable :: spctrl ! spectral function
   real(8), dimension(:,:,:), allocatable :: dos ! density of states
 
-  PUBLIC  :: spectralinit, spectral, writespectral, freespectral
+  PUBLIC  :: spectralinit, spectral, freespectral, spctrl, dos
   PRIVATE :: calcspectral, calcspectraldisk
 
 
@@ -108,7 +108,7 @@ CONTAINS
 !  logical writeondisk                  : Write GFs on disk?            !
 !  ****************************** INPUT ******************************  !
 !  integer ispin                        : Spin component index          !
-!  real*8 ienergy                       : Energy grid index             !
+!  integer ienergy                      : Energy grid index             !
 !  *******************************************************************  !
   subroutine spectral (ienergy, ispin)
 
@@ -550,174 +550,6 @@ CONTAINS
 
 
   end subroutine calcspectraldisk
-
-
-!  *******************************************************************  !
-!                             writespectral                             !
-!  *******************************************************************  !
-!  Description: writes calculated spectral function and density of      !
-!  states to output files ('slabel.SPCTR' and 'slabel.DOS').            !
-!                                                                       !
-!  Written by Pedro Brandimarte, Nov 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    November 2013                                   !
-!  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode              : True if it is the I/O node             !
-!  integer Node                : Actual node (MPI_Comm_rank)            !
-!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
-!  integer nspin               : Number of spin components              !
-!  integer label_length        : Length of system label                 !
-!  character(label_length) slabel : System Label (for output files)     !
-!  character(60) directory     : Working directory                      !
-!  integer NTenerg_div         : Number of energy grid points per node  !
-!  real*8 Ei(NTenerg_div)      : Energy grid points                     !
-!  integer nunitseph           : Number of units with eph               !
-!  *******************************************************************  !
-  subroutine writespectral
-
-!
-!   Modules
-!
-    use parallel,        only: IOnode, Node, Nodes
-    use idsrdr_options,  only: nspin, label_length, slabel, directory
-    use idsrdr_engrid,   only: NTenerg_div, Ei
-    use idsrdr_units,    only: nunitseph
-
-#ifdef MPI
-    include "mpif.h"
-#endif
-
-!   Local variables.
-    integer :: J, n, e, s, iuSpc, iuDos
-    real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
-    real(8), dimension(:), allocatable :: buffEn
-    real(8), dimension(:,:), allocatable :: buffSpc, buffDos
-    character(len=10) :: suffix
-    character(len=label_length+70) :: fnSpc, fnDos
-    character(len=label_length+70), external :: paste
-    character(len=10), external :: pasbias2
-    external :: io_assign, io_close
-#ifdef MPI
-    integer :: MPIerror
-    integer, dimension(MPI_Status_Size) :: MPIstatus
-#endif
-
-    do J = 1,nunitseph+1 ! over units with e-ph intereaction
-
-       if (IOnode) then
-
-!         Set file's names and open it.
-          write (suffix,'(i3)') J
-          suffix = pasbias2 (suffix, '.SPCTR')
-          suffix = paste ('_', suffix)
-          fnSpc = paste (slabel, suffix)
-          fnSpc = paste (directory, fnSpc)
-          write (suffix,'(i3)') J
-          suffix = pasbias2 (suffix, '.DOS')
-          suffix = paste ('_', suffix)
-          fnDos = paste (slabel, suffix)
-          fnDos = paste (directory, fnDos)
-          call io_assign (iuSpc)
-          open (iuSpc, file=fnSpc, form='formatted', status='unknown')
-          call io_assign (iuDos)
-          open (iuDos, file=fnDos, form='formatted', status='unknown')
-
-          write (6, '(/,a,i3,a,a)', advance='no')                       &
-               'Writing spectral function ', J, ' to: ', trim(fnSpc)
-          write (6, '(/,a,i3,a,a)') 'Writing DOS ', J, ' to: ',         &
-               trim(fnDos)
-
-!         Allocate buffers arrays.
-          allocate (buffEn(NTenerg_div))
-          allocate (buffSpc(NTenerg_div,nspin))
-          allocate (buffDos(NTenerg_div,nspin))
-
-       endif
-
-!      Write to the output files (energies in eV (from CODATA - 2012)).
-#ifdef MPI
-       do n = 0,Nodes-1
-          if (Node == n .and. Node == 0) then
-#endif
-             do e = 1,NTenerg_div
-                write (iuSpc, '(/,e17.8e3)', advance='no')              &
-!!$                     Ei(e) * 13.60569253D0 !eV
-                     Ei(e) !Ry
-                write (iuDos, '(/,e17.8e3)', advance='no')              &
-!!$                     Ei(e) * 13.60569253D0 !eV
-                     Ei(e) !Ry
-                do s = 1,nspin
-                   write (iuSpc, '(e17.8e3)', advance='no')             &
-!!$                        spctrl(e,s,J) / (13.60569253D0 * pi) !eV
-                        spctrl(e,s,J) !Ry
-                   write (iuDos, '(e17.8e3)', advance='no')             &
-!!$                        dos(e,s,J) / (13.60569253D0 * pi) !eV
-                        dos(e,s,J) !Ry
-                enddo
-             enddo
-#ifdef MPI
-          elseif (Node == n) then
-             call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
-                            0, 1, MPI_Comm_world, MPIerror)
-             call MPI_Send (spctrl(1,1,J), NTenerg_div*nspin,           &
-                            MPI_Double_Precision, 0, 2,                 &
-                            MPI_Comm_world, MPIerror)
-             call MPI_Send (dos(1,1,J), NTenerg_div*nspin,              &
-                            MPI_Double_Precision, 0, 3,                 &
-                            MPI_Comm_world, MPIerror)
-          elseif (Node == 0) then
-             call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,  &
-                            n, 1, MPI_Comm_world, MPIstatus, MPIerror)
-             call MPI_Recv (buffSpc, NTenerg_div*nspin,                 &
-                            MPI_Double_Precision, n, 2,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
-             call MPI_Recv (buffDos, NTenerg_div*nspin,                 &
-                            MPI_Double_Precision, n, 3,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
-          endif
-          if (n /= 0) then
-             call MPI_Barrier (MPI_Comm_world, MPIerror)
-             if (Node == 0) then
-                do e = 1,NTenerg_div
-                   write (iuSpc, '(/,e17.8e3)', advance='no')           &
-!!$                        buffEn(e) * 13.60569253D0 !eV
-                        buffEn(e) !Ry
-                   write (iuDos, '(/,e17.8e3)', advance='no')           &
-!!$                        buffEn(e) * 13.60569253D0 !eV
-                        buffEn(e) !Ry
-                   do s = 1,nspin
-                      write (iuSpc, '(e17.8e3)', advance='no')          &
-!!$                           buffSpc(e,s) / (13.60569253D0 * pi) !eV
-                           buffSpc(e,s) !Ry
-                      write (iuDos, '(e17.8e3)', advance='no')          &
-!!$                           buffDos(e,s) / (13.60569253D0 * pi) !eV
-                           buffDos(e,s) !Ry
-                   enddo
-                enddo
-             endif
-          endif
-       enddo
-#endif
-
-!      Close files and free buffers memory.
-       if (Node.eq.0) then
-
-          call io_close (iuSpc)
-          call io_close (iuDos)
-
-          deallocate (buffEn)
-          deallocate (buffSpc)
-          deallocate (buffDos)
-
-       endif
-
-    enddo ! do J = 1,nunitseph
-
-
-  end subroutine writespectral
 
 
 !  *******************************************************************  !

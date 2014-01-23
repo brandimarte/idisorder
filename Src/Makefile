@@ -69,7 +69,8 @@ OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o     \
 	idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o  \
 	idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o                \
 	idsrdr_distrib.o idsrdr_green.o idsrdr_spectral.o               \
-	idsrdr_hilbert.o idsrdr_current.o idsrdr_end.o idisorder.o
+	idsrdr_hilbert.o idsrdr_current.o idsrdr_out.o idsrdr_end.o     \
+	idisorder.o
 
 	@echo "==> $(OBJS)"
 
@@ -132,7 +133,7 @@ clean:
 #idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o        \
-#	idsrdr_hilbert.o
+#	idsrdr_hilbert.o idsrdr_current.o
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o            \
@@ -143,6 +144,8 @@ clean:
 #	idsrdr_options.o decimate_leads.o leads_complex.o idsrdr_check.o
 #idsrdr_iostream.o :
 #idsrdr_options.o : parallel.o
+#idsrdr_out.o : parallel.o idsrdr_options.o idsrdr_engrid.o             \
+#	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o
 #idsrdr_random.o : parallel.o
 #idsrdr_spectral.o : parallel.o idsrdr_options.o idsrdr_engrid.o        \
 #	idsrdr_ephcoupl.o idsrdr_units.o idsrdr_green.o paste.o         \

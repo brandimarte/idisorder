@@ -45,10 +45,12 @@ MODULE idsrdr_green
 
   implicit none
   
-  PUBLIC  :: greeninit, greenfunctions, freegreen, greenload,           &
-             Gr_nn, Gr_1n, Gr_Mn, Gr_1M, Gr_nn_disk
-  PRIVATE :: LRsweep , RLsweep, GFfull, GL_mm, GL_1m, GR_pp, GR_Mp,     &
-             GFtest, LRsweepDisk , RLsweepDisk, GFfullDisk, GFtestDisk, &
+  PUBLIC  :: greeninit, greenfunctions, freegreen,                      &
+             Gr_nn, Gr_1n, Gr_Mn, Gr_1M,                                &
+             Gr_nn_disk, Gr_1n_disk, Gr_Mn_disk, greenload
+  PRIVATE :: LRsweep , RLsweep, GFfull, GFtest,                         &
+             GL_mm, GL_1m, GR_pp, GR_Mp,                                &
+             LRsweepDisk , RLsweepDisk, GFfullDisk, GFtestDisk,         &
              GL_mm_disk, GL_1m_disk, GR_pp_disk, GR_Mp_disk,            &
              npos, pos_pp, pos_Mp, greenFilesSet, greenloadR
 
@@ -84,7 +86,6 @@ MODULE idsrdr_green
   integer :: npos
   integer, allocatable, dimension (:) :: pos_pp
   integer, allocatable, dimension (:) :: pos_Mp
-
 
   complex(8), allocatable, dimension (:,:) :: Gr_1M ! G^r_{1,M}
 
