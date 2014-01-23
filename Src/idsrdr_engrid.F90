@@ -30,6 +30,11 @@
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
+!                                                                       !
+!  Modified by Alberto Torres, Jan 2014.                                !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
@@ -45,13 +50,12 @@ MODULE idsrdr_engrid
 
   implicit none
   
-  PUBLIC  :: engrid, freegrid, NTenerg_div, Ei, gweight
+  PUBLIC  :: engrid, freegrid, NTenerg_div, Ei
   PRIVATE :: energygrid
 
   integer :: NTenerg_div ! number of energy grid points per node
 
   real(8), allocatable, dimension (:) :: Ei ! energy grid points
-  real(8), allocatable, dimension (:) :: gweight ! energy grid weights
 
 
 CONTAINS
@@ -80,7 +84,6 @@ CONTAINS
 !  ***************************** OUTPUT ******************************  !
 !  integer NTenerg_div         : Number of energy grid points per node  !
 !  real*8 Ei(NTenerg_div)      : Energy grid points                     !
-!  real*8 gweight(NTenerg_div) : Energy grid weights                    !
 !  *******************************************************************  !
   subroutine engrid
 
@@ -101,17 +104,15 @@ CONTAINS
 #endif
 
 !   Allocate the energy grid points and weights arrays.
-    allocate (Ei(NTenerg_div), gweight(NTenerg_div))
+    allocate (Ei(NTenerg_div))
 
 !   Compute the energy grid.
     if (NTenerg == 0) then
        TEnergI = EfLead
        TEnergF = EfLead
        Ei(NTenerg_div) = EfLead
-       gweight(NTenerg_div) = 1.d0
     else
-       call energygrid (NTenerg, NTenerg_div, TEnergI, TEnergF,         &
-                        temp, EfLead, Ei, gweight)
+       call energygrid (NTenerg, NTenerg_div, TEnergI, TEnergF, Ei)
     endif
     if (IOnode) write(6,'(/,a)') 'engrid: done!'
 
@@ -124,206 +125,50 @@ CONTAINS
 !  *******************************************************************  !
 !  Description: computes the energy grid.                               !
 !                                                                       !
-!  Written by Alexandre Reily Rocha, --- 2007.                          !
-!  Instituto de Fisica Teorica                                          !
-!  Universidade Estadual de Sao Paulo                                   !
-!  e-mail: reilya@ift.unesp.br                                          !
+!  Written by Alberto Torres, Jan 2014.                                 !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    --- 2007                                        !
+!  Original version:  January 2014                                      !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode              : True if it is the I/O node             !
 !  integer Node                : Actual node (MPI_Comm_rank)            !
-!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
-!  character(14) integraltype  : Integration method                     !
 !  ****************************** INPUT ******************************  !
 !  integer NTenerg             : Number of transmission energy points   !
 !  integer NTenerg_div         : Number of energy grid points per node  !
 !  real*8 TEnergI              : Initial transmission energy            !
 !  real*8 TEnergF              : Final transmission energy              !
-!  real*8 temp                 : Electronic temperature                 !
-!  real*8 EfLead               : Lead Fermi energy                      !
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Ei(NTenerg_div)      : Energy grid points                     !
-!  real*8 gweight(NTenerg_div) : Energy grid weights                    !
 !  *******************************************************************  !
-  subroutine energygrid (NTenerg, NTenerg_div, TEnergI, TEnergF,        &
-                         temp, EfLead, Ei, gweight)
+  subroutine energygrid (NTenerg, NTenerg_div, TEnergI, TEnergF, Ei)
 
 !
 !   Modules
 !
-    use parallel,        only: IOnode, Node, Nodes
-    use idsrdr_options,  only: integraltype
-
-#ifdef MPI
-    include "mpif.h"
-#endif
+    use parallel,        only: Node
 
 !   Input variables.
     integer, intent(in) :: NTenerg, NTenerg_div
-    real(8), intent(in) :: TenergI, TenergF, temp, EfLead
-    real(8), dimension (NTenerg_div), intent(out) :: Ei, gweight
+    real(8), intent(in) :: TenergI, TenergF
+    real(8), dimension (NTenerg_div), intent(out) :: Ei
 
 !   Local variables.
     integer :: I
-    real(8) :: arctanhinterm
-    real(8), parameter :: arctanhinit= -0.999999999999D0
-    real(8), parameter :: arctanhfim =  0.999999999999D0
-    real(8), dimension (NTenerg) :: Energaux, gweightaux
-    external :: gauleg
-#ifdef MPI
-    integer :: MPIerror ! Return error code in MPI routines
-#endif
-
-#ifdef IBM
-    interface
-       real*8 function atanh (%val(x))
-         real*8 x
-       end function atanh
-    end interface
-#endif
+    real(8) :: dE
 
 !   Initialize arrays.  
     Ei = 0.d0
-    gweight = 0.d0
+    dE = (TenergF-TenergI)/dble(NTenerg)
 
-    IF (integraltype == 'Sympson') THEN
-
-       do I = 1,NTenerg_div
-          if (NTEnerg == 1) then
-             Ei(I) = TEnergI
-          else
-             arctanhinterm = arctanhinit                                &
-                  + DBLE(I-1+Node*NTenerg_div) / DBLE(NTenerg-1)        &
-                  * DBLE(arctanhfim-arctanhinit)
-             Ei(I) = 2.0D0 * temp * ATANH(arctanhinterm) + EfLead
-          endif
-       enddo
- 
-       do I = 1,NTenerg_div
-          If (MOD(NTenerg,2) /= 0) Then
-             if (((Node == 0).and.(I == 1)) .OR.                        &
-                  ((Node == Nodes-1).and.(I == NTenerg_div))) then
-                gweight(I) = 1.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-              elseif (MOD(I+Node*NTenerg_div,2) == 0) then
-                gweight(I) = 4.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             else
-                gweight(I) = 2.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1) 
-             endif
-          Else
-
-! Alex: Tomar cuidado, testar se NTenerg_div eh igual a 1.
-             if ((Node == 0) .and. (I == 1)) then
-                gweight(I) = 1.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             elseif ((Node == Nodes-1) .and. (I == NTenerg_div-1)) then
-                gweight(I) = 5.0d0/6.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1) 
-             elseif ((Node == Nodes-1) .and. (I == NTenerg_div)) then
-                gweight(I) = 1.0d0/2.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             elseif (MOD(I+Node*NTenerg_div,2) == 0) then
-                gweight(I) = 4.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             else
-                gweight(I) = 2.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             endif
-          EndIf
-       enddo
-
-       print*, 0.5*sum(gweight)
-
-    ELSEIF (integraltype .eq. 'Gauss') THEN
-      
-       if (Node == 0) then 
-          call gauleg (arctanhinit, arctanhfim,                         &
-                       Energaux, gweightaux, NTEnerg)
-
-          write (6,*) "Precision :", 0.5D0*SUM(gweightaux)
-
-          do I = 1,NTenerg
-             if ((Energaux(I) > arctanhinit) .and.                      &
-                  (Energaux(I) < arctanhfim)) then
-                Energaux(I) = 2.0D0 * temp * ATANH(Energaux(I)) + EfLead
-             elseif (Energaux(I) < arctanhinit) then
-                Energaux(I) = 2.0D0 * temp * ATANH(arctanhinit) + EfLead
-             elseif (Energaux(I) < arctanhfim) then 
-                Energaux(I) = 2.0D0 * temp * ATANH(arctanhfim) + EfLead
-             else
-                print*, "there was some error"
-             endif
-          enddo
-       endif
-
+    do i = 1, NTenerg_div
 #ifdef MPI
-       call MPI_Scatter (Energaux, NTenerg_div, MPI_Double_Precision,   &
-                         Ei, NTenerg_div, MPI_Double_Precision,         &
-                         0, MPI_Comm_world, MPIerror)
-       call MPI_Scatter (gweightaux, NTenerg_div, MPI_Double_Precision, &
-                         gweight, NTenerg_div, MPI_Double_Precision,    &
-                         0, MPI_Comm_world, MPIerror)
-       write (6,*) "Precision :", 0.5D0*SUM(gweight)
+!      Energ = initial + node shift          + point shift
+       Ei(i) = TenergI + Node*NTenerg_div*dE + (i-1)*dE
 #else
-       Ei = Energaux
-       gweight = gweightaux
+       Ei(i) = TenergI + (i-1)*dE
 #endif
-
-    ELSEIF (integraltype .eq. 'None') THEN
-
-       do I = 1,NTenerg_div
-          if (NTEnerg == 1) then
-             Ei(I) = TEnergI 
-          else
-             Ei(I) = TEnergI + DBLE(I-1+Node*NTenerg_div)               &
-                  / DBLE(NTenerg-1) * (TEnergF-TEnergI)
-          endif
-       enddo
-
-       do I = 1,NTenerg_div
-          If (MOD(NTenerg,2) /= 0) Then
-             if (((Node == 0).and.(I == 1)) .OR.                        &
-                  ((Node == Nodes-1).and.(I == NTenerg_div))) then
-                gweight(I) = 1.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             elseif (MOD(I+Node*NTenerg_div,2) == 0) then
-                gweight(I) = 4.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             else
-                gweight(I) = 2.0d0/3.0d0                                &
-                     * (arctanhfim-arctanhinit) / DBLE(NTenerg-1)
-             endif
-          Else
-
-! Alex: Tomar cuidado, testar se NTenerg_div eh igual a 1.
-             if ((Node == 0) .and. (I == 1)) then
-                gweight(I) = 1.0d0/3.0d0                                &
-                     * (TEnergF-TEnergI) / DBLE(NTenerg-1)
-             elseif ((Node == Nodes-1) .and. (I == NTenerg_div-1)) then
-                gweight(I) = 5.0d0/6.0d0                                &
-                     * (TEnergF-TEnergI) / DBLE(NTenerg-1)
-             elseif ((Node == Nodes-1) .and. (I == NTenerg_div)) then
-                gweight(I) = 1.0d0/2.0d0                                &
-                     * (TEnergF-TEnergI) / DBLE(NTenerg-1)
-             elseif (MOD(I+Node*NTenerg_div,2) == 0) then
-                gweight(I) = 4.0d0/3.0d0                                &
-                     * (TEnergF-TEnergI) / DBLE(NTenerg-1)
-             else
-                gweight(I) = 2.0d0/3.0d0                                &
-                     * (TEnergF-TEnergI) / DBLE(NTenerg-1)
-             endif
-          EndIf
-       enddo
-    ELSE
-#ifdef MPI
-       call MPI_Abort (MPI_Comm_world, 1, MPIerror)
-#else
-       stop
-#endif
-    ENDIF ! IF (integraltype == '...
+    end do
 
 
   end subroutine energygrid
@@ -345,7 +190,7 @@ CONTAINS
 
 
 !   Free memory.
-    deallocate (Ei, gweight)
+    deallocate (Ei)
 
 
   end subroutine freegrid

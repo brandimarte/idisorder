@@ -883,6 +883,7 @@ CONTAINS
     deallocate (En, We)
     deallocate (aux)
 
+
   end function asymmPre
 
 

@@ -263,6 +263,10 @@ CONTAINS
 
 !      Number of transmission energy points.
        NTenerg = fdf_integer ('NumberTransmPoints', 100)
+       if (NTenerg == 0) NTenerg = 1
+       do while (MOD(NTenerg,Nodes) /= 0)
+          NTenerg = NTenerg + 1
+       enddo
        write (6,4)                                                      &
             'readopt: Number of transmission energy points          =', &
             NTenerg
@@ -327,10 +331,6 @@ CONTAINS
 
 !      Number of energy grid points for asymmetric term integral.
        nAsymmPts = fdf_integer('AsymmGridPts', 1000)
-       if (nAsymmPts == 0) nAsymmPts = 1
-       do while (MOD(nAsymmPts,Nodes) /= 0)
-          nAsymmPts = nAsymmPts + 1
-       enddo
        write (6,4)                                                      &
             'readopt: Number of points at asymmetric term integral  =', &
             nAsymmPts
