@@ -38,12 +38,13 @@ MODULE idsrdr_ephcoupl
 !
   use parallel,        only: 
   use idsrdr_options,  only: 
+  use idsrdr_io,       only: 
 
   implicit none
 
   PRIVATE ! default is private
   PUBLIC :: eph, neph, nModes, norbDyn, idxF, idxL, ephIdx,             &
-            freq, Meph, EPHread, EPHfree
+            freq, Meph, EPHread, freeEPH
 
   logical :: eph ! Inelastic calculation?
 
@@ -113,8 +114,13 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode
+#endif
     use idsrdr_options,  only: nspin, directory
+    use idsrdr_io,       only: IOassign, IOclose
 
 #ifdef MPI
     include "mpif.h"
@@ -131,7 +137,6 @@ CONTAINS
     complex(8), dimension(:), allocatable :: aux
     character(len=100), external :: paste
     logical :: found
-    external :: io_assign, io_close
 #ifdef MPI
     integer :: MPIerror
 #endif
@@ -143,7 +148,7 @@ CONTAINS
     endif
 
 #ifdef MPI
-    call MPI_Bcast (neph, 1, MPI_Integer, 0, MPI_Comm_World, MPIerror)
+    call MPI_Bcast (neph, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
 #endif
 
     if (neph == 0) then
@@ -182,7 +187,7 @@ CONTAINS
                " electron-phonon coupling matrix ", idx,  "..."
 
 !         Opens the file.
-          call io_assign (iu)
+          call IOassign (iu)
           open (iu,                                                     &
                file=paste(directory, paste(fileunits(nu),'.Meph')),     &
                form='formatted', status='old')
@@ -198,7 +203,7 @@ CONTAINS
                   "EPHread: ERROR: Electron-phonon coupling"     //     &
                   " calculated with different spin number."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -212,7 +217,7 @@ CONTAINS
                   " electron-phonon coupling matrix is greater" //      &
                   " than the total number of orbitals."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -249,7 +254,7 @@ CONTAINS
           Meph(idx)%M = Meph(idx)%M / 13.60569253D0
 
 !         Closes the file.
-          call io_close (iu)
+          call IOclose (iu)
 
 !         Free memory.
           deallocate (aux)
@@ -281,7 +286,7 @@ CONTAINS
                   " electron-phonon coupling matrix ", idx,  "..."
 
 !            Opens the file.
-             call io_assign (iu)
+             call IOassign (iu)
              open (iu,                                                  &
                   file=paste(directory, paste(fileunits(nu),'.Meph')),  &
                   form='formatted', status='old')
@@ -297,7 +302,7 @@ CONTAINS
                      "EPHread: ERROR: Electron-phonon coupling" //      &
                      " calculated with different spin number."
 #ifdef MPI
-                call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+                call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
                 stop
 #else
                 stop
@@ -311,7 +316,7 @@ CONTAINS
                      " electron-phonon coupling matrix is greater" //   &
                      " than the total number of orbitals."
 #ifdef MPI
-                call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+                call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
                 stop
 #else
                 stop
@@ -348,7 +353,7 @@ CONTAINS
              Meph(idx)%M = Meph(idx)%M / 13.60569253D0
 
 !            Closes the file.
-             call io_close (iu)
+             call IOclose (iu)
 
 !            Free memory.
              deallocate (aux)
@@ -381,7 +386,7 @@ CONTAINS
                " electron-phonon coupling matrix ", idx,  "..."
 
 !         Opens the file.
-          call io_assign (iu)
+          call IOassign (iu)
           open (iu,                                                     &
                file=paste(directory, paste(fileunits(nu),'.Meph')),     &
                form='formatted', status='old')
@@ -397,7 +402,7 @@ CONTAINS
                   "EPHread: ERROR: Electron-phonon coupling"     //     &
                   " calculated with different spin number."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -411,7 +416,7 @@ CONTAINS
                   " electron-phonon coupling matrix is greater" //      &
                   " than the total number of orbitals."
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
              stop
 #else
              stop
@@ -448,7 +453,7 @@ CONTAINS
           Meph(idx)%M = Meph(idx)%M / 13.60569253D0
 
 !         Closes the file.
-          call io_close (iu)
+          call IOclose (iu)
 
 !         Free memory.
           deallocate (aux)
@@ -462,15 +467,15 @@ CONTAINS
 !   Broadcast read variables.
 #ifdef MPI
     call MPI_Bcast (nModes, neph, MPI_Integer, 0,                       &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (norbDyn, neph, MPI_Integer, 0,                      &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (idxF, neph, MPI_Integer, 0,                         &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (idxL, neph, MPI_Integer, 0,                         &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (ephIdx, ntypeunits+2, MPI_Integer, 0,               &
-                    MPI_Comm_World, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     if (.not. IOnode) then
        do idx = 1,neph
           allocate (freq(idx)%F(nModes(idx)))
@@ -480,10 +485,10 @@ CONTAINS
     endif
     do idx = 1,neph
        call MPI_Bcast (freq(idx)%F, nModes(idx), MPI_Double_Precision,  &
-                       0, MPI_Comm_World, MPIerror)
+                       0, MPI_Comm_MyWorld, MPIerror)
        call MPI_Bcast (Meph(idx)%M, norbDyn(idx)*norbDyn(idx)           &
                        *nspin*nModes(idx), MPI_Double_Complex, 0,       &
-                       MPI_Comm_World, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
     enddo
 #endif
 
@@ -493,7 +498,7 @@ CONTAINS
        write (6,'(/,a,/)') "EPHread: ERROR: Couldn't open " //          &
             "electron-phonon coupling file."
 #ifdef MPI
-       call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+       call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
        stop
 #else
        stop
@@ -507,7 +512,7 @@ CONTAINS
 
 
 !  *******************************************************************  !
-!                                EPHfree                                !
+!                                freeEPH                                !
 !  *******************************************************************  !
 !  Description: free allocated vectors.                                 !
 !                                                                       !
@@ -518,7 +523,7 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
-  subroutine EPHfree
+  subroutine freeEPH
 
 !   Local variables.
     integer :: i
@@ -540,7 +545,7 @@ CONTAINS
     endif
 
 
-  end subroutine EPHfree
+  end subroutine freeEPH
 
 
 !  *******************************************************************  !

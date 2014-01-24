@@ -77,7 +77,11 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode
+#endif
     use idsrdr_options,  only: nAsymmPts
 
 #ifdef MPI
@@ -138,7 +142,7 @@ CONTAINS
 !   Distribute 'ker' to all nodes.
 #ifdef MPI
     call MPI_Bcast (ker, 2*nAsymmPts, MPI_Double_Complex, 0,            &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 
@@ -218,6 +222,7 @@ CONTAINS
 !  Original version:    December 2013                                   !
 !  *******************************************************************  !
   subroutine freehilb
+
 
 !   Free memory.
     deallocate (ker)

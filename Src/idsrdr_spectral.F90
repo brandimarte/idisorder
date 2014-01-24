@@ -42,7 +42,7 @@ MODULE idsrdr_spectral
   use idsrdr_ephcoupl, only: 
   use idsrdr_units,    only: 
   use idsrdr_green,    only: 
-  use idsrdr_iostream, only: 
+  use idsrdr_io,       only: 
 
   implicit none
 
@@ -372,7 +372,7 @@ CONTAINS
     use idsrdr_units,    only: unit_type, unitdimensions, Sunits,       &
                                nunitseph, eph_type
     use idsrdr_green,    only: Gr_nn_disk, greenload
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ienergy, ispin
@@ -387,7 +387,7 @@ CONTAINS
     ueph = 1 ! eph units indexing
 
 !   Open Green's functions files.
-    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOopenStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
 
     if (idx /= 0) then
 
@@ -546,7 +546,7 @@ CONTAINS
     endif
 
 !   Close Green's functions files.
-    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOcloseStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
 
 
   end subroutine calcspectraldisk
@@ -565,6 +565,7 @@ CONTAINS
 !  Original version:    November 2013                                   !
 !  *******************************************************************  !
   subroutine freespectral
+
 
 !   Free memory.
     deallocate (spctrl)

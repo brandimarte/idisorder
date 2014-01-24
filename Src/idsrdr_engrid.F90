@@ -53,8 +53,16 @@ MODULE idsrdr_engrid
   PUBLIC  :: engrid, freegrid, NTenerg_div, Ei
   PRIVATE :: energygrid
 
+#ifdef MASTER_SLAVE
+  include "master-slave.h"
+#endif
+
   integer :: NTenerg_div ! number of energy grid points per node
 
+#ifdef MASTER_SLAVE
+  integer, allocatable, dimension (:) :: MyEiRecord ! Keep track what
+                                                    ! node does which Ei
+#endif
   real(8), allocatable, dimension (:) :: Ei ! energy grid points
 
 
@@ -96,7 +104,7 @@ CONTAINS
 
     if (IOnode) write (6,'(/,a)') 'engrid: Computing energy grid...'
 
-#ifdef MPI
+#if defined MPI && !defined MASTER_SLAVE
     NTenerg_div = NTenerg / Nodes
     if (NTenerg_div == 0) NTenerg_div = 1
 #else
@@ -105,6 +113,10 @@ CONTAINS
 
 !   Allocate the energy grid points and weights arrays.
     allocate (Ei(NTenerg_div))
+#ifdef MASTER_SLAVE
+    allocate(MyEiRecord(NTenerg_div))
+    MyEiRecord = NOT_ME
+#endif
 
 !   Compute the energy grid.
     if (NTenerg == 0) then
@@ -154,18 +166,21 @@ CONTAINS
     real(8), dimension (NTenerg_div), intent(out) :: Ei
 
 !   Local variables.
-    integer :: I
+    integer :: i
     real(8) :: dE
 
-!   Initialize arrays.  
+!   Initializations.  
     Ei = 0.d0
-    dE = (TenergF-TenergI)/dble(NTenerg)
+    dE = (TenergF - TenergI) / DBLE(NTenerg)
 
+#if defined MPI && !defined MASTER_SLAVE
+!   Only MPI
     do i = 1, NTenerg_div
-#ifdef MPI
 !      Energ = initial + node shift          + point shift
        Ei(i) = TenergI + Node*NTenerg_div*dE + (i-1)*dE
 #else
+!   MASTER_SLAVE and serial fall here
+    do i = 1, NTenerg
        Ei(i) = TenergI + (i-1)*dE
 #endif
     end do
@@ -200,3 +215,4 @@ CONTAINS
 
 
 END MODULE idsrdr_engrid
+

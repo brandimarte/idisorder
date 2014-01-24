@@ -45,8 +45,13 @@ MODULE idsrdr_end
   use idsrdr_spectral, only: 
   use idsrdr_hilbert,  only: 
   use idsrdr_current,  only: 
+  use idsrdr_io,       only: 
 
   implicit none
+
+#ifdef MASTER_SLAVE
+  include "master-slave.h"
+#endif
 
   PUBLIC  :: finalize
   PRIVATE ! default is private
@@ -77,17 +82,26 @@ CONTAINS
 !
 ! Modules
 !
+#ifdef MPI
+#ifdef MASTER_SLAVE
+    use parallel,        only: IOnode, MPI_Comm_MyWorld, Master
+#else
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#endif
+#else
     use parallel,        only: IOnode
+#endif
     use idsrdr_init,     only: time_begin
     use idsrdr_options,  only: label_length, slabel, freeopt
     use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
     use idsrdr_units,    only: freeunits
-    use idsrdr_ephcoupl, only: EPHfree
+    use idsrdr_ephcoupl, only: freeEPH
     use idsrdr_green,    only: freegreen
     use idsrdr_spectral, only: freespectral
     use idsrdr_hilbert,  only: freehilb
     use idsrdr_current,  only: freecurr
+    use idsrdr_io,       only: freeIO
 
 #ifdef MPI
     include "mpif.h"
@@ -100,7 +114,9 @@ CONTAINS
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
-    call MPI_Barrier (MPI_Comm_world, MPIerror)
+#ifdef MPI
+    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
+#endif
 
 !   Free memory.
     if (IOnode) write (6,'(/,30("*"),a,30("*"))')                       &
@@ -112,11 +128,12 @@ CONTAINS
     call freeleads
     call freeopt
     call freeunits
-    call EPHfree
+    call freeEPH
     call freegreen
     call freespectral
     call freehilb
     call freecurr
+    call freeIO
 
     if (IOnode) then
 
@@ -128,6 +145,17 @@ CONTAINS
             time_end - time_begin, " seconds"
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif
+
+#ifdef MASTER_SLAVE
+!   Send the EXIT message to the master, causing him
+!   to finalize his existence (by his own hands!).
+    if (IOnode)                                                         &
+       call MPI_Send (TASK_EXIT, 1, MPI_INTEGER, Master, TASK_TAG,      &
+                      MPI_Comm_World, MPIerror) 
+
+    call MPI_Barrier (MPI_Comm_World, MPIerror) ! Barrier for 'Master'
+                                                ! and 'Slaves'
+#endif
 
 !   Finalizes MPI.
 #ifdef MPI
@@ -142,3 +170,4 @@ CONTAINS
 
 
 END MODULE idsrdr_end
+

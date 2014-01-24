@@ -68,7 +68,11 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode
+#endif
 #ifndef IBM
     use ifport
 #endif
@@ -150,9 +154,9 @@ CONTAINS
 
 #ifdef MPI
     call MPI_Bcast (theta, NDefects, MPI_Double_Precision, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (dist, NDefects, MPI_Double_Precision, 0,            &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 
@@ -177,7 +181,9 @@ CONTAINS
 !  *******************************************************************  !
   integer function irandomizedefects (idefecttypes, unitweight, start)
 
-
+!
+!   Modules
+!
 #ifndef IBM
     use ifport
 #endif
@@ -255,7 +261,9 @@ CONTAINS
 !  *******************************************************************  !
   integer function irandomize_index (nunits, start)
 
-
+!
+!   Modules
+!
 #ifndef IBM
     use ifport
 #endif

@@ -38,6 +38,8 @@ MODULE idsrdr_init
   use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use fdf
+  use master_slave,    only: 
+  use idsrdr_io,       only: 
 
   implicit none
 
@@ -49,9 +51,6 @@ MODULE idsrdr_init
 
 ! Initial processor time in seconds (processor-dependent approximation).
   real(8) :: time_begin
-
-! Output file name for transmission.
-  character, dimension(:), allocatable :: Ftransm
 
 
 CONTAINS
@@ -82,9 +81,19 @@ CONTAINS
 !
 ! Modules
 !
+#ifdef MPI
+#ifdef MASTER_SLAVE
+    use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld,   &
+                               Master, IamMaster
+#else
+    use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld
+#endif
+#else
     use parallel,        only: Node, Nodes, IOnode
+#endif
     use idsrdr_options,  only: readopt
     use idsrdr_leads,    only: readleads
+    use idsrdr_io,       only: IOinit
 
 #ifdef MPI
     include "mpif.h"
@@ -92,13 +101,16 @@ CONTAINS
 !   Local variables.
     integer :: MPIerror ! Return error code in MPI routines
 #endif
+#ifdef MASTER_SLAVE
+    integer :: group_World, group_Slave ! MPI groups
+#endif
 
 
 !   Initialise MPI and set processor number.
 #ifdef MPI
     call MPI_Init (MPIerror)
-    call MPI_Comm_rank (MPI_Comm_world, Node, MPIerror)
-    call MPI_Comm_size (MPI_Comm_world, Nodes, MPIerror)
+    call MPI_Comm_rank (MPI_Comm_World, Node, MPIerror)
+    call MPI_Comm_size (MPI_Comm_World, Nodes, MPIerror)
 #endif
 
     IOnode = (Node == 0)
@@ -113,6 +125,36 @@ CONTAINS
        call cpu_time (time_begin)
 
     endif
+
+!   Init logical units control.
+    call IOinit
+
+!## BEGIN Alberto
+
+!   Use 'MPI_Comm_World' only to communicate with
+!   the 'Master' otherwise use 'MPI_Comm_MyWorld'.
+#ifdef MASTER_SLAVE
+    Master = Nodes - 1 ! defining Master as the last process (rank)
+    if (Node == Master) IamMaster=.true. ! Slaves get the default .false.
+
+!   Create "world" communicator for slaves: 'MPI_Comm_MyWorld'.
+    call MPI_Comm_group (MPI_Comm_World, group_World, MPIerror)
+    call MPI_Group_excl (group_World, 1, Master, group_Slave, MPIerror)
+    call MPI_Comm_create (MPI_Comm_World, group_Slave,                  &
+                          MPI_Comm_MyWorld, MPIerror)
+
+    Nodes = Nodes - 1
+    call MPI_Barrier (MPI_Comm_World, MPIerror)
+    if (IamMaster) then
+       call Init_Master
+       call exit(0)
+    endif
+#elif defined MPI
+!   No master, no slave; and we are all equals:
+    MPI_Comm_MyWorld = MPI_Comm_World
+#endif
+
+!## END Alberto
 
 !   Initialise read.
     call initread
@@ -154,13 +196,13 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: IOnode
+    use idsrdr_io,       only: IOassign, IOclose
 
 !   Local variables.
     character string*20
     character filein*20, fileout*20, line*150 
     integer :: count, length, lun, lun_tmp
     logical :: debug_input, file_exists
-    external :: io_assign, io_close
 
 !   Print welcome and presentation.
     if (IOnode) then
@@ -174,14 +216,14 @@ CONTAINS
           write (6,'(a)') 'WARNING: ' //                                &
                'I-Disorder is reading its input from file INPUT_DEBUG'
            
-          call io_assign(lun)
+          call IOassign(lun)
           filein = 'INPUT_DEBUG'
           open (lun, file='INPUT_DEBUG', form='formatted', status='old')
           rewind (lun)
        else
           write (6,'(a,/)') 'initread: Reading from standard input'
           lun = 5
-          call io_assign (lun_tmp)
+          call IOassign (lun_tmp)
           do
              call system_clock (count)
              write (string,*) count
@@ -207,9 +249,9 @@ CONTAINS
 
 !      Choose proper file for fdf processing.
        if (debug_input) then
-          call io_close (lun)
+          call IOclose (lun)
        else
-          call io_close (lun_tmp)
+          call IOclose (lun_tmp)
        endif
 
 !      Set up fdf.
@@ -255,6 +297,8 @@ CONTAINS
          values(5), ':', values(6), ':', values(7)
     write (6,'(/,a,a)') '      ', 'Written by Alexandre Reily Rocha' // &
          ' and Pedro Brandimarte, 2007-2013'
+    write (6,'(/,a,a)') '      ', 'CUDA implementation by Alberto '  // &
+         'Torres, 2014'
     write (6,'(/,a,a)') '      ', 'Copyright (c), All Rights Reserved'
     write (6,'(/,a,a)') '      ', 'This program is free software. '  // &
          'You can redistribute it and/or'
@@ -268,7 +312,7 @@ CONTAINS
 
 #ifdef MPI
     if (Nodes > 1) then
-       write(6,'(/,a,i4,a)')                                         &
+       write(6,'(/,a,i4,a)')                                            &
             '* Running on ', Nodes, ' nodes in parallel'
     else
        write(6,'(/,a,i4,a)') '* Running in serial mode with MPI'
@@ -279,47 +323,6 @@ CONTAINS
 
 
   end subroutine header
-
-
-!  *******************************************************************  !
-!                               outFiles                                !
-!  *******************************************************************  !
-!  Description: sets the output file names and open them.               !
-!                                                                       !
-!  Written by Pedro Brandimarte, Nov 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    November 2013                                   !
-!  *******************************************************************  !
-!!$  subroutine outFiles
-!!$
-!!$!   Local variables.
-!!$    integer, dimension(8) :: values
-!!$
-!!$    if (IOnode) then
-!!$
-!!$!      Set file's names and open it.
-!!$       write (suffix,'(i3)') J
-!!$       suffix = pasbias2 (suffix, '.SPCTR')
-!!$       suffix = paste ('_', suffix)
-!!$       fnSpc = paste (slabel, suffix)
-!!$       fnSpc = paste (directory, fnSpc)
-!!$       write (suffix,'(i3)') J
-!!$       suffix = pasbias2 (suffix, '.DOS')
-!!$       suffix = paste ('_', suffix)
-!!$       fnDos = paste (slabel, suffix)
-!!$       fnDos = paste (directory, fnDos)
-!!$       call io_assign (iuSpc)
-!!$       open (iuSpc, file=fnSpc, form='formatted', status='unknown')
-!!$       call io_assign (iuDos)
-!!$       open (iuDos, file=fnDos, form='formatted', status='unknown')
-!!$
-!!$    endif
-!!$
-!!$
-!!$  end subroutine outFiles
 
 
 !  *******************************************************************  !

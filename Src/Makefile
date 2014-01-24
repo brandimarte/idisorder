@@ -62,10 +62,15 @@ what:
 	@sleep 2
 
 # All objects.
-OBJS =  parallel.o paste.o pasbias.o io.o gensvd.o rank.o ranksvd.o     \
-	zhsl.o zhsunits.o gauleg.o hsl.o hsunits.o identify.o           \
-	diagonal_alex.o decimate_leads.o leads_complex.o                \
-	idsrdr_random.o idsrdr_iostream.o idsrdr_check.o                \
+ifneq (,$(findstring DMASTER_SLAVE,$(FPPFLAGS)))
+# if -DMASTER_SLAVE is set, include master-slave.F90
+OBJS= parallel.o master-slave.o
+else
+OBJS= parallel.o
+endif
+OBJS += paste.o pasbias.o io.o idsrdr_io.o gensvd.o rank.o ranksvd.o    \
+	zhsl.o zhsunits.o hsl.o hsunits.o identify.o diagonal_alex.o    \
+	decimate_leads.o leads_complex.o idsrdr_random.o idsrdr_check.o \
 	idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o  \
 	idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o                \
 	idsrdr_distrib.o idsrdr_green.o idsrdr_spectral.o               \
@@ -113,10 +118,9 @@ clean:
 
 # DO NOT DELETE THIS LINE - used by make depend
 
-#hsunits.o : paste.o io.o hsl.o
+#hsunits.o : idsrdr_io.o paste.o hsl.o
 #decimate_leads.o :
 #diagonal_alex.o : 
-#gauleg.o : 
 #gensvd.o : 
 #hsl.o : 
 #hsunits.o : 
@@ -124,34 +128,36 @@ clean:
 #identify.o : 
 #idsorder.o : parallel.o idsrdr_init.o idsrdr_units.o idsrdr_engrid.o   \
 #	idsrdr_spectral.o idsrdr_green.o idsrdr_options.o               \
-#       idsrdr_leads.o idsrdr_current.o idsrdr_end.o
-#idsrdr_check.o : 
+#       idsrdr_leads.o idsrdr_current.o idsrdr_end.o master_slave.o
+#idsrdr_check.o : parallel.o
 #idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o         \
 #	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o   \
 #	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o              \
-#	idsrdr_iostream.o
+#	idsrdr_io.o
 #idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
 #	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o        \
 #	idsrdr_hilbert.o idsrdr_current.o
-#idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o gauleg.o
-#idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o io.o
+#idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o
+#idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o idsrdr_io.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o            \
-#	idsrdr_leads.o idsrdr_check.o idsrdr_iostream.o paste.o pasbias.o
+#	idsrdr_leads.o idsrdr_check.o idsrdr_io.o paste.o pasbias.o
 #idsrdr_hilbert.o : parallel.o idsrdr_options.o
-#idsrdr_init.o : parallel.o io.o idsrdr_options.o idsrdr_leads.o
-#idsrdr_leads.o : parallel.o paste.o io.o zhsunits.o ranksvd.o          \
+#idsrdr_init.o : parallel.o idsrdr_io.o idsrdr_options.o idsrdr_leads.o \
+#	master_slave.o
+#idsrdr_leads.o : parallel.o paste.o idsrdr_io.o zhsunits.o ranksvd.o   \
 #	idsrdr_options.o decimate_leads.o leads_complex.o idsrdr_check.o
-#idsrdr_iostream.o :
+#idsrdr_io.o :
 #idsrdr_options.o : parallel.o
 #idsrdr_out.o : parallel.o idsrdr_options.o idsrdr_engrid.o             \
-#	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o
+#	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o idsrdr_io.o
 #idsrdr_random.o : parallel.o
 #idsrdr_spectral.o : parallel.o idsrdr_options.o idsrdr_engrid.o        \
 #	idsrdr_ephcoupl.o idsrdr_units.o idsrdr_green.o paste.o         \
-#	pasbias.o io.o idsrdr_iostream.o
+#	pasbias.o idsrdr_io.o
 #idsrdr_units.o : parallel.o idsrdr_options.o idsrdr_leads.o            \
-#	idsrdr_init.o idsrdr_random.o io.o hsunits.o idsrdr_ephcoupl.o
+#	idsrdr_init.o idsrdr_random.o idsrdr_io.o hsunits.o             \
+#	idsrdr_ephcoupl.o
 #io.o : parallel.o
 #leads_complex.o : identify.o diagonal_alex.o
 #parallel.o :
@@ -160,4 +166,4 @@ clean:
 #rank.o : 
 #ranksvd.o : parallel.o rank.o gensvd.o
 #zhsl.o : 
-#zhsunits.o : paste.o io.o zhsl.o
+#zhsunits.o : paste.o idsrdr_io.o zhsl.o
