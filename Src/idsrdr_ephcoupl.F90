@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -39,6 +41,7 @@ MODULE idsrdr_ephcoupl
   use parallel,        only: 
   use idsrdr_options,  only: 
   use idsrdr_io,       only: 
+  use idsrdr_string,   only: 
 
   implicit none
 
@@ -121,6 +124,7 @@ CONTAINS
 #endif
     use idsrdr_options,  only: nspin, directory
     use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRpaste
 
 #ifdef MPI
     include "mpif.h"
@@ -135,7 +139,7 @@ CONTAINS
 !   Local variables.
     integer :: iu, idx, nu, i, l, s, sDyn, nDyn
     complex(8), dimension(:), allocatable :: aux
-    character(len=100), external :: paste
+    character(len=100) :: file
     logical :: found
 #ifdef MPI
     integer :: MPIerror
@@ -174,8 +178,9 @@ CONTAINS
     if (ephIndic(nu) == 1) then ! consider eph interaction
 
 !      Check if electron-phonon coupling file exists.
-       inquire (file=paste(directory, paste(fileunits(nu),'.Meph')),    &
-                exist=found)
+       call STRpaste (fileunits(nu), '.Meph', file)
+       call STRpaste (directory, file, file)
+       inquire (file=file, exist=found)
        if (.not.found) go to 123
 
 !      Set e-ph index vector.
@@ -188,9 +193,7 @@ CONTAINS
 
 !         Opens the file.
           call IOassign (iu)
-          open (iu,                                                     &
-               file=paste(directory, paste(fileunits(nu),'.Meph')),     &
-               form='formatted', status='old')
+          open (iu, file=file, form='formatted', status='old')
 
 !         Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
 !         dynamic orbitals (norbDyn), first orbital index (idxF) and
@@ -273,8 +276,9 @@ CONTAINS
        if (ephIndic(nu) == 1) then ! consider eph interaction
 
 !         Check if electron-phonon coupling file exists.
-          inquire (file=paste(directory, paste(fileunits(nu),'.Meph')), &
-               exist=found)
+          call STRpaste (fileunits(nu), '.Meph', file)
+          call STRpaste (directory, file, file)
+          inquire (file=file, exist=found)
           if (.not.found) go to 123
 
 !         Set e-ph index vector.
@@ -287,9 +291,7 @@ CONTAINS
 
 !            Opens the file.
              call IOassign (iu)
-             open (iu,                                                  &
-                  file=paste(directory, paste(fileunits(nu),'.Meph')),  &
-                  form='formatted', status='old')
+             open (iu, file=file, form='formatted', status='old')
 
 !            Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
 !            dynamic orbitals (norbDyn), first orbital index (idxF) and
@@ -373,8 +375,9 @@ CONTAINS
     if (ephIndic(nu) == 1) then ! consider eph interaction
 
 !      Check if electron-phonon coupling file exists.
-       inquire (file=paste(directory, paste(fileunits(nu),'.Meph')),    &
-                exist=found)
+       call STRpaste (fileunits(nu), '.Meph', file)
+       call STRpaste (directory, file, file)
+       inquire (file=file, exist=found)
        if (.not.found) go to 123
 
 !      Set e-ph index vector.
@@ -387,9 +390,7 @@ CONTAINS
 
 !         Opens the file.
           call IOassign (iu)
-          open (iu,                                                     &
-               file=paste(directory, paste(fileunits(nu),'.Meph')),     &
-               form='formatted', status='old')
+          open (iu, file=file, form='formatted', status='old')
 
 !         Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
 !         dynamic orbitals (norbDyn), first orbital index (idxF) and

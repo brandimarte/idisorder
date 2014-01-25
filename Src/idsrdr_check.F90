@@ -1,7 +1,11 @@
 !  *******************************************************************  !
 !  I-Disorder Fortran Code                                              !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  I-Disorder Fortran Code 2007-2014                                    !
+!                                                                       !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !

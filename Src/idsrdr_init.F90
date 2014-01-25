@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -290,23 +292,25 @@ CONTAINS
 
     write (6,'(/,a,73(1h*),/)') '   '
     write (6,'(a,/)')                                                   &
-         '                         *  WELCOME TO I-DISORDER  *'
-    write (6,'(a,i4,a,i2,a,i2,a,i2,a,i2,a,i2)')                         &
+         '                   *  WELCOME TO I-DISORDER CODE v2014.01  *'
+    write (6,'(a,i4,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,i2.2)')               &
          '                            ',                                &
          values(1), '.', values(2), '.', values(3), ' , ',              &
          values(5), ':', values(6), ':', values(7)
-    write (6,'(/,a,a)') '      ', 'Written by Alexandre Reily Rocha' // &
-         ' and Pedro Brandimarte, 2007-2013'
-    write (6,'(/,a,a)') '      ', 'CUDA implementation by Alberto '  // &
-         'Torres, 2014'
-    write (6,'(/,a,a)') '      ', 'Copyright (c), All Rights Reserved'
-    write (6,'(/,a,a)') '      ', 'This program is free software. '  // &
+    write (6,'(/,a)') '      Written by Alexandre Reily Rocha '      // &
+         '(reilya@ift.unesp.br),'
+    write (6,'(a)') '                 Pedro Brandimarte '            // &
+         '(brandimarte@gmail.com) and'
+    write (6,'(a)') '                 Alberto Torres '               // &
+         '(alberto.trj@gmail.com).'
+    write (6,'(/,a)') '      Copyright (c), All Rights Reserved'
+    write (6,'(/,a)') '      This program is free software. '        // &
          'You can redistribute it and/or'
-    write (6,'(a,a)') '      ', 'modify it under the terms of the '  // &
+    write (6,'(a)') '      modify it under the terms of the '        // &
          'GNU General Public License'
-    write (6,'(a,a)') '      ', '(version 3 or later) as published ' // &
+    write (6,'(a)') '      (version 3 or later) as published '       // &
          'by the Free Software Foundation'
-    write (6,'(a,a)') '      ', '<http://fsf.org/>. See the GNU '    // &
+    write (6,'(a)') '      <http://fsf.org/>. See the GNU '          // &
          'General Public License for details.'
     write (6,'(/,a,73(1h*))') '   '
 

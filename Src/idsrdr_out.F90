@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -42,6 +44,7 @@ MODULE idsrdr_out
   use idsrdr_spectral, only: 
   use idsrdr_current,  only: 
   use idsrdr_io,       only: 
+  use idsrdr_string,   only: 
 
   implicit none
 
@@ -126,6 +129,7 @@ CONTAINS
     use idsrdr_units,    only: nunitseph
     use idsrdr_spectral, only: spctrl, dos
     use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRconcat, STRpaste
 
 #ifdef MPI
     include "mpif.h"
@@ -138,8 +142,6 @@ CONTAINS
     real(8), dimension(:,:), allocatable :: buffSpc, buffDos
     character(len=10) :: suffix
     character(len=label_length+70) :: fnSpc, fnDos
-    character(len=label_length+70), external :: paste
-    character(len=10), external :: pasbias2
 #ifdef MPI
     integer :: MPIerror
     integer, dimension(MPI_Status_Size) :: MPIstatus
@@ -151,15 +153,15 @@ CONTAINS
 
 !         Set file's names and open it.
           write (suffix,'(i3)') J
-          suffix = pasbias2 (suffix, '.SPCTR')
-          suffix = paste ('_', suffix)
-          fnSpc = paste (slabel, suffix)
-          fnSpc = paste (directory, fnSpc)
+          call STRconcat (suffix, '.SPCTR', suffix)
+          call STRpaste ('_', suffix, suffix)
+          call STRpaste (slabel, suffix, fnSpc)
+          call STRpaste (directory, fnSpc, fnSpc)
           write (suffix,'(i3)') J
-          suffix = pasbias2 (suffix, '.DOS')
-          suffix = paste ('_', suffix)
-          fnDos = paste (slabel, suffix)
-          fnDos = paste (directory, fnDos)
+          call STRconcat (suffix, '.DOS', suffix)
+          call STRpaste ('_', suffix, suffix)
+          call STRpaste (slabel, suffix, fnDos)
+          call STRpaste (directory, fnDos, fnDos)
           call IOassign (iuSpc)
           open (iuSpc, FILE=fnSpc, FORM='FORMATTED', STATUS='REPLACE')
           call IOassign (iuDos)
@@ -312,6 +314,7 @@ CONTAINS
     use idsrdr_engrid,   only: NTenerg_div, Ei
     use idsrdr_current,  only: calcCurr, allcurr
     use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRpaste
 
 #ifdef MPI
     include "mpif.h"
@@ -327,7 +330,6 @@ CONTAINS
     character(len=16) :: suffix
     character(len=label_length+70) :: fExVxI, fExVxIel, fExVxIsymm,     &
                                       fExVxIasymm, fExVxItot
-    character(len=label_length+70), external :: paste
 #ifdef MPI
     integer :: MPIerror, MPIcalcCurr
     integer, dimension(MPI_Status_Size) :: MPIstatus
@@ -342,20 +344,20 @@ CONTAINS
 
 !      Set file's names.
        suffix = '_ExVxI.CUR'
-       fExVxI = paste (slabel, suffix)
-       fExVxI = paste (directory, fExVxI)
+       call STRpaste (slabel, suffix, fExVxI)
+       call STRpaste (directory, fExVxI, fExVxI)
        suffix = '_ExVxIel.CUR'
-       fExVxIel = paste (slabel, suffix)
-       fExVxIel = paste (directory, fExVxIel)
+       call STRpaste (slabel, suffix, fExVxIel)
+       call STRpaste (directory, fExVxIel, fExVxIel)
        suffix = '_ExVxIsymm.CUR'
-       fExVxIsymm = paste (slabel, suffix)
-       fExVxIsymm = paste (directory, fExVxIsymm)
+       call STRpaste (slabel, suffix, fExVxIsymm)
+       call STRpaste (directory, fExVxIsymm, fExVxIsymm)
        suffix = '_ExVxIasymm.CUR'
-       fExVxIasymm = paste (slabel, suffix)
-       fExVxIasymm = paste (directory, fExVxIasymm)
+       call STRpaste (slabel, suffix, fExVxIasymm)
+       call STRpaste (directory, fExVxIasymm, fExVxIasymm)
        suffix = '_ExVxItot.CUR'
-       fExVxItot = paste (slabel, suffix)
-       fExVxItot = paste (directory, fExVxItot)
+       call STRpaste (slabel, suffix, fExVxItot)
+       call STRpaste (directory, fExVxItot, fExVxItot)
 
 !      Open them.
        call IOassign (iuExVxI)

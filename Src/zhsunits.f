@@ -68,6 +68,7 @@ C                                right lead
 C *******************************************************************
 
       use idsrdr_io,       only: IOassign, IOclose
+      use idsrdr_string,   only: STRpaste
 
       implicit none
       
@@ -96,19 +97,19 @@ C Internal variables
       double precision, allocatable ::
      .     xijL(:,:), SL(:), HL(:,:), foo(:)
       character
-     .     paste*25
+     .     file*25
       
       external
      .     hsl
 
       if (iter.eq.1 .and. istep.eq.0 .and. iv.eq.0 .and. ik.eq.1) then
 
-         write(6,'(a,a,/)') 'zhsunits: Reading ',
-     .        paste(slabeli,'.DAT')
+         call STRpaste (slabeli, '.DAT', file)
+         write(6,'(a,a,/)') 'zhsunits: Reading ', file
 
 C Read data
          call IOassign(iu1)
-         open(iu1,file=paste(slabeli,'.DAT'),status='old')
+         open(iu1,file=file,status='old')
          read(iu1,*) slabel, nuoL, nspinL, maxnhL, efL, tempL,
      .        nscL(1), nscL(2), noL
          write(6,*)  slabel, nuoL, nspinL, maxnhL, efL, tempL,
@@ -171,7 +172,8 @@ c Initialize overlaps and Hamiltonians
 
 c Read overlaps and Hamiltonians
          call IOassign(iu)
-         open(iu,file=paste(slabel,'.HST'),status='old')
+         call STRpaste (slabel, '.HST', file)
+         open(iu,file=file,status='old')
          do iuo = 1, nuoL
             do j = 1, numhL(iuo) 
                ind = listhptrL(iuo) + j

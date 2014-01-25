@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -26,13 +28,11 @@
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
-!                                                                       !
-!  Modified by Alberto Torres, Jan 2014.                                !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
+!  Modified version:    January 2014 (CUDA implementation by Alberto    !
+!                       Torres, Universidade de Sao Paulo,              !
+!                       e-mail: alberto.trj@gmail.com)                  !
 !  *******************************************************************  !
 
 PROGRAM IDISORDER

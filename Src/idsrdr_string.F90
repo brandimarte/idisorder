@@ -19,100 +19,107 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                         MODULE idsrdr_distrib                         !
+!                         MODULE idsrdr_string                          !
 !  *******************************************************************  !
-!  Description: compute Fermi-Dirac and Bose-Einstein distributions.    !
+!  Description: some tricks to deal with strings in fortran.            !
 !                                                                       !
-!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    November 2013                                   !
+!  Original version:    January 2014                                    !
 !  *******************************************************************  !
 
-MODULE idsrdr_distrib
+MODULE idsrdr_string
+
 
   implicit none
-
-  PUBLIC :: FermiDirac, BoseEinstein
+  
+  PUBLIC :: STRconcat, STRpaste
+  PRIVATE :: 
 
 
 CONTAINS
 
 
 !  *******************************************************************  !
-!                              FermiDirac                               !
+!                               STRconcat                               !
 !  *******************************************************************  !
-!  Description: calculates the Fermi-Dirac distribution for fermions    !
-!  in equilibrium with the electrochemical potential 'mu'.              !
+!  Description: concatenates the strings 'str1' and 'str2' removing     !
+!  the blanc spaces before and after the string 'str1'.                 !
 !                                                                       !
-!  Written by Pedro Brandimarte, Jan 2013.                              !
+!  Written by Pedro Brandimarte, Jul 2013.                              !
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    January 2013                                    !
+!  Original version:    July 2013                                       !
 !  ****************************** INPUT ******************************  !
-!  real*8 E                   : Energy point                            !
-!  real*8 mu                  : Electrochemical potential               !
-!  real*8 kT                  : Electronic temperature (Ry) times       !
-!                               Boltzmann constant                      !
+!  character*(*) str1                    : First string                 !
+!  character*(*) str2                    : Second string                !
+!  ***************************** OUTPUT ******************************  !
+!  character*(*) str3                    : Concatenated string          !
 !  *******************************************************************  !
-  real(8) function FermiDirac (E, mu, kT)
+  subroutine STRconcat (str1, str2, str3)
 
 !   Input variables.
-    real(8), intent(in) :: mu, kT, E
+    character*(*), intent(in) :: str1, str2
+    character*(*), intent(out) :: str3
 
-    if ((E - mu) / kT > 55.d0) then
-       FermiDirac = 0.d0
-    else
-       FermiDirac = 1.d0 / (DEXP((E - mu) / kT) + 1.d0)
-    endif
+!   Local variables.
+    integer :: l, m
+
+    m = len(trim(str1))
+    do l = 1,m
+       if (str1(l:l) /= ' ') exit
+    enddo
+
+    str3 = str1(l:m)//str2
 
 
-  end function FermiDirac
+  end subroutine STRconcat
 
 
 !  *******************************************************************  !
-!                             BoseEinstein                              !
+!                               STRpaste                                !
 !  *******************************************************************  !
-!  Description: calculates the Bose-Einstein distribution for phonons   !
-!  with energy 'freq' in thermal equilibrium.                           !
+!  Description: concatenates the strings 'str1' and 'str2' removing     !
+!  the blanc spaces after the string 'str1' and before 'str2'.          !
 !                                                                       !
-!  Written by Pedro Brandimarte, Jan 2013.                              !
+!  Written by Pedro Brandimarte, Jul 2013.                              !
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    January 2013                                    !
+!  Original version:    July 2013                                       !
 !  ****************************** INPUT ******************************  !
-!  real*8 freq                : Vibrational mode frequency (energy)     !
-!  real*8 kT                  : Electronic temperature (Ry) times       !
-!                               Boltzmann constant                      !
+!  character*(*) str1                    : First string                 !
+!  character*(*) str2                    : Second string                !
+!  ***************************** OUTPUT ******************************  !
+!  character*(*) str3                    : Concatenated string          !
 !  *******************************************************************  !
-  real(8) function BoseEinstein (freq, kT)
+  subroutine STRpaste (str1, str2, str3)
 
 !   Input variables.
-    real(8), intent(in) :: freq, kT
+    character*(*), intent(in) :: str1, str2
+    character*(*), intent(out) :: str3
 
-    if (freq/kT > 55.d0) then
-       BoseEinstein = 0.d0
-    elseif (freq/kT < -55.d0) then
-       BoseEinstein = -1.d0
-    elseif (freq/kT < 1.d-25 .and. freq/kT > -1.d-25) then
-       BoseEinstein = 1.d25
-    else
-       BoseEinstein = 1.d0 / (DEXP(freq/kT) - 1.d0)
-    endif
+!   Local variables.
+    integer :: l, m
+
+    m = len(trim(str1))
+    do l = m,1,-1
+       if (str1(l:l) /= ' ') exit
+    enddo
+
+    str3 = str1(1:l)//str2
 
 
-  end function BoseEinstein
+  end subroutine STRpaste
 
 
 !  *******************************************************************  !
 
 
-END MODULE idsrdr_distrib
-
-
+END MODULE idsrdr_string

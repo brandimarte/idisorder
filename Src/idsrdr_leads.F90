@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -40,6 +42,7 @@ MODULE idsrdr_leads
   use idsrdr_options,  only: 
   use idsrdr_check,    only: 
   use idsrdr_io,       only: 
+  use idsrdr_string,   only: 
 
   implicit none
   
@@ -140,6 +143,7 @@ CONTAINS
     use idsrdr_options,  only: nspin, temp, directory,                  &
                                tightbinding, TBeFermi
     use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRpaste
 
 #ifdef MPI
     include "mpif.h"
@@ -152,7 +156,7 @@ CONTAINS
     integer :: iu, nspinu, maxnh
     real(8) :: EfLeadR
     character (len=30) :: slabeli
-    character(len=72), external :: paste
+    character(len=72) :: file
     external :: zhsunits, ranksvd
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
@@ -164,7 +168,8 @@ CONTAINS
             ' Leads input data '
 
        call IOassign (iu)
-       open (iu, file=paste(directory,'bulklft.DAT'), status='old')
+       call STRpaste (directory, 'bulklft.DAT', file)
+       open (iu, file=file, status='old')
        read (iu,*) slabeli, NL, nspinu, maxnh, EfLead
        write (6,2)                                                      &
             'readleads: Left lead system label                  ' //    &
@@ -178,7 +183,8 @@ CONTAINS
        endif
        call IOclose (iu)
        call IOassign (iu)
-       open (iu, file=paste(directory,'bulkrgt.DAT'), status='old')
+       call STRpaste (directory, 'bulkrgt.DAT', file)
+       open (iu, file=file, status='old')
        read (iu,*) slabeli, NR, nspinu, maxnh, EfLeadR
        if (nspinu /= nspin) then
           write (6,'(a)') 'WARNING: spin components from left lead ' // &
@@ -228,12 +234,12 @@ CONTAINS
           call TBreadleads
 
        Else
-          call zhsunits (nspin, nspin, NL, nsc, 1, 0, 0,                &
-                         .true., 1, temp, H0_L, H1_L,                   &
-                         S0_L, S1_L, paste(directory,'bulklft'))
-          call zhsunits (nspin, nspin, NR, nsc, 1, 0, 0,                &
-                         .true., 1, temp, H0_R, H1_R,                   &
-                         S0_R, S1_R, paste(directory,'bulkrgt'))
+          call STRpaste (directory, 'bulklft.DAT', file)
+          call zhsunits (nspin, nspin, NL, nsc, 1, 0, 0, .true.,        &
+                         1, temp, H0_L, H1_L, S0_L, S1_L, file)
+          call STRpaste (directory, 'bulkrgt.DAT', file)
+          call zhsunits (nspin, nspin, NR, nsc, 1, 0, 0, .true.,        &
+                         1, temp, H0_R, H1_R, S0_R, S1_R, file)
        EndIf
     endif
 

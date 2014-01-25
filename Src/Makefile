@@ -1,7 +1,9 @@
 #  *******************************************************************  #
-#  I-Disorder Fortran Code                                              #
+#  I-Disorder Fortran Code 2007-2014                                    #
 #                                                                       #
-#  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    #
+#  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              #
+#             Pedro Brandimarte (brandimarte@gmail.com) and             #
+#             Alberto Torres (alberto.trj@gmail.com).                   #
 #                                                                       #
 #  Copyright (c), All Rights Reserved                                   #
 #                                                                       #
@@ -68,7 +70,7 @@ OBJS= parallel.o master-slave.o
 else
 OBJS= parallel.o
 endif
-OBJS += paste.o pasbias.o io.o idsrdr_io.o gensvd.o rank.o ranksvd.o    \
+OBJS += idsrdr_string.o idsrdr_io.o gensvd.o rank.o ranksvd.o           \
 	zhsl.o zhsunits.o hsl.o hsunits.o identify.o diagonal_alex.o    \
 	decimate_leads.o leads_complex.o idsrdr_random.o idsrdr_check.o \
 	idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o  \
@@ -118,13 +120,11 @@ clean:
 
 # DO NOT DELETE THIS LINE - used by make depend
 
-#hsunits.o : idsrdr_io.o paste.o hsl.o
 #decimate_leads.o :
 #diagonal_alex.o : 
 #gensvd.o : 
 #hsl.o : 
-#hsunits.o : 
-#zhsl.o : 
+#hsunits.o : idsrdr_io.o idsrdr_string.o hsl.o
 #identify.o : 
 #idsorder.o : parallel.o idsrdr_init.o idsrdr_units.o idsrdr_engrid.o   \
 #	idsrdr_spectral.o idsrdr_green.o idsrdr_options.o               \
@@ -136,34 +136,35 @@ clean:
 #	idsrdr_io.o
 #idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
-#	paste.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o        \
+#	idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o                \
 #	idsrdr_hilbert.o idsrdr_current.o
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o
-#idsrdr_ephcoupl.o : parallel.o idsrdr_options.o paste.o idsrdr_io.o
+#idsrdr_ephcoupl.o : parallel.o idsrdr_options.o idsrdr_io.o            \
+#	idsrdr_string.o
 #idsrdr_green.o : parallel.o idsrdr_options.o idsrdr_units.o            \
-#	idsrdr_leads.o idsrdr_check.o idsrdr_io.o paste.o pasbias.o
+#	idsrdr_leads.o idsrdr_check.o idsrdr_io.o idsrdr_string.o
 #idsrdr_hilbert.o : parallel.o idsrdr_options.o
 #idsrdr_init.o : parallel.o idsrdr_io.o idsrdr_options.o idsrdr_leads.o \
 #	master_slave.o
-#idsrdr_leads.o : parallel.o paste.o idsrdr_io.o zhsunits.o ranksvd.o   \
-#	idsrdr_options.o decimate_leads.o leads_complex.o idsrdr_check.o
+#idsrdr_leads.o : parallel.o idsrdr_string.o idsrdr_io.o zhsunits.o     \
+#	ranksvd.o idsrdr_options.o decimate_leads.o leads_complex.o     \
+#	idsrdr_check.o
 #idsrdr_io.o :
 #idsrdr_options.o : parallel.o
 #idsrdr_out.o : parallel.o idsrdr_options.o idsrdr_engrid.o             \
-#	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o idsrdr_io.o
+#	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o idsrdr_io.o   \
+#	idsrdr_string.o
 #idsrdr_random.o : parallel.o
 #idsrdr_spectral.o : parallel.o idsrdr_options.o idsrdr_engrid.o        \
-#	idsrdr_ephcoupl.o idsrdr_units.o idsrdr_green.o paste.o         \
-#	pasbias.o idsrdr_io.o
+#	idsrdr_ephcoupl.o idsrdr_units.o idsrdr_green.o idsrdr_io.o
+#idsrdr_string.o : 
 #idsrdr_units.o : parallel.o idsrdr_options.o idsrdr_leads.o            \
 #	idsrdr_init.o idsrdr_random.o idsrdr_io.o hsunits.o             \
-#	idsrdr_ephcoupl.o
+#	idsrdr_ephcoupl.o idsrdr_string.o
 #io.o : parallel.o
 #leads_complex.o : identify.o diagonal_alex.o
 #parallel.o :
-#pasbias.o : 
-#paste.o : 
 #rank.o : 
 #ranksvd.o : parallel.o rank.o gensvd.o
 #zhsl.o : 
-#zhsunits.o : paste.o idsrdr_io.o zhsl.o
+#zhsunits.o : idsrdr_io.o idsrdr_string.o zhsl.o

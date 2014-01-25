@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -42,6 +44,7 @@ MODULE idsrdr_green
   use idsrdr_ephcoupl, only: 
   use idsrdr_check,    only: 
   use idsrdr_io,       only: 
+  use idsrdr_string,   only: 
 
   implicit none
   
@@ -137,13 +140,13 @@ CONTAINS
     IF (writeondisk) THEN
 
 !      Set Green's functions files ("LUN" and file name).
-       call greenFilesSet (41, 'GL_mm', GL_mm_disk)
-       call greenFilesSet (42, 'GL_1m', GL_1m_disk)
-       call greenFilesSet (43, 'GR_pp', GR_pp_disk)
-       call greenFilesSet (44, 'GR_Mp', GR_Mp_disk)
-       call greenFilesSet (45, 'Gr_nn', Gr_nn_disk)
-       call greenFilesSet (46, 'Gr_1n', Gr_1n_disk)
-       call greenFilesSet (47, 'Gr_Mn', Gr_Mn_disk)
+       call greenFilesSet (141, 'GL_mm', GL_mm_disk)
+       call greenFilesSet (142, 'GL_1m', GL_1m_disk)
+       call greenFilesSet (143, 'GR_pp', GR_pp_disk)
+       call greenFilesSet (144, 'GR_Mp', GR_Mp_disk)
+       call greenFilesSet (145, 'Gr_nn', Gr_nn_disk)
+       call greenFilesSet (146, 'Gr_1n', Gr_1n_disk)
+       call greenFilesSet (147, 'Gr_Mn', Gr_Mn_disk)
 
 !      Allocate index array (for reading 'GR_pp' and 'GR_Mp').
        if (ephIdx(ntypeunits+2) /= 0) then
@@ -2032,6 +2035,7 @@ CONTAINS
     use parallel,        only: Node
     use idsrdr_options,  only: directory
     use idsrdr_io,       only: IOopenStreamnew, IOcloseStream
+    use idsrdr_string,   only: STRconcat, STRpaste
 
 !   Input variables.
     integer, intent(in) :: lun
@@ -2040,18 +2044,16 @@ CONTAINS
 
 !   Local variables.
     character(len=7) :: suffix
-    character(80), external :: paste
-    character(len=10), external :: pasbias2
 
 !   Set logical unit number.
     GF%lun = lun
 
 !   Set file name.
     write (suffix,'(i3)') Node
-    suffix = pasbias2 (suffix, '.GF')
-    suffix = paste ('_', suffix)
-    GF%fname = paste (name, suffix)
-    GF%fname = paste (directory, GF%fname)
+    call STRconcat (suffix, '.GF', suffix)
+    call STRpaste ('_', suffix, suffix)
+    call STRpaste (name, suffix, GF%fname)
+    call STRpaste (directory, GF%fname, GF%fname)
 
 !   Create a new file.
     call IOopenStreamnew (GF%fname, GF%lun)

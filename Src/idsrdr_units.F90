@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -43,6 +45,7 @@ MODULE idsrdr_units
   use idsrdr_ephcoupl, only: 
   use idsrdr_random,   only: 
   use idsrdr_io,       only: 
+  use idsrdr_string,   only: 
   use fdf
 
   implicit none
@@ -242,6 +245,7 @@ CONTAINS
     use idsrdr_ephcoupl, only: EPHread
     use idsrdr_options,  only: tightbinding
     use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRpaste
     use fdf
 
 #ifdef MPI
@@ -267,7 +271,7 @@ CONTAINS
     real(8), allocatable, dimension (:,:) :: S0aux, S1aux
     logical :: therearefiles
     character(len=30) :: slabel
-    character(len=100), external :: paste
+    character(len=100) :: file
     external :: hsunits
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
@@ -316,10 +320,10 @@ CONTAINS
     do I = 1,ntypeunits+2
        if (IOnode) then
           call IOassign (iu)
-          open (iu, file=paste(directory, paste(fileunits(I),'.DAT')),  &
-                status='old')
-          write (6,'(a,a)') 'readunits: Reading file = ',               &
-               paste(fileunits(I),'.DAT')
+          call STRpaste (fileunits(I), '.DAT', file)
+          call STRpaste (directory, file, file)
+          open (iu, file=file, status='old')
+          write (6,'(a,a)') 'readunits: Reading file = ', file
           read (iu,*) slabel, nuo, nspinu, maxnh, efu,                  &
                       tempu, nscu(1), nscu(2), no
           unitdimensions(I) = nuo
@@ -371,9 +375,10 @@ CONTAINS
 !         Read hamiltonian and overlap matrices for each unit.
           do I = 1,ntypeunits+2
 
+             call STRpaste (directory, fileunits(I), file)
              write (6,'(a,i3,a,i5,a,a,a,a)') 'readunits: Unit ', I,     &
                   ' - ', unitdimensions(I), '  ', trim(fileunits(I)),   &
-                  '  ', trim(paste(directory,fileunits(I)))
+                  '  ', trim(file)
 
 !            Initialize auxiliary matrices.
              H0aux = 0.d0
@@ -388,7 +393,7 @@ CONTAINS
                       H1aux(1:unitdimensions(I),1:unitdimensions(I),:), &
                       S0aux(1:unitdimensions(I),1:unitdimensions(I)),   &
                       S1aux(1:unitdimensions(I),1:unitdimensions(I)),   &
-                      paste(directory,fileunits(I)))
+                      file)
 
 !            Assign hamiltonian and overlap matrices from auxiliaries.
              Hunits(I)%H = H0aux(1:unitdimensions(I),                   &
