@@ -19,7 +19,7 @@
 !  *******************************************************************  !
 !                        MODULE idsrdr_iostream                         !
 !  *******************************************************************  !
-!  Description: controlled opening/closing of a "stream" access file.   !
+!  Description: controlled opening/closing of files.                    !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
@@ -29,19 +29,137 @@
 !  Original version:    January 2014                                    !
 !  *******************************************************************  !
 
-MODULE idsrdr_iostream
+MODULE idsrdr_io
 
   implicit none
 
+  integer :: min_lun = 10 ! minimum logical unit number
+  integer :: max_lun = 99 ! maximum logical unit number
+
+  logical, allocatable, dimension (:) :: lun_is_free ! lun is free?
+
+  PUBLIC :: IOinit, IOassign, IOclose, IOopenStreamNew, IOopenStream,   &
+            IOcloseStream, freeIO
   PRIVATE ! default is private
-  PUBLIC :: openstreamnew, openstream, closestream
 
 
 CONTAINS
 
 
 !  *******************************************************************  !
-!                             openstreamnew                             !
+!                                IOinit                                 !
+!  *******************************************************************  !
+!  Description: allocate and initializes global variables.              !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *******************************************************************  !
+  subroutine IOinit
+
+!   Local variables.
+    integer :: nunits
+
+!   Total number of units.
+    nunits = max_lun - min_lun
+
+!   Allocate and initialize 'lun_is_free' array.
+    allocate (lun_is_free(nunits))
+    lun_is_free = .true.
+
+
+  end subroutine IOinit
+
+
+!  *******************************************************************  !
+!                               IOassign                                !
+!  *******************************************************************  !
+!  Description: looks for a free unit and assigns it to lun.            !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  ****************************** INPUT ******************************  !
+!  integer lun             : Data file logical unit number              !
+!  *******************************************************************  !
+  subroutine IOassign (lun)
+
+!
+!   Modules
+!
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
+    use parallel,        only: IOnode
+#endif
+
+!   Input variables.
+    integer, intent (out) :: lun
+
+!   Local variables.
+    integer :: iostat
+    logical :: used
+#ifdef MPI
+    integer :: MPIerror
+#endif
+
+    do lun = min_lun,max_lun
+       if (lun_is_free(lun)) then
+          inquire (unit=lun, opened=used, iostat=iostat)
+          if (iostat /= 0) used = .true.
+          lun_is_free(lun) = .false.
+          if (.not. used) return
+       endif
+    enddo
+
+    if (IOnode) then
+       write (6,'(/,a,/)') "ERROR: No luns available in io_assign"
+#ifdef MPI
+       call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
+#endif
+       stop
+    endif
+
+
+  end subroutine IOassign
+
+
+!  *******************************************************************  !
+!                                IOclose                                !
+!  *******************************************************************  !
+!  Description: closes a file and sets 'lun' as free.                   !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  ****************************** INPUT ******************************  !
+!  integer lun             : Data file logical unit number              !
+!  *******************************************************************  !
+  subroutine IOclose (lun)
+
+!   Input variables.
+    integer, intent (in) :: lun
+
+    close(lun)
+    if (lun >= min_lun .and. lun < max_lun) then
+       lun_is_free(lun) = .true.
+    endif
+
+
+  end subroutine IOclose
+      
+
+!  *******************************************************************  !
+!                            IOopenStreamNew                            !
 !  *******************************************************************  !
 !  Description: open a new file with system name 'file' and logical     !
 !  unit number 'lunit' for stream access (unformated) where 'LRECL' is  !
@@ -66,7 +184,7 @@ CONTAINS
 !  integer IOSTAT          : [optional] Returns 0 if succeeds, else     !
 !                            returns a Fortran error code               !
 !  *******************************************************************  !
-  subroutine openstreamnew (file, lunit, IOSTAT)
+  subroutine IOopenStreamNew (file, lunit, IOSTAT)
 
 !   Input variables.
     character(*), intent(in) :: file
@@ -105,11 +223,11 @@ CONTAINS
     print*, "Fortran error code = ", Koderr
 
 
-  end subroutine openstreamnew
+  end subroutine IOopenStreamNew
 
 
 !  *******************************************************************  !
-!                              openstream                               !
+!                             IOopenStream                              !
 !  *******************************************************************  !
 !  Description: open the file with system name 'file' and logical unit  !
 !  number 'lunit' for stream access (unformated) where 'LRECL' is the   !
@@ -134,7 +252,7 @@ CONTAINS
 !  integer IOSTAT          : [optional] Returns 0 if succeeds, else     !
 !                            returns a Fortran error code               !
 !  *******************************************************************  !
-  subroutine openstream (file, lunit, IOSTAT)
+  subroutine IOopenStream (file, lunit, IOSTAT)
 
 !   Input variables.
     character(*), intent(in) :: file
@@ -173,11 +291,11 @@ CONTAINS
     print*, "Fortran error code = ", Koderr
 
 
-  end subroutine openstream
+  end subroutine IOopenStream
 
 
 !  *******************************************************************  !
-!                              closestream                              !
+!                             IOcloseStream                             !
 !  *******************************************************************  !
 !  Description: close the file with system name 'file' and logical      !
 !  unit number 'lunit'. In case of failure, the optional parameter      !
@@ -199,7 +317,7 @@ CONTAINS
 !  integer IOSTAT          : [optional] Returns 0 if succeeds, else     !
 !                            returns a Fortran error code               !
 !  *******************************************************************  !
-  subroutine closestream (file, lunit, IOSTAT)
+  subroutine IOcloseStream (file, lunit, IOSTAT)
 
 !   Input variables.
     character(*), intent(in) :: file
@@ -246,10 +364,32 @@ CONTAINS
     ENDIF
 
 
-  end subroutine closestream
+  end subroutine IOcloseStream
+
+
+!  *******************************************************************  !
+!                                freeIO                                 !
+!  *******************************************************************  !
+!  Description: free allocated vectors.                                 !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *******************************************************************  !
+  subroutine freeIO
+
+
+!   Free memory.
+    deallocate (lun_is_free)
+
+
+  end subroutine freeIO
 
 
 !  *******************************************************************  !
 
 
-END MODULE idsrdr_iostream
+END MODULE idsrdr_io

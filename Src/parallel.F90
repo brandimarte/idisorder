@@ -40,10 +40,23 @@ MODULE parallel
 
   integer, save :: Nodes = 1 ! Total number of nodes (comm_size)
 
-  logical, save :: IOnode    ! True if it is the I/O node
+  logical, save :: IOnode = .false. ! True if it is the I/O node
+
+!## BEGIN Alberto
+
+  integer, save :: MPI_Comm_MyWorld = 0   ! MPI communicator
+
+#ifdef MASTER_SLAVE
+  integer, save :: Master = 0             ! Rank of the Master process
+
+  logical, save :: IamMaster = .false.    ! Only one to rule them all
+#endif
+
+!## END Alberto
 
 
 !  *******************************************************************  !
 
 
 END MODULE parallel
+

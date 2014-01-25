@@ -30,6 +30,9 @@ c
 c     Logical units min_lun to min_max are managed by this module.
       
       use parallel, only : IOnode
+#ifdef MPI
+      use parallel, only : MPI_Comm_MyWorld
+#endif
 
       implicit none
 
@@ -104,7 +107,7 @@ c
       if (IOnode) then
          write (6,'(/,a,/)') "ERROR: No luns available in io_assign"
 #ifdef MPI
-         call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+         call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
          stop
 #else
          stop
@@ -129,7 +132,7 @@ c
          write (6,'(/,a,/)')
      $        "ERROR: Cannot reserve unit. Already connected"
 #ifdef MPI
-         call MPI_Abort (MPI_Comm_World, 1, MPIerror)
+         call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
          stop
 #else
          stop
@@ -182,9 +185,5 @@ c
       return
 
       end
-
-
-
-
 
 

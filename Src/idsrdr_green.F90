@@ -41,7 +41,7 @@ MODULE idsrdr_green
   use idsrdr_leads,    only: 
   use idsrdr_ephcoupl, only: 
   use idsrdr_check,    only: 
-  use idsrdr_iostream, only: 
+  use idsrdr_io,       only: 
 
   implicit none
   
@@ -1129,7 +1129,7 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits, ephIndic
     use idsrdr_leads,    only: NL, Sigma_L
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -1151,8 +1151,8 @@ CONTAINS
             '      computing left-to-right sweep... '
 
 !   Open Green's functions files.
-    call openstream (GL_mm_disk%fname, GL_mm_disk%lun)
-    call openstream (GL_1m_disk%fname, GL_1m_disk%lun)
+    call IOopenStream (GL_mm_disk%fname, GL_mm_disk%lun)
+    call IOopenStream (GL_1m_disk%fname, GL_1m_disk%lun)
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
@@ -1258,8 +1258,8 @@ CONTAINS
     endif
 
 !   Close Green's functions files.
-    call closestream (GL_mm_disk%fname, GL_mm_disk%lun)
-    call closestream (GL_1m_disk%fname, GL_1m_disk%lun)
+    call IOcloseStream (GL_mm_disk%fname, GL_mm_disk%lun)
+    call IOcloseStream (GL_1m_disk%fname, GL_1m_disk%lun)
 
 !   Free memory.
     deallocate (V)
@@ -1331,7 +1331,7 @@ CONTAINS
                                ephIndic, nunitseph
     use idsrdr_leads,    only: NR, Sigma_R
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -1353,8 +1353,8 @@ CONTAINS
             '      computing right-to-left sweep... '
 
 !   Open Green's functions files.
-    call openstream (GR_pp_disk%fname, GR_pp_disk%lun)
-    call openstream (GR_Mp_disk%fname, GR_Mp_disk%lun)
+    call IOopenStream (GR_pp_disk%fname, GR_pp_disk%lun)
+    call IOopenStream (GR_Mp_disk%fname, GR_Mp_disk%lun)
 
 !   Initialize variables.
     utype = ntypeunits + 2 ! current unit type (last unit)
@@ -1472,8 +1472,8 @@ CONTAINS
     endif
 
 !   Close Green's functions files.
-    call closestream (GR_pp_disk%fname, GR_pp_disk%lun)
-    call closestream (GR_Mp_disk%fname, GR_Mp_disk%lun)
+    call IOcloseStream (GR_pp_disk%fname, GR_pp_disk%lun)
+    call IOcloseStream (GR_Mp_disk%fname, GR_Mp_disk%lun)
 
 !   Free memory.
     deallocate (V)
@@ -1549,7 +1549,7 @@ CONTAINS
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
     use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -1568,13 +1568,13 @@ CONTAINS
             '      computing full Greens functions... '
 
 !   Open Green's functions files.
-    call openstream (GL_mm_disk%fname, GL_mm_disk%lun)
-    call openstream (GL_1m_disk%fname, GL_1m_disk%lun)
-    call openstream (GR_pp_disk%fname, GR_pp_disk%lun)
-    call openstream (GR_Mp_disk%fname, GR_Mp_disk%lun)
-    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
-    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOopenStream (GL_mm_disk%fname, GL_mm_disk%lun)
+    call IOopenStream (GL_1m_disk%fname, GL_1m_disk%lun)
+    call IOopenStream (GR_pp_disk%fname, GR_pp_disk%lun)
+    call IOopenStream (GR_Mp_disk%fname, GR_Mp_disk%lun)
+    call IOopenStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOopenStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOopenStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   Initialize variables.
     utype = ntypeunits + 1 ! current unit type (first unit)
@@ -1980,13 +1980,13 @@ CONTAINS
     endif
 
 !   Close Green's functions files.
-    call closestream (GL_mm_disk%fname, GL_mm_disk%lun)
-    call closestream (GL_1m_disk%fname, GL_1m_disk%lun)
-    call closestream (GR_pp_disk%fname, GR_pp_disk%lun)
-    call closestream (GR_Mp_disk%fname, GR_Mp_disk%lun)
-    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
-    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOcloseStream (GL_mm_disk%fname, GL_mm_disk%lun)
+    call IOcloseStream (GL_1m_disk%fname, GL_1m_disk%lun)
+    call IOcloseStream (GR_pp_disk%fname, GR_pp_disk%lun)
+    call IOcloseStream (GR_Mp_disk%fname, GR_Mp_disk%lun)
+    call IOcloseStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOcloseStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOcloseStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   Free memory.
     deallocate (V)
@@ -2031,7 +2031,7 @@ CONTAINS
 !
     use parallel,        only: Node
     use idsrdr_options,  only: directory
-    use idsrdr_iostream, only: openstreamnew, closestream
+    use idsrdr_io,       only: IOopenStreamnew, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: lun
@@ -2054,8 +2054,8 @@ CONTAINS
     GF%fname = paste (directory, GF%fname)
 
 !   Create a new file.
-    call openstreamnew (GF%fname, GF%lun)
-    call closestream (GF%fname, GF%lun)
+    call IOopenStreamnew (GF%fname, GF%lun)
+    call IOcloseStream (GF%fname, GF%lun)
 
 
   end subroutine greenFilesSet
@@ -2573,7 +2573,7 @@ CONTAINS
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
     use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -2688,9 +2688,9 @@ CONTAINS
     enddo
 
 !   Open Green's functions files.
-    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
-    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOopenStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOopenStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOopenStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   First unit.
     if (idx /= 0) then
@@ -2937,9 +2937,9 @@ CONTAINS
     enddo
 
 !   Close Green's functions files.
-    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
-    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOcloseStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOcloseStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOcloseStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 !   Free memory.
     deallocate (Gtot)

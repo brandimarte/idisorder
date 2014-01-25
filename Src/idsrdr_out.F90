@@ -41,6 +41,7 @@ MODULE idsrdr_out
   use idsrdr_units,    only: 
   use idsrdr_spectral, only: 
   use idsrdr_current,  only: 
+  use idsrdr_io,       only: 
 
   implicit none
 
@@ -124,6 +125,7 @@ CONTAINS
     use idsrdr_engrid,   only: NTenerg_div, Ei
     use idsrdr_units,    only: nunitseph
     use idsrdr_spectral, only: spctrl, dos
+    use idsrdr_io,       only: IOassign, IOclose
 
 #ifdef MPI
     include "mpif.h"
@@ -138,7 +140,6 @@ CONTAINS
     character(len=label_length+70) :: fnSpc, fnDos
     character(len=label_length+70), external :: paste
     character(len=10), external :: pasbias2
-    external :: io_assign, io_close
 #ifdef MPI
     integer :: MPIerror
     integer, dimension(MPI_Status_Size) :: MPIstatus
@@ -159,9 +160,9 @@ CONTAINS
           suffix = paste ('_', suffix)
           fnDos = paste (slabel, suffix)
           fnDos = paste (directory, fnDos)
-          call io_assign (iuSpc)
+          call IOassign (iuSpc)
           open (iuSpc, FILE=fnSpc, FORM='FORMATTED', STATUS='REPLACE')
-          call io_assign (iuDos)
+          call IOassign (iuDos)
           open (iuDos, FILE=fnDos, FORM='FORMATTED', STATUS='REPLACE')
 
           write (6, '(/,a,i3,a,a)', advance='no')                       &
@@ -249,8 +250,8 @@ CONTAINS
 !      Close files and free buffers memory.
        if (Node == 0) then
 
-          call io_close (iuSpc)
-          call io_close (iuDos)
+          call IOclose (iuSpc)
+          call IOclose (iuDos)
 
           deallocate (buffEn)
           deallocate (buffSpc)
@@ -310,6 +311,7 @@ CONTAINS
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
     use idsrdr_current,  only: calcCurr, allcurr
+    use idsrdr_io,       only: IOassign, IOclose
 
 #ifdef MPI
     include "mpif.h"
@@ -326,7 +328,6 @@ CONTAINS
     character(len=label_length+70) :: fExVxI, fExVxIel, fExVxIsymm,     &
                                       fExVxIasymm, fExVxItot
     character(len=label_length+70), external :: paste
-    external :: io_assign, io_close
 #ifdef MPI
     integer :: MPIerror, MPIcalcCurr
     integer, dimension(MPI_Status_Size) :: MPIstatus
@@ -357,18 +358,18 @@ CONTAINS
        fExVxItot = paste (directory, fExVxItot)
 
 !      Open them.
-       call io_assign (iuExVxI)
+       call IOassign (iuExVxI)
        open (iuExVxI, FILE=fExVxI, FORM='FORMATTED', STATUS='REPLACE')
-       call io_assign (iuExVxIel)
+       call IOassign (iuExVxIel)
        open (iuExVxIel, FILE=fExVxIel, FORM='FORMATTED',                &
             STATUS='REPLACE')
-       call io_assign (iuExVxIsymm)
+       call IOassign (iuExVxIsymm)
        open (iuExVxIsymm, FILE=fExVxIsymm, FORM='FORMATTED',            &
             STATUS='REPLACE')
-       call io_assign (iuExVxIasymm)
+       call IOassign (iuExVxIasymm)
        open (iuExVxIasymm, FILE=fExVxIasymm, FORM='FORMATTED',          &
             STATUS='REPLACE')
-       call io_assign (iuExVxItot)
+       call IOassign (iuExVxItot)
        open (iuExVxItot, FILE=fExVxItot, FORM='FORMATTED',              &
             STATUS='REPLACE')
 
@@ -488,11 +489,11 @@ CONTAINS
 !   Close files and free buffers memory.
     if (Node == 0) then
 
-       call io_close (iuExVxI)
-       call io_close (iuExVxIel)
-       call io_close (iuExVxIsymm)
-       call io_close (iuExVxIasymm)
-       call io_close (iuExVxItot)
+       call IOclose (iuExVxI)
+       call IOclose (iuExVxIel)
+       call IOclose (iuExVxIsymm)
+       call IOclose (iuExVxIasymm)
+       call IOclose (iuExVxItot)
 
        deallocate (buffEn)
        deallocate (buffCurr)

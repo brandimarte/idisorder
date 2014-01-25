@@ -42,6 +42,7 @@ MODULE idsrdr_units
   use idsrdr_init,     only: 
   use idsrdr_ephcoupl, only: 
   use idsrdr_random,   only: 
+  use idsrdr_io,       only: 
   use fdf
 
   implicit none
@@ -233,9 +234,14 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode
+#endif
     use idsrdr_ephcoupl, only: EPHread
     use idsrdr_options,  only: tightbinding
+    use idsrdr_io,       only: IOassign, IOclose
     use fdf
 
 #ifdef MPI
@@ -262,7 +268,7 @@ CONTAINS
     logical :: therearefiles
     character(len=30) :: slabel
     character(len=100), external :: paste
-    external :: io_assign, io_close, hsunits
+    external :: hsunits
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
@@ -290,7 +296,7 @@ CONTAINS
        Else
           write (6,'(a)') 'readunits: File names not present'
 #ifdef MPI
-          call MPI_Abort (MPI_Comm_world, 1, MPIerror)
+          call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
 #else
           stop
 #endif
@@ -299,17 +305,17 @@ CONTAINS
 
 #ifdef MPI
     call MPI_Bcast (fileunits, 30*(ntypeunits+2), MPI_Character, 0,     &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (unitshift, ntypeunits+2, MPI_Double_Precision, 0,   &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (ephIndic, ntypeunits+2, MPI_Integer, 0,             &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 !   Read unit's dimensions (number of orbitals).
     do I = 1,ntypeunits+2
        if (IOnode) then
-          call io_assign (iu)
+          call IOassign (iu)
           open (iu, file=paste(directory, paste(fileunits(I),'.DAT')),  &
                 status='old')
           write (6,'(a,a)') 'readunits: Reading file = ',               &
@@ -317,12 +323,12 @@ CONTAINS
           read (iu,*) slabel, nuo, nspinu, maxnh, efu,                  &
                       tempu, nscu(1), nscu(2), no
           unitdimensions(I) = nuo
-          call io_close (iu)
+          call IOclose (iu)
        endif
     enddo
 #ifdef MPI
     call MPI_Bcast (unitdimensions, ntypeunits+2, MPI_Integer, 0,       &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 !   Read electron-phonon interaction data.
@@ -408,18 +414,20 @@ CONTAINS
     do I = 1,ntypeunits+2
        call MPI_Bcast (Hunits(I)%H,                                     &
                        unitdimensions(I)*unitdimensions(I)*nspin,       &
-                       MPI_Double_Precision, 0, MPI_Comm_world, MPIerror)
+                       MPI_Double_Precision, 0, MPI_Comm_MyWorld,       &
+                       MPIerror)
        call MPI_Bcast (Sunits(I)%S,                                     &
                        unitdimensions(I)*unitdimensions(I),             &
-                       MPI_Double_Precision, 0, MPI_Comm_world, MPIerror)
+                       MPI_Double_Precision, 0, MPI_Comm_MyWorld,       &
+                       MPIerror)
 
        If (I == ntypeunits) Then
           call MPI_Bcast (H1unit, unitdimensions(I)*unitdimensions(I)   &
                           *nspin, MPI_Double_Precision, 0,              &
-                          MPI_Comm_world, MPIerror)
+                          MPI_Comm_MyWorld, MPIerror)
           call MPI_Bcast (S1unit, unitdimensions(I)*unitdimensions(I),  &
                           MPI_Double_Precision, 0,                      &
-                          MPI_Comm_world, MPIerror)
+                          MPI_Comm_MyWorld, MPIerror)
        EndIf
 
     enddo
@@ -750,7 +758,11 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode
+#endif
     use idsrdr_options,  only: readunitstf, nunits
     use idsrdr_random,   only: irandomizedefects, irandomize_index
     use fdf
@@ -807,7 +819,8 @@ CONTAINS
     ENDIF
 
 #ifdef MPI
-    call MPI_Bcast (nunits, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+    call MPI_Bcast (nunits, 1, MPI_Integer, 0,                          &
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 !   Allocate arrays.
@@ -823,7 +836,7 @@ CONTAINS
              enddo
           else
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_world, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
 #else
              stop "buildunits: ERROR: No UnitIndex block defined!"
 #endif
@@ -895,7 +908,7 @@ CONTAINS
              enddo
           else
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_world, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
 #else
              stop "buildunits: ERROR: Segment lengths not defined!"
 #endif
@@ -904,13 +917,13 @@ CONTAINS
 
 #ifdef MPI
        call MPI_Bcast (dist, NDefects+1, MPI_Double_Precision, 0,       &
-                       MPI_Comm_world, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
 #endif
     ENDIF
 
 #ifdef MPI
     call MPI_Bcast (unit_type, nunits+2, MPI_Integer, 0,                &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 !   Calculate the number of units with eph 'nunitseph'.

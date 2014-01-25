@@ -45,7 +45,7 @@ MODULE idsrdr_current
   use idsrdr_recipes,  only: 
   use idsrdr_distrib,  only: 
   use idsrdr_hilbert,  only: 
-  use idsrdr_iostream, only: 
+  use idsrdr_io,       only: 
 
   implicit none
   
@@ -53,7 +53,6 @@ MODULE idsrdr_current
   PRIVATE :: elastic, transmission, inelSymm, inelSymmDisk, asymmPre,   &
              inelAsymm, inelAsymmDisk, testInelSymm, testInelAsymm,     &
              kbTol, eoverh
-              
 
 ! Type for storing calculated currents.
   TYPE calcCurr
@@ -71,7 +70,7 @@ MODULE idsrdr_current
 !!$  real(8), parameter :: e   = 1.602176565D-19 ! C
 !!$  real(8), parameter :: h   = 4.135667516D-15 ! eV*s
 !!$  real(8), parameter :: Rhc = 13.60569253D0 ! eV
-  real(8), parameter :: eoverh = 1.602176565D-4 * 13.60569253D0 /      &
+  real(8), parameter :: eoverh = 1.602176565D-4 * 13.60569253D0 /       &
                                  4.135667516D0
 
 CONTAINS
@@ -88,7 +87,7 @@ CONTAINS
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    January 2014                                   !
+!  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  integer nspin               : Number of spin components              !
 !  integer NTenerg_div         : Number of energy grid points per node  !
@@ -620,7 +619,7 @@ CONTAINS
                                Gr_1M, greenload
     use idsrdr_options,  only: temp
     use idsrdr_distrib,  only: BoseEinstein
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
@@ -645,9 +644,9 @@ CONTAINS
     Isymm = 0.d0
 
 !   Open Green's functions files.
-    call openstream (Gr_nn_disk%fname, Gr_nn_disk%lun)
-    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOopenStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOopenStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOopenStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
     do j = 1,nunitseph ! over unit with e-ph
 
@@ -793,9 +792,9 @@ CONTAINS
     enddo ! do j = 1,nunitseph
 
 !   Close Green's functions files.
-    call closestream (Gr_nn_disk%fname, Gr_nn_disk%lun)
-    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOcloseStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
+    call IOcloseStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOcloseStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 
   end subroutine inelSymmDisk
@@ -1122,7 +1121,7 @@ CONTAINS
     use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn_disk, Gr_1n_disk, Gr_1M, greenload
-    use idsrdr_iostream, only: openstream, closestream
+    use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
@@ -1144,8 +1143,8 @@ CONTAINS
     Iasymm = 0.d0
 
 !   Open Green's functions files.
-    call openstream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call openstream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOopenStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOopenStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
     do j = 1,nunitseph ! over unit with e-ph
 
@@ -1279,8 +1278,8 @@ CONTAINS
     enddo ! do j = 1,nunitseph
 
 !   Close Green's functions files.
-    call closestream (Gr_1n_disk%fname, Gr_1n_disk%lun)
-    call closestream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
+    call IOcloseStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
+    call IOcloseStream (Gr_Mn_disk%fname, Gr_Mn_disk%lun)
 
 
   end subroutine inelAsymmDisk

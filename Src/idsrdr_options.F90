@@ -149,7 +149,11 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, Nodes, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode, Nodes
+#endif
 
 #ifdef MPI
     include "mpif.h"
@@ -164,7 +168,7 @@ CONTAINS
 #endif
 
     if (IOnode) then
-       write (6,'(/,28("*"),a,28("*"))')                              &
+       write (6,'(/,28("*"),a,28("*"))')                                &
             ' Simulation parameters '
 
 !      Defile System Label (short name to label files).
@@ -215,7 +219,7 @@ CONTAINS
        if (readunitstf) then
           if (nunits == 0) then
 #ifdef MPI
-             call MPI_Abort (MPI_Comm_world, 1, MPIerror)
+             call MPI_Abort (MPI_Comm_MyWorld, 1, MPIerror)
 #else
              stop 'readopt: ERROR: Number of units is zero!'
 #endif
@@ -415,68 +419,70 @@ CONTAINS
 
 #ifdef MPI
     call MPI_Bcast (slabel, label_length, MPI_Character, 0,             &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (NDefects, 1, MPI_Integer, 0,                        &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (avgdist, 1, MPI_Double_Precision, 0,                &
-                    MPI_Comm_world, MPIerror)
-    call MPI_Bcast (nspin, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (nspin, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (ntypeunits, 1, MPI_Integer, 0,                      &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (symmetry, 1, MPI_Integer, 0,                        &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (norbitals, 1, MPI_Integer, 0,                       &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (temp, 1, MPI_Double_Precision, 0,                   &
-                    MPI_Comm_world, MPIerror)
-    call MPI_Bcast (NIVP, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (NIVP, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (VInitial, 1, MPI_Double_Precision, 0,               &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (VFinal, 1, MPI_Double_Precision, 0,                 &
-                    MPI_Comm_world, MPIerror)
-    call MPI_Bcast (NTenerg, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (NTenerg, 1, MPI_Integer, 0,                         &
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TEnergI, 1, MPI_Double_Precision, 0,                &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TEnergF, 1, MPI_Double_Precision, 0,                &
-                    MPI_Comm_world, MPIerror)
-    call MPI_Bcast (calcdos, 1, MPI_Logical, 0, MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (calcdos, 1, MPI_Logical, 0,                         &
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (numberrings, 1, MPI_Integer, 0,                     &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     if (.not. IOnode) allocate (atoms_per_ring(numberrings))
     call MPI_Bcast (atoms_per_ring, numberrings, MPI_Integer, 0,        &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (directory, 60, MPI_Character, 0,                    &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (integraltype, 14, MPI_Character, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (nAsymmPts, 1, MPI_Integer, 0,                       &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (readunitstf, 1, MPI_Logical, 0,                     &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (tightbinding, 1, MPI_Logical, 0,                    &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TBeFermi, 1, MPI_Double_Precision, 0,               &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TBenerg, 1, MPI_Double_Precision, 0,                &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TBcoupl, 1, MPI_Double_Precision, 0,                &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TBenergS, 1, MPI_Double_Precision, 0,               &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TBcouplS, 1, MPI_Double_Precision, 0,               &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     if (ntypeunits > 2) then
        call MPI_Bcast (TBenergSDB, 1, MPI_Double_Precision, 0,          &
-                       MPI_Comm_world, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
        call MPI_Bcast (TBenergDB, 1, MPI_Double_Precision, 0,           &
-                       MPI_Comm_world, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
        call MPI_Bcast (TBcouplSDB, 1, MPI_Double_Precision, 0,          &
-                       MPI_Comm_world, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
        call MPI_Bcast (TBcouplDB, 1, MPI_Double_Precision, 0,           &
-                       MPI_Comm_world, MPIerror)
+                       MPI_Comm_MyWorld, MPIerror)
     endif
     call MPI_Bcast (writeondisk, 1, MPI_Logical, 0,                     &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 !   It is not necessary to broadcast 'nunits' here.
 #endif
 

@@ -26,6 +26,11 @@
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: brandimarte@gmail.com                                        !
+!                                                                       !
+!  Modified by Alberto Torres, Jan 2014.                                !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
 !  *******************************************************************  !
@@ -35,20 +40,39 @@ PROGRAM IDISORDER
 !
 ! Modules
 !
+#ifdef MASTER_SLAVE
+  use parallel,        only: IOnode, Node
+#else
   use parallel,        only: IOnode
+#endif
   use idsrdr_init,     only: init
   use idsrdr_units,    only: makeunits
+#ifdef MASTER_SLAVE
+  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei, MyEiRecord
+#else
   use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
+#endif
   use idsrdr_hilbert,  only: hilbertkernel
   use idsrdr_spectral, only: spectralinit, spectral
   use idsrdr_green,    only: greeninit, greenfunctions
+#ifdef MASTER_SLAVE
+  use idsrdr_options,  only: nspin, NTenerg
+#else
   use idsrdr_options,  only: nspin
+#endif
   use idsrdr_leads,    only: leadsSelfEn
   use idsrdr_current,  only: currentinit, current
   use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
+#ifdef MASTER_SLAVE
+  use master_slave,    only: Master_SetupLoop, Slave_AskWork
+#endif
 
   implicit none
+
+#ifdef MASTER_SLAVE
+  include "master-slave.h"
+#endif
 
 ! Local variables.
   integer :: ienergy, ispin
@@ -74,10 +98,25 @@ PROGRAM IDISORDER
 ! Initialize Green's functions structures.
   call greeninit
 
-  if (IOnode) write (6,'(/,28("*"),a,28("*"),/)')                     &
+  if (IOnode) write (6,'(/,28("*"),a,28("*"),/)')                       &
        ' Transport Calculation '
 
+#ifdef MASTER_SLAVE
+  call Master_SetupLoop (NTenerg)
+
+  do while (.true.)
+
+     call Slave_AskWork (ienergy)
+
+     write (*,'(a,i2,a,i4)') 'Node ', Node, ' received iE = ', ienergy 
+
+     if (ienergy == ENDWORK_MSG) exit
+
+     MyEiRecord (ienergy) = Node ! Keep track which energies I
+                                 ! (the node) calculates
+#else
   do ienergy = 1,NTenerg_div ! over energy grid
+#endif
      do ispin = 1,nspin ! over spin components
 
 !       Calculate lead's self-energies.

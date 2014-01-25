@@ -39,6 +39,7 @@ MODULE idsrdr_leads
   use parallel,        only: 
   use idsrdr_options,  only: 
   use idsrdr_check,    only: 
+  use idsrdr_io,       only: 
 
   implicit none
   
@@ -131,9 +132,14 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode
+#endif
     use idsrdr_options,  only: nspin, temp, directory,                  &
                                tightbinding, TBeFermi
+    use idsrdr_io,       only: IOassign, IOclose
 
 #ifdef MPI
     include "mpif.h"
@@ -147,17 +153,17 @@ CONTAINS
     real(8) :: EfLeadR
     character (len=30) :: slabeli
     character(len=72), external :: paste
-    external :: io_assign, io_close, zhsunits, ranksvd
+    external :: zhsunits, ranksvd
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
     if (IOnode) then
 
-       write (6,'(/,30("*"),a,31("*"))')                              &
+       write (6,'(/,30("*"),a,31("*"))')                                &
             ' Leads input data '
 
-       call io_assign (iu)
+       call IOassign (iu)
        open (iu, file=paste(directory,'bulklft.DAT'), status='old')
        read (iu,*) slabeli, NL, nspinu, maxnh, EfLead
        write (6,2)                                                      &
@@ -170,8 +176,8 @@ CONTAINS
           write (6,'(a)') 'WARNING: spin components from left lead ' // &
                'differs from input option!'
        endif
-       call io_close (iu)
-       call io_assign (iu)
+       call IOclose (iu)
+       call IOassign (iu)
        open (iu, file=paste(directory,'bulkrgt.DAT'), status='old')
        read (iu,*) slabeli, NR, nspinu, maxnh, EfLeadR
        if (nspinu /= nspin) then
@@ -194,17 +200,17 @@ CONTAINS
        write (6,6)                                                      &
             'readleads: Lead Fermi energy                       ' //    &
             '      =', EfLead, ' Ry'
-       call io_close (iu)
+       call IOclose (iu)
 
        write (6,'(2a,/)') 'readleads: ', repeat('*', 68)
 
     endif
 
 #ifdef MPI
-    call MPI_Bcast (NL, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
-    call MPI_Bcast (NR, 1, MPI_Integer, 0, MPI_Comm_world, MPIerror)
+    call MPI_Bcast (NL, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (NR, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (EfLead, 1 ,MPI_Double_Precision, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 !   Allocate hamiltonians and overlap matrices.
@@ -233,21 +239,21 @@ CONTAINS
 
 #ifdef MPI
     call MPI_Bcast (H0_L, NL*NL*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S0_L, NL*NL, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (H1_L, NL*NL*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S1_L, NL*NL, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (H0_R, NR*NR*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S0_R, NR*NR, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (H1_R, NR*NR*nspin, MPI_Double_Complex, 0,           &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (S1_R, NR*NR, MPI_Double_Complex, 0,                 &
-                    MPI_Comm_world, MPIerror)
+                    MPI_Comm_MyWorld, MPIerror)
 #endif
 
 
