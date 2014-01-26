@@ -37,7 +37,7 @@ MODULE idsrdr_string
   implicit none
   
   PUBLIC :: STRconcat, STRpaste
-  PRIVATE :: 
+  PRIVATE ! default is private
 
 
 CONTAINS
