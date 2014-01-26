@@ -45,7 +45,7 @@ EXEC = i-disorder.optim
 # a good idea to add options here, except when they are essential for
 # a proper operation. For example, here we request 64 bits and a special
 # sub-compiler.
-FC = /gpfs/software/intel/impi/4.1.1.036/intel64/bin/mpiifort
+FC = mpif90
 
 # The FC_SERIAL symbol is useful in at least two cases:
 #   1. When the "MPI compiler environment" is so complex that it might
@@ -54,7 +54,7 @@ FC = /gpfs/software/intel/impi/4.1.1.036/intel64/bin/mpiifort
 #      the computer centers as "queuing-system-only". 
 # Most utilities are thus compiled with FC_SERIAL, which in practice
 # defaults to FC if it is not defined.
-FC_SERIAL = /gpfs/software/intel/composer_xe_2013_sp1.0.080/bin/intel64/ifort
+FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
 FFLAGS = -O2 -xHost -ip -mp1 \
@@ -104,11 +104,11 @@ FPPFLAGS_free_F90 =
 # We can make things a bit easier by grouping symbols, and maybe
 # using the -L flag to define search directories (see examples
 # in 'siesta-3.1/Src/Sys' directory).
-MKL              = /gpfs/software/intel/composer_xe_2013_sp1.0.080/mkl
+MKL              = /opt/intel/composer_xe_2013.0.079/mkl
 INTEL_LIBS       = $(MKL)/lib/intel64/libmkl_intel_lp64.a \
                    $(MKL)/lib/intel64/libmkl_sequential.a \
                    $(MKL)/lib/intel64/libmkl_core.a \
-                   $(MKL)/lib/intel64/libmkl_blacs_intelmpi_lp64.a \
+                   $(MKL)/lib/intel64/libmkl_blacs_openmpi_lp64.a \
                    $(MKL)/lib/intel64/libmkl_scalapack_lp64.a
 #                   $(MKL)/lib/intel64/libmkl_blas95_lp64.a \
 #                   $(MKLROOT)/lib/intel64/libmkl_lapack95_lp64.a
@@ -120,7 +120,7 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
 # might need something like -L somepath/ -l mpi ...
-MPI_LIBS = -L/gpfs/software/intel/impi/4.1.1.036/intel64/lib -lmpi
+MPI_LIBS = -L/opt/openmpi-1.6.4/lib64 -lmpi
 
 # Even if you have an optimized system library (such as ESSL), you might
 # not have all of LAPACK. In particular, the divide_and_conquer routines
@@ -137,7 +137,7 @@ COMP_LIBS =
 # implementation. If your compiler vendor offers an alternative, you may
 # change to it here.
 #MPI_INTERFACE = libmpi_f90.a
-MPI_INCLUDE   = -I/gpfs/software/intel/impi/4.1.1.036/intel64/include
+MPI_INCLUDE   = -I/opt/openmpi-1.6.4/include
 
 # Preprocessor definitions or flags.
 # Here we use FPPFLAGS (as 'configure' calls them), but historically

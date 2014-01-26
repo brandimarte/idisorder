@@ -79,8 +79,6 @@ OBJS += idsrdr_string.o idsrdr_io.o gensvd.o rank.o ranksvd.o           \
 	idsrdr_hilbert.o idsrdr_current.o idsrdr_out.o idsrdr_end.o     \
 	idisorder.o
 
-	@echo "==> $(OBJS)"
-
 #  *******************************************************************  #
 
 FDF=libfdf.a
