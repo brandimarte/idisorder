@@ -177,12 +177,29 @@ CONTAINS
           allocate (buffSpc(NTenerg_div,nspin))
           allocate (buffDos(NTenerg_div,nspin))
 
+#ifdef MASTER_SLAVE
+       else
+          allocate (buffSpc(NTenerg_div,nspin))
+          allocate (buffDos(NTenerg_div,nspin))
+#endif
+
        endif
 
 !      Write to the output files (energies in eV (from CODATA - 2012)).
-#ifdef MPI
+#ifdef MASTER_SLAVE
+!      Reduce the reults to the IOnode and write
+       call MPI_Reduce (spctrl(1,1,J), buffSpc, NTenerg_div*nspin,      &
+                        MPI_Double_Precision, MPI_Sum, 0,               &
+                        MPI_Comm_MyWorld, MPIerror)
+       call MPI_Reduce (dos(1,1,J), buffDos, NTenerg_div*nspin,         &
+                        MPI_Double_Precision, MPI_Sum, 0,               &
+                        MPI_Comm_MyWorld, MPIerror)
+       if (IOnode) then
+          spctrl(:,:,J) = buffSpc(:,:)
+          dos(:,:,J)    = buffDos(:,:)
+#elif defined MPI
        do n = 0,Nodes-1
-          if (Node == n .and. Node == 0) then
+          if (Node == n .and. IOnode) then
 #endif
              do e = 1,NTenerg_div
 
@@ -201,7 +218,9 @@ CONTAINS
                         dos(e,s,J) !Ry
                 enddo
              enddo
-#ifdef MPI
+#ifdef MASTER_SLAVE
+       end if ! IOnode
+#elif defined MPI
           elseif (Node == n) then
              call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
                             0, 1, MPI_Comm_world, MPIerror)
@@ -246,11 +265,11 @@ CONTAINS
                 enddo
              endif
           endif
-       enddo
+       enddo ! n = 0,Nodes-1
 #endif
 
 !      Close files and free buffers memory.
-       if (Node == 0) then
+       if (IONode) then
 
           call IOclose (iuSpc)
           call IOclose (iuDos)
@@ -258,6 +277,12 @@ CONTAINS
           deallocate (buffEn)
           deallocate (buffSpc)
           deallocate (buffDos)
+
+#ifdef MASTER_SLAVE
+       else
+          deallocate (buffSpc)
+          deallocate (buffDos)
+#endif
 
        endif
 
@@ -379,6 +404,11 @@ CONTAINS
        allocate (buffEn(NTenerg_div))
        allocate (buffCurr(NTenerg_div,nspin,NIVP))
 
+#ifdef MASTER_SLAVE
+    else
+       allocate (buffCurr(NTenerg_div,nspin,NIVP))
+#endif
+
     endif
 
 #ifdef MPI
@@ -394,7 +424,14 @@ CONTAINS
 #endif
 
 !   Write to the output files.
-#ifdef MPI
+#ifdef MASTER_SLAVE
+!      Reduce the reults to the IOnode and write
+    call MPI_Reduce (allcurr(1,1,1), buffCurr,                          &
+                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPI_Sum,      &
+                     0, MPI_Comm_MyWorld, MPIerror)
+    if (IOnode) then
+       allcurr(:,:,:) = buffCurr(:,:,:)
+#elif defined MPI
     do n = 0,Nodes-1
        if (Node == n .and. Node == 0) then
 #endif
@@ -432,7 +469,9 @@ CONTAINS
                 enddo
              enddo
           enddo
-#ifdef MPI
+#ifdef MASTER_SLAVE
+    end if ! IOnode
+#elif defined MPI
        elseif (Node == n) then
           call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,         &
                          0, 1, MPI_Comm_world, MPIerror)
@@ -485,7 +524,7 @@ CONTAINS
              enddo
           endif
        endif
-    enddo
+    enddo ! n = 0,Nodes-1
 #endif
 
 !   Close files and free buffers memory.
@@ -499,6 +538,11 @@ CONTAINS
 
        deallocate (buffEn)
        deallocate (buffCurr)
+
+#ifdef MASTER_SLAVE
+    else
+       deallocate (buffCurr)
+#endif
 
     endif
 
