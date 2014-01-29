@@ -92,7 +92,7 @@ CONTAINS
 !  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  integer nspin               : Number of spin components              !
-!  integer NIVP                : Number of bias potential points       !
+!  integer NIVP                : Number of bias potential points        !
 !  integer NTenerg_div         : Number of energy grid points per node  !
 !  *******************************************************************  !
   subroutine currentinit
@@ -371,8 +371,8 @@ CONTAINS
 !  integer ispin                       : Spin component index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
-!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
-!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  complex*8 Gamma_L(NL,NL)            : Left-lead coupling matrix      !
+!  complex*8 Gamma_R(NR,NR)            : Right-lead coupling matrix     !
 !  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : [DEBUG] Energy grid point      !
 !  ***************************** OUTPUT ******************************  !

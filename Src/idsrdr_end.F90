@@ -47,6 +47,7 @@ MODULE idsrdr_end
   use idsrdr_spectral, only: 
   use idsrdr_hilbert,  only: 
   use idsrdr_current,  only: 
+  use idsrdr_power,    only: 
   use idsrdr_io,       only: 
 
   implicit none
@@ -94,7 +95,7 @@ CONTAINS
     use parallel,        only: IOnode
 #endif
     use idsrdr_init,     only: time_begin
-    use idsrdr_options,  only: label_length, slabel, freeopt
+    use idsrdr_options,  only: label_length, slabel
     use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
     use idsrdr_units,    only: freeunits
@@ -103,6 +104,7 @@ CONTAINS
     use idsrdr_spectral, only: freespectral
     use idsrdr_hilbert,  only: freehilb
     use idsrdr_current,  only: freecurr
+    use idsrdr_power,    only: freepower
     use idsrdr_io,       only: freeIO
 
 #ifdef MPI
@@ -127,13 +129,13 @@ CONTAINS
          'finalize: Freeing memory...'
     call freegrid
     call freeleads
-    call freeopt
     call freeunits
     call freeEPH
     call freegreen
     call freespectral
     call freehilb
     call freecurr
+    call freepower
     call freeIO
 
     if (IOnode) then

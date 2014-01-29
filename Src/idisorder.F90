@@ -61,6 +61,7 @@ PROGRAM IDISORDER
   use idsrdr_options,  only: nspin, NIVP, VInitial, dV
 #endif
   use idsrdr_leads,    only: leadsSelfEn
+  use idsrdr_power,    only: powerinit, power
   use idsrdr_current,  only: currentinit, current
   use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
@@ -92,6 +93,9 @@ PROGRAM IDISORDER
 
 ! Initialize spectral function and DOS arrays.
   call spectralinit
+
+! Initialize calculated power and occupation arrays.
+  call powerinit
 
 ! Initialize calculated current array.
   call currentinit
@@ -134,7 +138,7 @@ PROGRAM IDISORDER
         do iv = 1,NIVP ! over bias points
 
 !          Calculate dissipated power into phonon system.
-
+           call power (ienergy, ispin, iv, Vbias)
 
 !          Calculate the current.
            call current (Ei(ienergy), ienergy, ispin, iv, Vbias)
