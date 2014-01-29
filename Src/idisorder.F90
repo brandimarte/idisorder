@@ -63,6 +63,7 @@ PROGRAM IDISORDER
   use idsrdr_leads,    only: leadsSelfEn
   use idsrdr_power,    only: powerinit, power
   use idsrdr_current,  only: currentinit, current
+  use idsrdr_conduct,  only: conductinit, conduct
   use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
 #ifdef MASTER_SLAVE
@@ -99,6 +100,9 @@ PROGRAM IDISORDER
 
 ! Initialize calculated current array.
   call currentinit
+
+! Initialize calculated differential conductances arrays.
+  call conductinit
 
 ! Initialize Green's functions structures.
   call greeninit
@@ -149,6 +153,9 @@ PROGRAM IDISORDER
 
      enddo
   enddo
+
+! Compute differential conductances ('dI/dV' and 'd2I/dV2').
+  call conduct
 
 ! Write calculated values at output files.
   call output

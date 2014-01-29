@@ -76,8 +76,8 @@ OBJS += idsrdr_string.o idsrdr_io.o gensvd.o rank.o ranksvd.o           \
 	idsrdr_recipes.o idsrdr_options.o idsrdr_leads.o idsrdr_init.o  \
 	idsrdr_ephcoupl.o idsrdr_engrid.o idsrdr_units.o                \
 	idsrdr_distrib.o idsrdr_green.o idsrdr_spectral.o               \
-	idsrdr_hilbert.o idsrdr_power.o idsrdr_current.o idsrdr_out.o   \
-	idsrdr_end.o idisorder.o
+	idsrdr_hilbert.o idsrdr_power.o idsrdr_current.o                \
+	idsrdr_conduct.o idsrdr_out.o idsrdr_end.o idisorder.o
 
 #  *******************************************************************  #
 
@@ -127,16 +127,19 @@ clean:
 #idsorder.o : parallel.o idsrdr_init.o idsrdr_units.o idsrdr_engrid.o   \
 #	idsrdr_spectral.o idsrdr_green.o idsrdr_options.o               \
 #       idsrdr_leads.o idsrdr_current.o idsrdr_end.o master_slave.o     \
-#       idsrdr_power.o
+#       idsrdr_power.o idsrdr_conduct.o
 #idsrdr_check.o : parallel.o
-#idsrdr_current.o : parallel.o idsrdr_leads.o idsrdr_ephcoupl.o         \
-#	idsrdr_green.o idsrdr_options.o idsrdr_units.o idsrdr_check.o   \
-#	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o              \
-#	idsrdr_io.o
+#idsrdr_conduct.o : parallel.o idsrdr_options.o idsrdr_engrid.o         \
+#       idsrdr_current.o
+#idsrdr_current.o : parallel.o idsrdr_options.o idsrdr_engrid.o         \
+#	idsrdr_leads.o idsrdr_ephcoupl.o idsrdr_green.o idsrdr_units.o  \
+#	idsrdr_check.o idsrdr_recipes.o idsrdr_distrib.o                \
+#	idsrdr_hilbert.o idsrdr_io.o idsrdr_power.o
 #idsrdr_distrib.o :
 #idsrdr_end.o : parallel.o idsrdr_init.o idsrdr_leads.o idsrdr_engrid.o \
-#	idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o                \
-#	idsrdr_hilbert.o idsrdr_current.o idsrdr_power.o
+#	idsrdr_units.o idsrdr_ephcoupl.o idsrdr_green idsrdr_spectral.o \
+#	idsrdr_hilbert.o idsrdr_current.o idsrdr_power.o                \
+#	idsrdr_conduct.o
 #idsrdr_engrid.o : parallel.o idsrdr_options.o idsrdr_leads.o
 #idsrdr_ephcoupl.o : parallel.o idsrdr_options.o idsrdr_io.o            \
 #	idsrdr_string.o
@@ -152,7 +155,7 @@ clean:
 #idsrdr_options.o : parallel.o
 #idsrdr_out.o : parallel.o idsrdr_options.o idsrdr_engrid.o             \
 #	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o idsrdr_io.o   \
-#	idsrdr_string.o
+#	idsrdr_string.o idsrdr_power.o idsrdr_conduct.o
 #idsrdr_power.o : parallel.o idsrdr_units.o idsrdr_options.o            \
 #	idsrdr_engrid.o idsrdr_leads.o idsrdr_ephcoupl.o idsrdr_green.o \
 #	idsrdr_io.o idsrdr_distrib.o

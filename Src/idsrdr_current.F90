@@ -21,8 +21,7 @@
 !  *******************************************************************  !
 !                         MODULE idsrdr_current                         !
 !  *******************************************************************  !
-!  Description: compute the eletronic current (actually the             !
-!  transmission coeficient at zero bias).                               !
+!  Description: compute the eletronic current.                          !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -38,20 +37,22 @@ MODULE idsrdr_current
 !   Modules
 !
   use parallel,        only: 
+  use idsrdr_options,  only: 
+  use idsrdr_engrid,   only: 
   use idsrdr_leads,    only: 
   use idsrdr_ephcoupl, only: 
   use idsrdr_green,    only: 
-  use idsrdr_options,  only: 
   use idsrdr_units,    only: 
   use idsrdr_check,    only: 
   use idsrdr_recipes,  only: 
   use idsrdr_distrib,  only: 
   use idsrdr_hilbert,  only: 
   use idsrdr_io,       only: 
+  use idsrdr_power,    only: 
 
   implicit none
   
-  PUBLIC  :: currentinit, current, calcCurr, freecurr
+  PUBLIC  :: currentinit, current, calcCurr, allcurr, freecurr
   PRIVATE :: elastic, transmission, inelSymm, inelSymmDisk, asymmPre,   &
              inelAsymm, inelAsymmDisk, testInelSymm, testInelAsymm,     &
              kbTol, eoverh
@@ -64,6 +65,7 @@ MODULE idsrdr_current
      real(8) :: iasymm ! inelastic asymmetric
   END TYPE calcCurr
 
+! Calculated currents.
   TYPE(calcCurr), allocatable, dimension (:,:,:) :: allcurr
 
   real(8), parameter :: kbTol = 18.d0 ! tolerance value for temperature
@@ -81,7 +83,7 @@ CONTAINS
 !  *******************************************************************  !
 !                              currentinit                              !
 !  *******************************************************************  !
-!  Description: allocate array of type 'current' for storing            !
+!  Description: allocate array of type 'calcCurr' for storing           !
 !  calculated currents.                                                 !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !

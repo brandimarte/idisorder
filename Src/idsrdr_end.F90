@@ -38,7 +38,6 @@ MODULE idsrdr_end
 !
   use parallel,        only: 
   use idsrdr_init,     only: 
-  use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use idsrdr_engrid,   only: 
   use idsrdr_units,    only: 
@@ -48,6 +47,7 @@ MODULE idsrdr_end
   use idsrdr_hilbert,  only: 
   use idsrdr_current,  only: 
   use idsrdr_power,    only: 
+  use idsrdr_conduct,  only: 
   use idsrdr_io,       only: 
 
   implicit none
@@ -77,8 +77,6 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                 : True if it is the I/O node          !
 !  real*8 time_begin              : Initial processor time in seconds   !
-!  integer label_length           : Length of system label              !
-!  character(label_length) slabel : System Label (for output files)     !
 !  *******************************************************************  !
   subroutine finalize
 
@@ -95,7 +93,6 @@ CONTAINS
     use parallel,        only: IOnode
 #endif
     use idsrdr_init,     only: time_begin
-    use idsrdr_options,  only: label_length, slabel
     use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
     use idsrdr_units,    only: freeunits
@@ -105,6 +102,7 @@ CONTAINS
     use idsrdr_hilbert,  only: freehilb
     use idsrdr_current,  only: freecurr
     use idsrdr_power,    only: freepower
+    use idsrdr_conduct,  only: freedIdV
     use idsrdr_io,       only: freeIO
 
 #ifdef MPI
@@ -136,6 +134,7 @@ CONTAINS
     call freehilb
     call freecurr
     call freepower
+    call freedIdV
     call freeIO
 
     if (IOnode) then
