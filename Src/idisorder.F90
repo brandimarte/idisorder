@@ -56,11 +56,12 @@ PROGRAM IDISORDER
   use idsrdr_spectral, only: spectralinit, spectral
   use idsrdr_green,    only: greeninit, greenfunctions
 #ifdef MASTER_SLAVE
-  use idsrdr_options,  only: nspin, NTenerg
+  use idsrdr_options,  only: nspin, NIVP, VInitial, dV, NTenerg
 #else
-  use idsrdr_options,  only: nspin
+  use idsrdr_options,  only: nspin, NIVP, VInitial, dV
 #endif
   use idsrdr_leads,    only: leadsSelfEn
+  use idsrdr_power,    only: powerinit, power
   use idsrdr_current,  only: currentinit, current
   use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
@@ -75,7 +76,8 @@ PROGRAM IDISORDER
 #endif
 
 ! Local variables.
-  integer :: ienergy, ispin
+  integer :: ienergy, ispin, iv
+  real(8) :: Vbias
 
 ! Proper initialization and reading of input options.
   call init
@@ -91,6 +93,9 @@ PROGRAM IDISORDER
 
 ! Initialize spectral function and DOS arrays.
   call spectralinit
+
+! Initialize calculated power and occupation arrays.
+  call powerinit
 
 ! Initialize calculated current array.
   call currentinit
@@ -128,8 +133,19 @@ PROGRAM IDISORDER
 !       Compute spectral function and DOS for units with e-ph.
         call spectral (ienergy, ispin)
 
-!       Calculate the current.
-        call current (Ei(ienergy), ienergy, ispin)
+        Vbias = VInitial
+
+        do iv = 1,NIVP ! over bias points
+
+!          Calculate dissipated power into phonon system.
+           call power (ienergy, ispin, iv, Vbias)
+
+!          Calculate the current.
+           call current (Ei(ienergy), ienergy, ispin, iv, Vbias)
+
+           Vbias = Vbias + dV
+
+        enddo
 
      enddo
   enddo

@@ -45,11 +45,12 @@ MODULE idsrdr_out
   use idsrdr_current,  only: 
   use idsrdr_io,       only: 
   use idsrdr_string,   only: 
-
+  use idsrdr_power,    only: 
+ 
   implicit none
 
   PUBLIC  :: output
-  PRIVATE :: writespectral, writecurrent
+  PRIVATE :: writespectral, writecurrent, writepower
 
 
 CONTAINS
@@ -85,6 +86,9 @@ CONTAINS
 
 !   Write calculated currents to files.
     call writecurrent
+
+!   Write calculated dissipated powers to files.
+    call writepower
 
 
   end subroutine output
@@ -137,7 +141,7 @@ CONTAINS
 
 !   Local variables.
     integer :: J, n, e, s, iuSpc, iuDos
-    real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
+!!$    real(8), parameter :: pi = 3.14159265358979323846264338327950241D0
     real(8), dimension(:), allocatable :: buffEn
     real(8), dimension(:,:), allocatable :: buffSpc, buffDos
     character(len=10) :: suffix
@@ -177,12 +181,30 @@ CONTAINS
           allocate (buffSpc(NTenerg_div,nspin))
           allocate (buffDos(NTenerg_div,nspin))
 
+#ifdef MASTER_SLAVE
+       else
+          allocate (buffSpc(NTenerg_div,nspin))
+          allocate (buffDos(NTenerg_div,nspin))
+#endif
+
        endif
 
 !      Write to the output files (energies in eV (from CODATA - 2012)).
-#ifdef MPI
+#ifdef MASTER_SLAVE
+!      Reduce the reults to the IOnode and write
+       call MPI_Reduce (spctrl(1,1,J), buffSpc, NTenerg_div*nspin,      &
+                        MPI_Double_Precision, MPI_Sum, 0,               &
+                        MPI_Comm_MyWorld, MPIerror)
+       call MPI_Reduce (dos(1,1,J), buffDos, NTenerg_div*nspin,         &
+                        MPI_Double_Precision, MPI_Sum, 0,               &
+                        MPI_Comm_MyWorld, MPIerror)
+
+       if (IOnode) then
+          spctrl(:,:,J) = buffSpc(:,:)
+          dos(:,:,J)    = buffDos(:,:)
+#elif defined MPI
        do n = 0,Nodes-1
-          if (Node == n .and. Node == 0) then
+          if (Node == n .and. IOnode) then
 #endif
              do e = 1,NTenerg_div
 
@@ -201,7 +223,9 @@ CONTAINS
                         dos(e,s,J) !Ry
                 enddo
              enddo
-#ifdef MPI
+#ifdef MASTER_SLAVE
+       end if ! IOnode
+#elif defined MPI
           elseif (Node == n) then
              call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
                             0, 1, MPI_Comm_world, MPIerror)
@@ -246,11 +270,11 @@ CONTAINS
                 enddo
              endif
           endif
-       enddo
+       enddo ! n = 0,Nodes-1
 #endif
 
 !      Close files and free buffers memory.
-       if (Node == 0) then
+       if (IONode) then
 
           call IOclose (iuSpc)
           call IOclose (iuDos)
@@ -259,9 +283,15 @@ CONTAINS
           deallocate (buffSpc)
           deallocate (buffDos)
 
+#ifdef MASTER_SLAVE
+       else
+          deallocate (buffSpc)
+          deallocate (buffDos)
+#endif
+
        endif
 
-    enddo ! do J = 1,nunitseph
+    enddo ! do J = 1,nunitseph+1
 
 
   end subroutine writespectral
@@ -321,10 +351,9 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: i, n, e, s, iuExVxI, iuExVxIel, iuExVxIsymm,             &
+    integer :: n, e, s, v, iuExVxI, iuExVxIel, iuExVxIsymm,             &
                iuExVxIasymm, iuExVxItot
     real(8) :: Vbias
-    real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
     real(8), dimension(:), allocatable :: buffEn
     TYPE(calcCurr), allocatable, dimension (:,:,:) :: buffCurr
     character(len=16) :: suffix
@@ -379,6 +408,11 @@ CONTAINS
        allocate (buffEn(NTenerg_div))
        allocate (buffCurr(NTenerg_div,nspin,NIVP))
 
+#ifdef MASTER_SLAVE
+    else
+       allocate (buffCurr(NTenerg_div,nspin,NIVP))
+#endif
+
     endif
 
 #ifdef MPI
@@ -394,45 +428,51 @@ CONTAINS
 #endif
 
 !   Write to the output files.
-#ifdef MPI
+#ifdef MASTER_SLAVE
+!   Reduce the reults to the IOnode and write
+    call MPI_Reduce (allcurr(1,1,1), buffCurr,                          &
+                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPI_Sum,      &
+                     0, MPI_Comm_MyWorld, MPIerror)
+
+    if (IOnode) then
+       allcurr(:,:,:) = buffCurr(:,:,:)
+#elif defined MPI
     do n = 0,Nodes-1
-       if (Node == n .and. Node == 0) then
+       if (Node == n .and. IOnode) then
 #endif
           do e = 1,NTenerg_div
              do s = 1,nspin
 
                 Vbias = VInitial
 
-                do i = 1,NIVP
+                do v = 1,NIVP
 
 !                  OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
 !                  for writing in eV (from CODATA - 2012).
                    write (iuExVxI,                                      &
                         '(e17.8e3,e17.8e3,e17.8e3,'                 //  &
                         'e17.8e3,e17.8e3,e17.8e3)') Ei(e), Vbias,       &
-                        allcurr(e,s,i)%el, allcurr(e,s,i)%isymm,        &
-                        allcurr(e,s,i)%iasymm, allcurr(e,s,i)%el        &
-                        + allcurr(e,s,i)%isymm + allcurr(e,s,i)%iasymm
-                   write (iuExVxIel,                                    &
-                        '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')            &
-                        Ei(e), Vbias, allcurr(e,s,i)%el
-                   write (iuExVxIsymm,                                  &
-                        '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')            &
-                        Ei(e), Vbias, allcurr(e,s,i)%isymm
-                   write (iuExVxIasymm,                                 &
-                        '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')            &
-                        Ei(e), Vbias, allcurr(e,s,i)%iasymm
-                   write (iuExVxItot,                                   &
-                        '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')            &
-                        Ei(e), Vbias, allcurr(e,s,i)%el                 &
-                        + allcurr(e,s,i)%isymm + allcurr(e,s,i)%iasymm
+                        allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
+                        allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el        &
+                        + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
+                   write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')       &
+                        Ei(e), Vbias, allcurr(e,s,v)%el
+                   write (iuExVxIsymm, '(e17.8e3,e17.8e3,e17.8e3)')     &
+                        Ei(e), Vbias, allcurr(e,s,v)%isymm
+                   write (iuExVxIasymm, '(e17.8e3,e17.8e3,e17.8e3)')    &
+                        Ei(e), Vbias, allcurr(e,s,v)%iasymm
+                   write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')      &
+                        Ei(e), Vbias, allcurr(e,s,v)%el                 &
+                        + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
 
                    Vbias = Vbias + dV
 
                 enddo
              enddo
           enddo
-#ifdef MPI
+#ifdef MASTER_SLAVE
+    end if ! IOnode
+#elif defined MPI
        elseif (Node == n) then
           call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,         &
                          0, 1, MPI_Comm_world, MPIerror)
@@ -452,31 +492,27 @@ CONTAINS
 
                    Vbias = VInitial
 
-                   do i = 1,NIVP
+                   do v = 1,NIVP
 
 !                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
 !                     for writing in eV (from CODATA - 2012).
                       write (iuExVxI,                                   &
                            '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'    //    &
                            'e17.8e3,e17.8e3)') buffEn(e), Vbias,        &
-                           buffCurr(e,s,i)%el, buffCurr(e,s,i)%isymm,   &
-                           buffCurr(e,s,i)%iasymm, buffCurr(e,s,i)%el   &
-                           + buffCurr(e,s,i)%isymm                      &
-                           + buffCurr(e,s,i)%iasymm
-                      write (iuExVxIel,                                 &
-                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-                           buffEn(e), Vbias, buffCurr(e,s,i)%el
-                      write (iuExVxIsymm,                               &
-                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-                           buffEn(e), Vbias, buffCurr(e,s,i)%isymm
-                      write (iuExVxIasymm,                              &
-                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-                           buffEn(e), Vbias, buffCurr(e,s,i)%iasymm
-                      write (iuExVxItot,                                &
-                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3)')         &
-                           buffEn(e), Vbias, buffCurr(e,s,i)%el         &
-                           + buffCurr(e,s,i)%isymm                      &
-                           + buffCurr(e,s,i)%iasymm
+                           buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
+                           buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
+                           + buffCurr(e,s,v)%isymm                      &
+                           + buffCurr(e,s,v)%iasymm
+                      write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')    &
+                           buffEn(e), Vbias, buffCurr(e,s,v)%el
+                      write (iuExVxIsymm, '(e17.8e3,e17.8e3,e17.8e3)')  &
+                           buffEn(e), Vbias, buffCurr(e,s,v)%isymm
+                      write (iuExVxIasymm, '(e17.8e3,e17.8e3,e17.8e3)') &
+                           buffEn(e), Vbias, buffCurr(e,s,v)%iasymm
+                      write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')   &
+                           buffEn(e), Vbias, buffCurr(e,s,v)%el         &
+                           + buffCurr(e,s,v)%isymm                      &
+                           + buffCurr(e,s,v)%iasymm
 
                       Vbias = Vbias + dV
 
@@ -485,11 +521,11 @@ CONTAINS
              enddo
           endif
        endif
-    enddo
+    enddo ! n = 0,Nodes-1
 #endif
 
 !   Close files and free buffers memory.
-    if (Node == 0) then
+    if (IOnode) then
 
        call IOclose (iuExVxI)
        call IOclose (iuExVxIel)
@@ -500,6 +536,11 @@ CONTAINS
        deallocate (buffEn)
        deallocate (buffCurr)
 
+#ifdef MASTER_SLAVE
+    else
+       deallocate (buffCurr)
+#endif
+
     endif
 
 !   Free MPI data type.
@@ -509,6 +550,264 @@ CONTAINS
 
 
   end subroutine writecurrent
+
+
+!  *******************************************************************  !
+!                              writepower                               !
+!  *******************************************************************  !
+!  Description: writes calculated dissipated powers to output files     !
+!  as follows                                                           !
+!                                                                       !
+!    - 'slabel_VxPtot.PWR' contains 'Vbias Power_tot'                   !
+!    - 'slabel_ExPtot.PWR' contains 'Ei Power_tot'                      !
+!    - 'slabel_ExVxPtot.PWR' contains 'Ei Vbias Power_tot'              !
+!    - 'slabel_VxP.PWR' contains 'Vbias Power_mode'                     !
+!    - 'slabel_EXP.PWR' contains 'Ei Power_mode'                        !
+!                                                                       !
+!  where 'Power_tot = Sum_mode Power_mode'.                             !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode              : True if it is the I/O node             !
+!  integer Node                : Actual node (MPI_Comm_rank)            !
+!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
+!  integer nspin               : Number of spin components              !
+!  integer label_length        : Length of system label                 !
+!  character(label_length) slabel : System Label (for output files)     !
+!  character(60) directory     : Working directory                      !
+!  integer NIVP                : Number of bias potential points        !
+!  real*8 VInitial             : Initial value of the bias potential    !
+!  real*8 dV                   : Bias potential step                    !
+!  integer NTenerg_div         : Number of energy grid points per node  !
+!  real*8 Ei(NTenerg_div)      : Energy grid points                     !
+!  integer nModes(neph)        : Number of vibrational modes            !
+!  integer ephIdx(ntypeunits+2): Unit index (those with e-ph)           !
+!  integer nunitseph           : Number of units with eph               !
+!  integer eph_type(nunitseph) : Units types with eph                   !
+!  TYPE(phonon) phPwr(NTenerg_div,nspin,NIVP,nunitseph) : [real]        !
+!                                                    calculated powers  !
+!  *******************************************************************  !
+  subroutine writepower
+
+!
+!   Modules
+!
+    use parallel,        only: IOnode, Node, Nodes
+    use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
+                               NIVP, VInitial, dV
+    use idsrdr_engrid,   only: NTenerg_div, Ei
+    use idsrdr_ephcoupl, only: nModes, ephIdx
+    use idsrdr_units,    only: nunitseph, eph_type
+    use idsrdr_power,    only: phPwr
+    use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRconcat, STRpaste
+
+#ifdef MPI
+    include "mpif.h"
+#endif
+
+!   Local variables.
+    integer :: n, e, s, v, u, w, idx,                                   &
+               iuVxPtot, iuExPtot, iuExVxPtot, iuVxP, iuExP
+    real(8) :: Vbias
+    real(8), dimension(:), allocatable :: buffEn
+    real(8), dimension (:,:,:,:), allocatable :: buffPwr
+    character(len=8) :: suffix
+    character(len=18) :: prefix
+    character(len=label_length+70) :: fVxPtot, fExPtot, fExVxPtot,      &
+                                      fVxP, fExP
+
+#ifdef MPI
+    integer :: MPIerror
+    integer, dimension(MPI_Status_Size) :: MPIstatus
+#endif
+
+    do u = 1,nunitseph ! over units with e-ph intereaction
+
+       idx = ephIdx(eph_type(u))
+
+       if (IOnode) then
+
+          write (6, '(/,a)') 'Writing calculated dissipated powers ' // &
+               'to *.PWR files'
+
+!         Set file's names.
+          write (suffix,'(i3)') u
+          call STRconcat (suffix, '.PWR', suffix)
+          call STRpaste ('_VxPtot_', suffix, prefix)
+          call STRpaste (slabel, prefix, fVxPtot)
+          call STRpaste (directory, fVxPtot, fVxPtot)
+          call STRpaste ('_ExPtot_', suffix, prefix)
+          call STRpaste (slabel, prefix, fExPtot)
+          call STRpaste (directory, fExPtot, fExPtot)
+          call STRpaste ('_ExVxPtot_', suffix, prefix)
+          call STRpaste (slabel, prefix, fExVxPtot)
+          call STRpaste (directory, fExVxPtot, fExVxPtot)
+          call STRpaste ('_VxP_', suffix, prefix)
+          call STRpaste (slabel, prefix, fVxP)
+          call STRpaste (directory, fVxP, fVxP)
+          call STRpaste ('_ExP_', suffix, prefix)
+          call STRpaste (slabel, prefix, fExP)
+          call STRpaste (directory, fExP, fExP)
+
+!         Open them.
+          call IOassign (iuVxPtot)
+          open (iuVxPtot, FILE=fVxPtot, FORM='FORMATTED',               &
+               STATUS='REPLACE')
+          call IOassign (iuExPtot)
+          open (iuExPtot, FILE=fExPtot, FORM='FORMATTED',               &
+               STATUS='REPLACE')
+          call IOassign (iuExVxPtot)
+          open (iuExVxPtot, FILE=fExVxPtot, FORM='FORMATTED',           &
+               STATUS='REPLACE')
+          call IOassign (iuVxP)
+          open (iuVxP, FILE=fVxP, FORM='FORMATTED', STATUS='REPLACE')
+          call IOassign (iuExP)
+          open (iuExP, FILE=fExP, FORM='FORMATTED', STATUS='REPLACE')
+
+!         Allocate buffers arrays.
+          allocate (buffEn(NTenerg_div))
+          allocate (buffPwr(NTenerg_div,nspin,NIVP,nModes(idx)))
+
+#ifdef MASTER_SLAVE
+       else
+          allocate (buffPwr(NTenerg_div,nspin,NIVP,nModes(idx)))
+#endif
+
+       endif
+
+!      Write to the output files.
+#ifdef MASTER_SLAVE
+!      Reduce the reults to the IOnode and write
+       call MPI_Reduce (phPwr(u)%P(1,1,1,1), buffPwr,                   &
+                        NTenerg_div*nspin*NIVP*nModes(idx),             &
+                        MPI_Double_Precision, MPI_Sum,                  &
+                        0, MPI_Comm_MyWorld, MPIerror)
+
+       if (IOnode) then
+          phPwr(u)%P(:,:,:,:) = buffPwr(:,:,:,:)
+#elif defined MPI
+       do n = 0,Nodes-1
+          if (Node == n .and. IONode) then
+#endif
+             do e = 1,NTenerg_div
+                do s = 1,nspin
+
+                   Vbias = VInitial
+
+                   do v = 1,NIVP
+
+!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
+!                     for writing in eV (from CODATA - 2012).
+                      write (iuVxPtot, '(e17.8e3,e17.8e3)') Vbias,      &
+                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
+                      write (iuExPtot, '(e17.8e3,e17.8e3)') Ei(e),      &
+                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
+                      write (iuExVxPtot, '(e17.8e3,e17.8e3,e17.8e3)')   &
+                           Ei(e), Vbias,                                &
+                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
+
+                      write (iuVxP, '(/,e17.8e3)', advance='no') Vbias
+                      write (iuExP, '(/,e17.8e3)', advance='no') Ei(e)
+                      do w = 1,nModes(idx)
+                         write (iuVxP, '(e17.8e3)', advance='no')       &
+                              phPwr(u)%P(e,s,v,w)
+                         write (iuExP, '(e17.8e3)', advance='no')       &
+                              phPwr(u)%P(e,s,v,w)
+                      enddo
+
+                      Vbias = Vbias + dV
+
+                   enddo
+                enddo
+             enddo
+#ifdef MASTER_SLAVE
+       end if ! IOnode
+#elif defined MPI
+          elseif (Node == n) then
+             call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
+                            0, 1, MPI_Comm_world, MPIerror)
+             call MPI_Send (phPwr(u)%P(1,1,1,1),                        &
+                            NTenerg_div*nspin*NIVP*nModes(idx),         &
+                            MPI_Double_Precision, 0, 2,                 &
+                            MPI_Comm_world, MPIerror)
+          elseif (Node == 0) then
+             call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,  &
+                            n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+             call MPI_Recv (buffPwr,                                    &
+                            NTenerg_div*nspin*NIVP*nModes(idx),         &
+                            MPI_Double_Precision, n, 2,                 &
+                            MPI_Comm_world, MPIstatus, MPIerror)
+          endif
+          if (n /= 0) then
+             call MPI_Barrier (MPI_Comm_world, MPIerror)
+             if (Node == 0) then
+                do e = 1,NTenerg_div
+                   do s = 1,nspin
+
+                      Vbias = VInitial
+
+                      do v = 1,NIVP
+
+!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
+!                     for writing in eV (from CODATA - 2012).
+                         write (iuVxPtot, '(e17.8e3,e17.8e3)') Vbias,   &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))
+                         write (iuExPtot, '(e17.8e3,e17.8e3)')          &
+                              buffEn(e),                                &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))
+                         write (iuExVxPtot, '(e17.8e3,e17.8e3,e17.8e3)')&
+                              buffEn(e), Vbias,                         &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))
+
+                         write (iuVxP, '(/,e17.8e3)', advance='no') Vbias
+                         write (iuExP, '(/,e17.8e3)', advance='no')     &
+                              buffEn(e)
+                         do w = 1,nModes(idx)
+                            write (iuVxP, '(e17.8e3)', advance='no')    &
+                                 buffPwr(e,s,v,w)
+                            write (iuExP, '(e17.8e3)', advance='no')    &
+                                 buffPwr(e,s,v,w)
+                         enddo
+
+                         Vbias = Vbias + dV
+
+                      enddo
+                   enddo
+                enddo
+             endif
+          endif
+       enddo ! n = 0,Nodes-1
+#endif
+
+!      Close files and free buffers memory.
+       if (IOnode) then
+
+          call IOclose (iuVxPtot)
+          call IOclose (iuExPtot)
+          call IOclose (iuExVxPtot)
+          call IOclose (iuVxP)
+          call IOclose (iuExP)
+
+          deallocate (buffEn)
+          deallocate (buffPwr)
+
+#ifdef MASTER_SLAVE
+       else
+          deallocate (buffPwr)
+#endif
+
+       endif
+
+    enddo ! do u = 1,nunitseph
+
+
+  end subroutine writepower
 
 
 !  *******************************************************************  !

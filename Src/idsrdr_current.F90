@@ -92,6 +92,7 @@ CONTAINS
 !  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  integer nspin               : Number of spin components              !
+!  integer NIVP                : Number of bias potential points        !
 !  integer NTenerg_div         : Number of energy grid points per node  !
 !  *******************************************************************  !
   subroutine currentinit
@@ -115,8 +116,7 @@ CONTAINS
 !  *******************************************************************  !
 !                                current                                !
 !  *******************************************************************  !
-!  Description: main subroutine for computing the current (actually     !
-!  the transmission coeficient at zero bias).                           !
+!  Description: interface subroutine for computing the current.         !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -130,31 +130,29 @@ CONTAINS
 !  integer NR                   : Number of right lead orbitals         !
 !  complex(8) Sigma_L(NL,NL)    : Left-lead self-energy                 !
 !  complex(8) Sigma_R(NR,NR)    : Right-lead self-energy                !
-!  integer NIVP                 : Number of bias potential points       !
-!  real*8 VInitial              : Initial value of the bias potential   !
-!  real*8 dV                    : Bias potential step                   !
 !  logical writeondisk          : Write GFs on disk?                    !
 !  ****************************** INPUT ******************************  !
 !  real*8 Ei                    : Energy grid point                     !
 !  integer ienergy              : Energy grid index                     !
 !  integer ispin                : Spin component index                  !
+!  integer iv                   : Bias potential index                  !
+!  real*8 Vbias                 : Bias potential value                  !
 !  *******************************************************************  !
-  subroutine current (Ei, ienergy, ispin)
+  subroutine current (Ei, ienergy, ispin, iv, Vbias)
 
 !
 !   Modules
 !
     use parallel,        only: IOnode
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
-    use idsrdr_options,  only: NIVP, VInitial, dV, writeondisk
+    use idsrdr_options,  only: writeondisk
 
 !   Input variables.
-    integer, intent(in) :: ispin, ienergy
-    real(8), intent(in) :: Ei
+    integer, intent(in) :: ienergy, ispin, iv
+    real(8), intent(in) :: Ei, Vbias
 
 !   Local variables.
-    integer :: i
-    real(8) :: Iel, Isymm, Iasymm, Vbias
+    real(8) :: Iel, Isymm, Iasymm
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L
     complex(8), allocatable, dimension (:,:) :: Gamma_R
@@ -170,64 +168,49 @@ CONTAINS
     if (IOnode) write (6,'(a)', advance='no')                           &
          '      computing current... '
 
-    Vbias = VInitial
-
     IF (writeondisk) THEN
 
-       do i = 1,NIVP ! over bias points
+!      Compute elastic contribution.
+       call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
-!         Compute elastic contribution.
-          call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
-
-!         Compute symmetric part of inelastic contribution.
+!      Compute symmetric part of inelastic contribution.
 #ifdef DEBUG
-          call inelSymmDisk (Isymm, ispin, NL, Gamma_L,                 &
-                             NR, Gamma_R, Vbias, Ei)
+       call inelSymmDisk (Isymm, ispin, NL, Gamma_L,                    &
+                          NR, Gamma_R, Vbias, Ei)
 #else
-          call inelSymmDisk (Isymm, ispin, NL, Gamma_L,                 &
-                             NR, Gamma_R, Vbias)
+       call inelSymmDisk (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
 #endif
 
-!         Compute asymmetric part of inelastic contribution.
-          call inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,               &
-                              NR, Gamma_R, Vbias, Ei)
+!      Compute asymmetric part of inelastic contribution.
+       call inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,                  &
+                           NR, Gamma_R, Vbias, Ei)
 
-!         Store calculated currents.
-          allcurr(ienergy,ispin,i)%el = Iel
-          allcurr(ienergy,ispin,i)%isymm = Isymm
-          allcurr(ienergy,ispin,i)%iasymm = Iasymm
-
-          Vbias = Vbias + dV
-
-       enddo
+!      Store calculated currents.
+       allcurr(ienergy,ispin,iv)%el = Iel
+       allcurr(ienergy,ispin,iv)%isymm = Isymm
+       allcurr(ienergy,ispin,iv)%iasymm = Iasymm
 
     ELSE ! write on memory...
 
-       do i = 1,NIVP ! over bias points
+!      Compute elastic contribution.
+       call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
 
-!         Compute elastic contribution.
-          call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
-
-!         Compute symmetric part of inelastic contribution.
+!      Compute symmetric part of inelastic contribution.
 #ifdef DEBUG
-          call inelSymm (Isymm, ispin, NL, Gamma_L,                     &
-                         NR, Gamma_R, Vbias, Ei)
+       call inelSymm (Isymm, ispin, NL, Gamma_L,                        &
+                      NR, Gamma_R, Vbias, Ei)
 #else
-          call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
 #endif
 
-!         Compute asymmetric part of inelastic contribution.
-          call inelAsymm (Iasymm, ispin, NL, Gamma_L,                   &
-                          NR, Gamma_R, Vbias, Ei)
+!      Compute asymmetric part of inelastic contribution.
+       call inelAsymm (Iasymm, ispin, NL, Gamma_L,                      &
+                       NR, Gamma_R, Vbias, Ei)
 
-!         Store calculated currents.
-          allcurr(ienergy,ispin,i)%el = Iel
-          allcurr(ienergy,ispin,i)%isymm = Isymm
-          allcurr(ienergy,ispin,i)%iasymm = Iasymm
-
-          Vbias = Vbias + dV
-
-       enddo
+!      Store calculated currents.
+       allcurr(ienergy,ispin,iv)%el = Iel
+       allcurr(ienergy,ispin,iv)%isymm = Isymm
+       allcurr(ienergy,ispin,iv)%iasymm = Iasymm
 
     ENDIF ! IF (writeondisk)
 
@@ -388,8 +371,8 @@ CONTAINS
 !  integer ispin                       : Spin component index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
-!  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
-!  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
+!  complex*8 Gamma_L(NL,NL)            : Left-lead coupling matrix      !
+!  complex*8 Gamma_R(NR,NR)            : Right-lead coupling matrix     !
 !  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : [DEBUG] Energy grid point      !
 !  ***************************** OUTPUT ******************************  !
