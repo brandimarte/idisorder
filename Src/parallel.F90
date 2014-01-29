@@ -52,6 +52,8 @@ MODULE parallel
   logical, save :: IamMaster = .false.    ! Only one to rule them all
 #endif
 
+  integer, save :: ProcsPerGPU = 0        ! Procs running per GPU (zero if you don't have any)
+
 
 !  *******************************************************************  !
 

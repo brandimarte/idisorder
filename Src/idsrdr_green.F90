@@ -278,7 +278,7 @@ CONTAINS
     use idsrdr_units,    only: unit_type, unitdimensions, unitshift,    &
                                S1unit, H1unit, Sunits, Hunits, ephIndic
     use idsrdr_leads,    only: NL, Sigma_L
-    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+!    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -294,7 +294,7 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: Gaft_1m ! GF_1m after
     complex(8), allocatable, dimension (:,:) :: aux1, aux2
     complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
-    external :: zsymm, zgemm
+    external :: HI_zsymm, HI_zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing left-to-right sweep... '
@@ -309,7 +309,7 @@ CONTAINS
     allocate (V(n,n))
     allocate (Gbfr(dim,dim))
     allocate (Gbfr_1m(dim,dim))
-    allocate (ipiv(dim))
+!   allocate (ipiv(dim))
     allocate (aux1(n,n))
     allocate (aux2(n,n))
     allocate (foo1(NL,n))
@@ -322,12 +322,13 @@ CONTAINS
     Gbfr = (Ei-unitshift(utype))*Sunits(utype)%S                        &
            - Hunits(utype)%H(:,:,ispin)
     Gbfr(1:NL,1:NL) = Gbfr(1:NL,1:NL) - Sigma_L
-    call CHECKzsytrf (dim, 'L', Gbfr, ipiv)
-    call CHECKzsytri (dim, 'L', Gbfr, ipiv)
+!   call CHECKzsytrf (dim, 'L', Gbfr, ipiv)
+!   call CHECKzsytri (dim, 'L', Gbfr, ipiv)
+    call HI_zsyInvert('L', Gbfr, dim)
     Gbfr_1m = Gbfr
 
 !   Free memory.
-    deallocate (ipiv)
+!   deallocate (ipiv)
 
 !   Loop over the blocks from left to right.
     do I = 2,nunits+1
@@ -346,23 +347,24 @@ CONTAINS
 
 !      ('aux2 = Gbfr*V')
        aux1 = Gbfr(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
-       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+       call HI_zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
 !      ('aux1 = V^dagger*aux2')
-       call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
+       call HI_zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
                    aux2, n, (0.d0,0.d0), aux1, n)
 
 !      (Re-)Allocate matrices and array.
        allocate (Gaft(dim,dim))
-       allocate (ipiv(dim))
+!       allocate (ipiv(dim))
 
 !      ('Gaft = (E*S - H + V^T*Gbfr*V)^-1')
        Gaft = (Ei-unitshift(utype))*Sunits(utype)%S                     &
               - Hunits(utype)%H(:,:,ispin)
        Gaft(1:n,1:n) = Gaft(1:n,1:n) - aux1
-       call CHECKzsytrf (dim, 'L', Gaft, ipiv)
-       call CHECKzsytri (dim, 'L', Gaft, ipiv)
+!       call CHECKzsytrf (dim, 'L', Gaft, ipiv)
+!       call CHECKzsytri (dim, 'L', Gaft, ipiv)
+       call HI_zsyInvert('L', Gaft, dim)
 
 !      (Re-)Allocate matrices.
        allocate (Gaft_1m(NL,dim))
@@ -370,12 +372,12 @@ CONTAINS
 
 !      ('foo2 = Gbfr_1m*V')
        foo1 = Gbfr_1m(1:NL,dimbfr-n+1:dimbfr)
-       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1, NL,           &
+       call HI_zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1, NL,           &
                    V, n, (0.d0,0.d0), foo2, NL)
 
 !      ('Gaft_1m = - foo2 * Gaft')
        foo3 = Gaft(1:n,:)
-       call zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2, NL,        &
+       call HI_zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2, NL,        &
                    foo3, n, (0.d0,0.d0), Gaft_1m, NL)
 
 !      Reallocate matrix.
@@ -391,7 +393,7 @@ CONTAINS
        deallocate (Gaft)
        deallocate (Gaft_1m)
        deallocate (foo3)
-       deallocate (ipiv)
+!       deallocate (ipiv)
 
     enddo
 
@@ -473,7 +475,7 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits,          &
                                ephIndic, nunitseph
     use idsrdr_leads,    only: NR, Sigma_R
-    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+!    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -489,7 +491,7 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: Gaft_Mp ! GF_Mp after
     complex(8), allocatable, dimension (:,:) :: aux1, aux2
     complex(8), allocatable, dimension (:,:) :: foo1, foo2, foo3
-    external :: zsymm, zgemm
+    external :: HI_zsymm, HI_zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing right-to-left sweep... '
@@ -504,7 +506,7 @@ CONTAINS
     allocate (V(n,n))
     allocate (Gbfr(dim,dim))
     allocate (Gbfr_Mp(dim,dim))
-    allocate (ipiv(dim))
+!    allocate (ipiv(dim))
     allocate (aux1(n,n))
     allocate (aux2(n,n))
     allocate (foo1(NR,n))
@@ -518,12 +520,13 @@ CONTAINS
            - Hunits(utype)%H(:,:,ispin)
     Gbfr(dim-NR+1:dim,dim-NR+1:dim) = Gbfr(dim-NR+1:dim,dim-NR+1:dim)   &
                                       - Sigma_R
-    call CHECKzsytrf (dim, 'L', Gbfr, ipiv)
-    call CHECKzsytri (dim, 'L', Gbfr, ipiv)
+!    call CHECKzsytrf (dim, 'L', Gbfr, ipiv)
+!    call CHECKzsytri (dim, 'L', Gbfr, ipiv)
+    call HI_zsyInvert('L', Gbfr, dim)
     Gbfr_Mp = Gbfr
 
 !   Free memory.
-    deallocate (ipiv)
+!    deallocate (ipiv)
 
 !   Loop over the blocks from right to left.
     do I = nunits+1,2,-1
@@ -541,24 +544,25 @@ CONTAINS
 
 !      ('aux2 = V*Gbfr')
        aux1 = Gbfr(1:n,1:n)
-       call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+       call HI_zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
 !      ('aux1 = aux2*V^dagger')
-       call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
+       call HI_zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
                    V, n, (0.d0,0.d0), aux1, n)
 
 !      (Re-)Allocate matrices and array.
        allocate (Gaft(dim,dim))
-       allocate (ipiv(dim))
+!       allocate (ipiv(dim))
 
 !      ('Gaft = (E*S - H + V^T*Gbfr*V)^-1')
        Gaft = (Ei-unitshift(utype))*Sunits(utype)%S                     &
               - Hunits(utype)%H(:,:,ispin)
        Gaft(dim-n+1:dim,dim-n+1:dim) = Gaft(dim-n+1:dim,dim-n+1:dim)    &
                                        - aux1
-       call CHECKzsytrf (dim, 'L', Gaft, ipiv)
-       call CHECKzsytri (dim, 'L', Gaft, ipiv)
+!       call CHECKzsytrf (dim, 'L', Gaft, ipiv)
+!       call CHECKzsytri (dim, 'L', Gaft, ipiv)
+       call HI_zsyInvert('L', Gaft, dim)
 
 !      (Re-)Allocate matrices.
        allocate (Gaft_Mp(NR,dim))
@@ -566,12 +570,12 @@ CONTAINS
 
 !      ('foo2 = Gbfr_Mp*V^dagger')
        foo1 = Gbfr_Mp(1:NR,1:n)
-       call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,           &
+       call HI_zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1, NR,           &
                    V, n, (0.d0,0.d0), foo2, NR)
 
 !      ('Gaft_Mp = - foo2 * Gaft')
        foo3 = Gaft(dim-n+1:dim,:)
-       call zgemm ('N', 'N', NR, dim, n, (-1.d0,0.d0), foo2, NR,        &
+       call HI_zgemm ('N', 'N', NR, dim, n, (-1.d0,0.d0), foo2, NR,        &
                    foo3, n, (0.d0,0.d0), Gaft_Mp, NR)
 
 !      Reallocate matrix.
@@ -587,7 +591,7 @@ CONTAINS
        deallocate (Gaft)
        deallocate (Gaft_Mp)
        deallocate (foo3)
-       deallocate (ipiv)
+!       deallocate (ipiv)
 
     enddo
 
@@ -670,7 +674,7 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, norbDyn, idxF, idxL
-    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
+!    use idsrdr_check,    only: CHECKzsytrf, CHECKzsytri
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -683,7 +687,7 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: aux1, aux2, aux3
     complex(8), allocatable, dimension (:,:) :: foo1L, foo2L,           &
                                                 foo1R, foo2R, foo3
-    external :: zsymm, zgemm
+    external :: HI_zsymm, HI_zgemm
 
     if (IOnode) write (6,'(a)', advance='no')                           &
             '      computing full Greens functions... '
@@ -720,11 +724,11 @@ CONTAINS
 
 !      ('aux2 = V*GR_pp')
        aux1 = GR_pp(ueph)%G(1:n,1:n)
-       call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+       call HI_zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
 !      ('aux1 = aux2*V^dagger')
-       call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
+       call HI_zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,             &
                    V, n, (0.d0,0.d0), aux1, n)
 
 !      ('aux3 = aux3 - aux1')
@@ -732,10 +736,11 @@ CONTAINS
                                        - aux1
 
 !      ('aux3 = aux3^-1')
-       allocate (ipiv(dim))
-       call CHECKzsytrf (dim, 'L', aux3, ipiv)
-       call CHECKzsytri (dim, 'L', aux3, ipiv)
-       deallocate (ipiv)
+!       allocate (ipiv(dim))
+!       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+!       call CHECKzsytri (dim, 'L', aux3, ipiv)
+!       deallocate (ipiv)
+       call HI_zsyInvert('L', aux3, dim)
 
 !      ('Gr_nn = aux3')
        Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
@@ -748,12 +753,12 @@ CONTAINS
 
 !      ('foo2R = GR_Mp*V^dagger')
        foo1R = GR_Mp(ueph)%G(1:NR,1:n)
-       call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,          &
+       call HI_zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,          &
                    V, n, (0.d0,0.d0), foo2R, NR)
 
 !      ('Gr_Mn = - foo2R * Gr_nn')
        foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
-       call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),         &
+       call HI_zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),         &
                    foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(ueph)%G, NR)
 
 !      Free memory.
@@ -784,11 +789,11 @@ CONTAINS
 
 !         ('aux2 = GL_mm*V')
           aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
-          call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
+          call HI_zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
 
 !         ('aux1 = V^dagger*aux2')
-          call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,             &
+          call HI_zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,             &
                       aux2, n, (0.d0,0.d0), aux1, n)
 
 !         ('aux3 = aux3 - aux1')
@@ -796,11 +801,11 @@ CONTAINS
 
 !         ('aux2 = V*GR_pp')
           aux1 = GR_pp(ueph)%G(1:n,1:n)
-          call zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,             &
+          call HI_zsymm ('R', 'L', n, n, (1.d0,0.d0), aux1, n,             &
                       V, n, (0.d0,0.d0), aux2, n)
 
 !         ('aux1 = aux2*V^dagger')
-          call zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
+          call HI_zgemm ('N', 'C', n, n, n, (1.d0,0.d0), aux2, n,          &
                       V, n, (0.d0,0.d0), aux1, n)
 
 !         ('aux3 = aux3 - aux1')
@@ -808,10 +813,11 @@ CONTAINS
                                           - aux1
 
 !         ('aux3 = aux3^-1')
-          allocate (ipiv(dim))
-          call CHECKzsytrf (dim, 'L', aux3, ipiv)
-          call CHECKzsytri (dim, 'L', aux3, ipiv)
-          deallocate (ipiv)
+!          allocate (ipiv(dim))
+!          call CHECKzsytrf (dim, 'L', aux3, ipiv)
+!          call CHECKzsytri (dim, 'L', aux3, ipiv)
+!          deallocate (ipiv)
+          call HI_zsyInvert('L', aux3, dim)
 
 !         ('Gr_nn = aux3')
           Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
@@ -821,22 +827,22 @@ CONTAINS
 
 !         ('foo2L = GL_1m*V')
           foo1L = GL_1m(ueph)%G(1:NL,dimbfr-n+1:dimbfr)
-          call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,       &
+          call HI_zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,       &
                       V, n, (0.d0,0.d0), foo2L, NL)
 
 !         ('Gr_1n = - foo2L * Gr_nn')
           foo3 = aux3(1:n,idxF(idx):idxL(idx))
-          call zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),      &
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), n, (-1.d0,0.d0),      &
                       foo2L, NL, foo3, n, (0.d0,0.d0), Gr_1n(ueph)%G, NL)
 
 !         ('foo2R = GR_Mp*V^dagger')
           foo1R = GR_Mp(ueph)%G(1:NR,1:n)
-          call zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,       &
+          call HI_zgemm ('N', 'C', NR, n, n, (1.d0,0.d0), foo1R, NR,       &
                       V, n, (0.d0,0.d0), foo2R, NR)
 
 !         ('Gr_Mn = - foo2R * Gr_nn')
           foo3 = aux3(dim-n+1:dim,idxF(idx):idxL(idx))
-          call zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),      &
+          call HI_zgemm ('N', 'N', NR, norbDyn(idx), n, (-1.d0,0.d0),      &
                       foo2R, NR, foo3, n, (0.d0,0.d0), Gr_Mn(ueph)%G, NR)
 
 !         Free memory.
@@ -868,21 +874,22 @@ CONTAINS
 
 !      ('aux2 = GL_mm*V')
        aux1 = GL_mm(ueph)%G(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
-       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+       call HI_zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
 !      ('aux1 = V^dagger*aux2')
-       call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
+       call HI_zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
                    aux2, n, (0.d0,0.d0), aux1, n)
 
 !      ('aux3 = aux3 - aux1')
        aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
 
 !      ('aux3 = aux3^-1')
-       allocate (ipiv(dim))
-       call CHECKzsytrf (dim, 'L', aux3, ipiv)
-       call CHECKzsytri (dim, 'L', aux3, ipiv)
-       deallocate (ipiv)
+!       allocate (ipiv(dim))
+!       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+!       call CHECKzsytri (dim, 'L', aux3, ipiv)
+!       deallocate (ipiv)
+       call HI_zsyInvert('L', aux3, dim)
 
 !      ('Gr_nn = aux3')
        Gr_nn(ueph)%G = aux3(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
@@ -897,12 +904,12 @@ CONTAINS
  
 !      ('foo2L = GL_1m*V')
        foo1L = GL_1m(ueph)%G(1:NL,dimbfr-n+1:dimbfr)
-       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
+       call HI_zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
 
 !      ('Gr_1n = - foo2L * Gr_nn')
        foo3 = aux3(1:n,1:dim)
-       call zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2L, NL,       &
+       call HI_zgemm ('N', 'N', NL, dim, n, (-1.d0,0.d0), foo2L, NL,       &
                    foo3, n, (0.d0,0.d0), aux1, NL)
        Gr_1n(ueph)%G = aux1(1:NL,idxF(idx):idxL(idx))
        Gr_1M = aux1(1:NL,dim-NR+1:dim)
@@ -925,33 +932,34 @@ CONTAINS
 
 !      ('aux2 = GL_mm*V')
        aux1 = GL_nn(dimbfr-n+1:dimbfr,dimbfr-n+1:dimbfr)
-       call zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
+       call HI_zsymm ('L', 'L', n, n, (1.d0,0.d0), aux1, n,                &
                    V, n, (0.d0,0.d0), aux2, n)
 
 !      ('aux1 = V^dagger*aux2')
-       call zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
+       call HI_zgemm ('C', 'N', n, n, n, (1.d0,0.d0), V, n,                &
                    aux2, n, (0.d0,0.d0), aux1, n)
 
 !      ('aux3 = aux3 - aux1')
        aux3(1:n,1:n) = aux3(1:n,1:n) - aux1
 
 !      ('aux3 = aux3^-1')
-       allocate (ipiv(dim))
-       call CHECKzsytrf (dim, 'L', aux3, ipiv)
-       call CHECKzsytri (dim, 'L', aux3, ipiv)
-       deallocate (ipiv)
+!       allocate (ipiv(dim))
+!       call CHECKzsytrf (dim, 'L', aux3, ipiv)
+!       call CHECKzsytri (dim, 'L', aux3, ipiv)
+!       deallocate (ipiv)
+       call HI_zsyInvert('L', aux3, dim)
 
 !      Allocate auxiliary matrix.
        allocate (foo3(n,NR))
 
 !      ('foo2L = GL_1m*V')
        foo1L = GL_1N(1:NL,dimbfr-n+1:dimbfr)
-       call zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
+       call HI_zgemm ('N', 'N', NL, n, n, (1.d0,0.d0), foo1L, NL,          &
                    V, n, (0.d0,0.d0), foo2L, NL)
 
 !      ('Gr_1n = - foo2L * G_nn')
        foo3 = aux3(1:n,dim-NR+1:dim)
-       call zgemm ('N', 'N', NL, NR, n, (-1.d0,0.d0), foo2L, NL,        &
+       call HI_zgemm ('N', 'N', NL, NR, n, (-1.d0,0.d0), foo2L, NL,        &
                    foo3, NR, (0.d0,0.d0), Gr_1M, NL)
 
 !      Free memory.
@@ -1030,7 +1038,7 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
-    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
+!    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
     integer, intent(in) :: ispin
@@ -1058,7 +1066,7 @@ CONTAINS
     allocate (Stot(dimTot,dimTot))
     allocate (Htot(dimTot,dimTot))
     allocate (Gtot(dimTot,dimTot))
-    allocate (ipiv(dimTot))
+!    allocate (ipiv(dimTot))
     Stot = 0.d0
     Htot = 0.d0
 
@@ -1117,8 +1125,9 @@ CONTAINS
     Gtot(1:NL,1:NL) = Gtot(1:NL,1:NL) - Sigma_L
     Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                       &
          Gtot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
-    call CHECKzgetrf (dimTot, Gtot, ipiv)
-    call CHECKzgetri (dimTot, Gtot, ipiv)
+!    call CHECKzgetrf (dimTot, Gtot, ipiv)
+!    call CHECKzgetri (dimTot, Gtot, ipiv)
+    call HI_zgeInvert(Gtot, dimTot)
 
 !   Free memory.
     deallocate (Htot)

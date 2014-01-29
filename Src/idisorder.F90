@@ -93,7 +93,6 @@ PROGRAM IDISORDER
   call Master_SetupLoop(NTenerg)
   do while (.true.)
      call Slave_AskWork(ienergy)
-     write(*,'(a,i2,a,i4)') 'Node ', Node, ' received iE= ', ienergy 
      if (ienergy == ENDWORK_MSG) exit
      MyEiRecord(ienergy) = Node ! Keep track which energies I (the node) calculate
 #else

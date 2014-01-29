@@ -56,6 +56,7 @@ MODULE idsrdr_options
   integer :: numberrings  ! 
   integer :: nAsymmPts    ! Number of energy grid points
                           ! for asymmetric term integral
+  integer :: ProcsPerGPU  ! Number of processes running per GPU
 
   integer, parameter :: label_length = 60 ! Length of system label
 
@@ -229,7 +230,7 @@ CONTAINS
 !      
        symmetry = fdf_integer ('Symmetry', 1)
        write (6,4)                                                      &
-            'readopt: Simmetry                                      =', &
+            'readopt: Symmetry                                      =', &
             symmetry
 
 !      Number of orbitals.
@@ -404,9 +405,15 @@ CONTAINS
                   'readopt: Tight-binding dangling bond coupling  ' //  &
                   '        =', TBcouplDB, ' Ry'
 
-          endif
+          endif ! ntypeunits > 2
 
-       endif
+       endif ! tightbinding
+
+!      Number of processes running in each GPU (default = 1).
+       ProcsPerGPU = fdf_integer ('GPU.ProcsPerGPU', 1)
+       write (6,4)                                                &
+            'readopt: Number of processes running per GPU   ' //  &
+            '        =', ProcsPerGPU
 
        write (6,'(2a)') 'readopt: ', repeat('*', 70)
 
@@ -474,6 +481,8 @@ CONTAINS
        call MPI_Bcast (TBcouplDB, 1, MPI_Double_Precision, 0,           &
                        MPI_Comm_MyWorld, MPIerror)
     endif
+    call MPI_Bcast (ProcsPerGPU, 1, MPI_Integer, 0,                     &
+                    MPI_Comm_MyWorld, MPIerror)
 !   It is not necessary to broadcast 'nunits' here.
 #endif
 
