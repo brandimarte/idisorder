@@ -175,10 +175,11 @@ CONTAINS
 
 !      Compute symmetric part of inelastic contribution.
 #ifdef DEBUG
-       call inelSymmDisk (Isymm, ispin, NL, Gamma_L,                    &
+       call inelSymmDisk (Isymm, ienergy, ispin, iv, NL, Gamma_L,       &
                           NR, Gamma_R, Vbias, Ei)
 #else
-       call inelSymmDisk (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+       call inelSymmDisk (Isymm, ienergy, ispin, iv, NL, Gamma_L,       &
+                          NR, Gamma_R, Vbias)
 #endif
 
 !      Compute asymmetric part of inelastic contribution.
@@ -197,10 +198,11 @@ CONTAINS
 
 !      Compute symmetric part of inelastic contribution.
 #ifdef DEBUG
-       call inelSymm (Isymm, ispin, NL, Gamma_L,                        &
+       call inelSymm (Isymm, ienergy, ispin, iv, NL, Gamma_L,           &
                       NR, Gamma_R, Vbias, Ei)
 #else
-       call inelSymm (Isymm, ispin, NL, Gamma_L, NR, Gamma_R, Vbias)
+       call inelSymm (Isymm, ienergy, ispin, iv, NL, Gamma_L,           &
+                      NR, Gamma_R, Vbias)
 #endif
 
 !      Compute asymmetric part of inelastic contribution.
@@ -367,8 +369,12 @@ CONTAINS
 !                                                  [complex] G^r_{n,n}  !
 !  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
 !  real*8 temp                 : Electronic temperature                 !
+!  TYPE(phonon) phOccup(nunitseph)%P(NTenerg_div,nspin,NIVP,nModes)     !
+!                              : [real] Phonon occupation               !
 !  ****************************** INPUT ******************************  !
+!  integer ienergy                     : Energy grid index              !
 !  integer ispin                       : Spin component index           !
+!  integer iv                          : Bias potential index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex*8 Gamma_L(NL,NL)            : Left-lead coupling matrix      !
@@ -378,7 +384,7 @@ CONTAINS
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
-  subroutine inelSymm (Isymm, ispin, NL, Gamma_L,                       &
+  subroutine inelSymm (Isymm, ienergy, ispin, iv, NL, Gamma_L,          &
 #ifdef DEBUG
                        NR, Gamma_R, Vbias, Ei)
 #else
@@ -393,9 +399,10 @@ CONTAINS
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_nn, Gr_1M
     use idsrdr_options,  only: temp
     use idsrdr_distrib,  only: BoseEinstein
+    use idsrdr_power,    only: phOccup
 
 !   Input variables.
-    integer, intent(in) :: ispin, NL, NR
+    integer, intent(in) :: ienergy, ispin, iv, NL, NR
     real(8), intent(out) :: Isymm
     real(8), intent(in) :: Vbias
 #ifdef DEBUG
@@ -521,7 +528,7 @@ CONTAINS
 #endif
 
 !         Compute symmetric pre-factor.
-          foo = 2.d0 * Vbias * BoseEinstein (freq(idx)%F(w), temp)
+          foo = 2.d0 * Vbias * phOccup(j)%P(ienergy,ispin,iv,w)
           foo = foo + (freq(idx)%F(w) - Vbias)                          &
                 * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
           foo = foo - (freq(idx)%F(w) + Vbias)                          &
@@ -577,8 +584,12 @@ CONTAINS
 !                                                  [complex] G^r_{n,n}  !
 !  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
 !  real*8 temp                 : Electronic temperature                 !
+!  TYPE(phonon) phOccup(nunitseph)%P(NTenerg_div,nspin,NIVP,nModes)     !
+!                              : [real] Phonon occupation               !
 !  ****************************** INPUT ******************************  !
+!  integer ienergy                     : Energy grid index              !
 !  integer ispin                       : Spin component index           !
+!  integer iv                          : Bias potential index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
@@ -588,7 +599,7 @@ CONTAINS
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
-  subroutine inelSymmDisk (Isymm, ispin, NL, Gamma_L,                   &
+  subroutine inelSymmDisk (Isymm, ienergy, ispin, iv, NL, Gamma_L,      &
 #ifdef DEBUG
                            NR, Gamma_R, Vbias, Ei)
 #else
@@ -605,9 +616,10 @@ CONTAINS
     use idsrdr_options,  only: temp
     use idsrdr_distrib,  only: BoseEinstein
     use idsrdr_io,       only: IOopenStream, IOcloseStream
+    use idsrdr_power,    only: phOccup
 
 !   Input variables.
-    integer, intent(in) :: ispin, NL, NR
+    integer, intent(in) :: ienergy, ispin, iv, NL, NR
     real(8), intent(out) :: Isymm
     real(8), intent(in) :: Vbias
 #ifdef DEBUG
@@ -752,7 +764,7 @@ CONTAINS
 #endif
 
 !         Compute symmetric pre-factor.
-          foo = 2.d0 * Vbias * BoseEinstein (freq(idx)%F(w), temp)
+          foo = 2.d0 * Vbias * phOccup(j)%P(ienergy,ispin,iv,w)
           foo = foo + (freq(idx)%F(w) - Vbias)                          &
                 * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
           foo = foo - (freq(idx)%F(w) + Vbias)                          &
