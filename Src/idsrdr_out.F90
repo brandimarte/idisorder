@@ -89,14 +89,14 @@ CONTAINS
 !   Write calculated currents to files.
     call writecurrent
 
-!   Write calculated dissipated powers to files.
-    call writepower
-
-!   Write calculated differential conductance ('dI/dV') to files.
-    call writedIdV
-
-!   Write derivative of differential conductance ('d2I/dV2') to files.
-    call writed2IdV2
+!!$!   Write calculated dissipated powers to files.
+!!$    call writepower
+!!$
+!!$!   Write calculated differential conductance ('dI/dV') to files.
+!!$    call writedIdV
+!!$
+!!$!   Write derivative of differential conductance ('d2I/dV2') to files.
+!!$    call writed2IdV2
 
 
   end subroutine output
@@ -361,7 +361,11 @@ CONTAINS
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
+#ifdef MASTER_SLAVE
+    use idsrdr_current,  only: calcCurr, allcurr, sumCalcCurr
+#else
     use idsrdr_current,  only: calcCurr, allcurr
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -382,6 +386,8 @@ CONTAINS
 #ifndef MASTER_SLAVE
     integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
 #endif
     integer :: MPIerror, MPIcalcCurr
     integer :: blocklens(1) ! # of elements in each block
@@ -456,9 +462,12 @@ CONTAINS
 
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_Create (sumCalcCurr, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (allcurr(1,1,1), buffCurr,                          &
-                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPI_Sum,      &
+                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPIop,        &
                      0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
