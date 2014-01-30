@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -28,18 +30,18 @@
 !  ***************************** HISTORY *****************************  !
 !  Original version:    September 2013                                  !
 !  *******************************************************************  !
+
+MODULE idsrdr_end
+
 #ifdef MASTER_SLAVE
 #include "master-slave.h"
 #endif
-
-MODULE idsrdr_end
 
 !
 ! Modules
 !
   use parallel,        only: 
   use idsrdr_init,     only: 
-  use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use idsrdr_engrid,   only: 
   use idsrdr_units,    only: 
@@ -47,6 +49,10 @@ MODULE idsrdr_end
   use idsrdr_green,    only: 
   use idsrdr_spectral, only: 
   use idsrdr_hilbert,  only: 
+  use idsrdr_current,  only: 
+  use idsrdr_power,    only: 
+  use idsrdr_conduct,  only: 
+  use idsrdr_io,       only: 
 
   implicit none
 
@@ -71,30 +77,33 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                 : True if it is the I/O node          !
 !  real*8 time_begin              : Initial processor time in seconds   !
-!  integer label_length           : Length of system label              !
-!  character(label_length) slabel : System Label (for output files)     !
 !  *******************************************************************  !
   subroutine finalize
 
 !
 ! Modules
 !
-    use parallel,        only: IOnode
 #ifdef MPI
-    use parallel,        only: MPI_Comm_MyWorld
 #ifdef MASTER_SLAVE
-    use parallel,        only: Master
+    use parallel,        only: IOnode, MPI_Comm_MyWorld, Master
+#else
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
 #endif
+#else
+    use parallel,        only: IOnode
 #endif
     use idsrdr_init,     only: time_begin
-    use idsrdr_options,  only: label_length, slabel, freeopt
     use idsrdr_leads,    only: freeleads
     use idsrdr_engrid,   only: freegrid
     use idsrdr_units,    only: freeunits
-    use idsrdr_ephcoupl, only: EPHfree
+    use idsrdr_ephcoupl, only: freeEPH
     use idsrdr_green,    only: freegreen
     use idsrdr_spectral, only: freespectral
     use idsrdr_hilbert,  only: freehilb
+    use idsrdr_current,  only: freecurr
+    use idsrdr_power,    only: freepower
+    use idsrdr_conduct,  only: freedIdV
+    use idsrdr_io,       only: freeIO
 
 #ifdef MPI
     include "mpif.h"
@@ -102,7 +111,6 @@ CONTAINS
 
 !   Local variables.
     real(8) :: time_end
-    character(len=label_length+4), external :: paste
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
@@ -119,12 +127,15 @@ CONTAINS
          'finalize: Freeing memory...'
     call freegrid
     call freeleads
-    call freeopt
     call freeunits
-    call EPHfree
+    call freeEPH
     call freegreen
     call freespectral
     call freehilb
+    call freecurr
+    call freepower
+    call freedIdV
+    call freeIO
 
     if (IOnode) then
 
@@ -132,19 +143,20 @@ CONTAINS
        call cpu_time (time_end)
 
        write (6,'(a,/)') ' done!'
-       write (6,'(a,a)') "Total transmission written to file: ",        &
-            paste (slabel,'.TRC') 
-       write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
+       write (6,'(a,f12.4,a)') "Time of calculation was ",              &
             time_end - time_begin, " seconds"
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif
 
 #ifdef MASTER_SLAVE
-!   Send the EXIT message to the master, causing him to finalize his existence (by his own hands!)
-    if (IOnode) &
-       call MPI_Send(TASK_EXIT, 1, MPI_INTEGER, Master, TASK_TAG, MPI_Comm_World, MPIerror) 
+!   Send the EXIT message to the master, causing him
+!   to finalize his existence (by his own hands!).
+    if (IOnode)                                                         &
+       call MPI_Send (TASK_EXIT, 1, MPI_INTEGER, Master, TASK_TAG,      &
+                      MPI_Comm_World, MPIerror) 
 
-    call MPI_Barrier (MPI_Comm_World, MPIerror)  ! Barrier for Master & Slaves
+    call MPI_Barrier (MPI_Comm_World, MPIerror) ! Barrier for 'Master'
+                                                ! and 'Slaves'
 #endif
 
 !   Finalizes MPI.
@@ -160,3 +172,4 @@ CONTAINS
 
 
 END MODULE idsrdr_end
+

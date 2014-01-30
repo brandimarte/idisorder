@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -68,13 +70,12 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: IOnode
 #ifdef MPI
-    use parallel,        only: MPI_Comm_MyWorld
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
+    use parallel,        only: IOnode
 #endif
-#ifndef IBM
     use ifport
-#endif
 
 #ifdef MPI
     include "mpif.h"
@@ -89,10 +90,6 @@ CONTAINS
     integer :: I
     integer, dimension (3) :: now
     real(8) :: Pi, aux
-#ifdef IBM
-    integer, allocatable, dimension (:) :: seed
-    integer, external :: time
-#endif
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
@@ -101,52 +98,18 @@ CONTAINS
 
     if (IOnode) then
 
-#ifdef IBM
-       now = 0
-       now(1) = time()
-       call random_seed (SIZE=now(2))
-       allocate (seed(now(2)))
-       seed = now(1) + now(2)
-       call random_seed (PUT=seed)
-       call random_number (aux)
-       print*, "aux1", aux
-       deallocate (seed)
-#else
        call itime (now)
        aux = drand (3600*now(1)+60*now(2)+now(3))
-#endif
 
        DO I = 1,NDefects
-#ifdef IBM
-          call random_number (aux)
-          print*, "aux random", aux
-          theta(i) = 2.0d0 * Pi * aux
-#else
           theta(i) = 2.0d0 * Pi * drand (0)
-#endif
        ENDDO
 
-#ifdef IBM
-       now(1) = time()
-       call random_seed (GENERATOR=2)
-       allocate (seed(now(2)))
-       seed = now(1) + now(2)
-       call random_seed (PUT=seed)
-       call random_number (aux)
-       print*, "aux", aux
-       deallocate (seed)
-#else
        call itime (now)
        aux = drand (3600*now(1)+60*now(2)+now(3))
-#endif
 
        DO I = 1,NDefects       
-#ifdef IBM
-          call random_number (aux)
-          dist(i) = 2.d0 * avgdist * aux
-#else
           dist(i) = 2.d0 * avgdist * drand (0)
-#endif
        ENDDO
 
     endif ! if (IOnode)
@@ -180,10 +143,10 @@ CONTAINS
 !  *******************************************************************  !
   integer function irandomizedefects (idefecttypes, unitweight, start)
 
-
-#ifndef IBM
+!
+!   Modules
+!
     use ifport
-#endif
 
 !   Input variables.
     integer, intent(in) :: idefecttypes
@@ -194,33 +157,15 @@ CONTAINS
     integer :: ii
     integer, dimension (3) :: now
     real(8) :: aux, interval
-#ifdef IBM
-    integer, dimension (:), allocatable :: seed
-    integer, external :: time
-#endif
 
     if (start) then
 
-#ifdef IBM
-       now(1) = time()
-       call random_seed (SIZE=now(2))
-       allocate (seed(now(2)))
-       seed = now(1) + now(2)
-       call random_seed (PUT=seed)
-       call random_number (aux)
-       deallocate (seed)
-#else
        call itime (now)
        aux = drand (3600*now(1)+60*now(2)+now(3))
-#endif
 
     else
 
-#ifdef IBM
-       call random_number (aux)
-#else
        aux = drand (0)
-#endif
        print*, "irandomizedefects: aux 1", aux
 
     endif
@@ -258,10 +203,10 @@ CONTAINS
 !  *******************************************************************  !
   integer function irandomize_index (nunits, start)
 
-
-#ifndef IBM
+!
+!   Modules
+!
     use ifport
-#endif
 
 !   Input variables.
     integer, intent(in) :: nunits
@@ -270,33 +215,15 @@ CONTAINS
 !   Local variables.
     integer, dimension (3) :: now
     real(8) :: aux
-#ifdef IBM
-    integer, allocatable, dimension (:) :: seed
-    integer, external :: time
-#endif
 
     if (start) then
 
-#ifdef IBM
-       now(1) = time()
-       call random_seed (SIZE=now(2))
-       allocate (seed(now(2)))
-       seed = now(1) + now(2)
-       call random_seed (PUT=seed)
-       call random_number (aux)
-       deallocate (seed)
-#else
        call itime (now)
        aux = rand (3600*now(1)+60*now(2)+now(3))
-#endif
 
     else
 
-#ifdef IBM
-       call random_number (aux)
-#else
        aux = drand (0)
-#endif
        print*, "irandomize_index: aux 2", aux
 
     endif

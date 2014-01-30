@@ -8,9 +8,10 @@ C
 !
 !   Modules
 !
-      use parallel,        only: IOnode
 #ifdef MPI
-      use parallel,        only: MPI_Comm_MyWorld
+      use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
+      use parallel,        only: IOnode
 #endif
 
       implicit none

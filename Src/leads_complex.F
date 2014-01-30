@@ -159,6 +159,7 @@ CH1CondMin=1.0D-11,H1NormMax=3.0D+3,
       INTEGER :: ILO,IHI
      
       PARAMETER(zi=(0.0d0,1.0d0))
+      external :: HI_zgemm
 
       ALLOCATE(vec(nn,nn),vec1(nn,nn),wrk(nnn),wrk1(nnn),rchan(n),
      &  lchan(n))
@@ -244,9 +245,9 @@ C########################################################################
 	EndDo
        EndDo
        
-       CALL ZGEMM('N','C',n,n,n,(1.D0,0.D0),h2,n,rdual,n,
+       call HI_zgemm ('N','C',n,n,n,(1.D0,0.D0),h2,n,rdual,n,
      &  (0.D0,0.D0),hi,n)
-       CALL ZGEMM('N','N',n,n,n,(1.D0,0.D0),hj,n,ldual,n,
+       call HI_zgemm ('N','N',n,n,n,(1.D0,0.D0),hj,n,ldual,n,
      &  (0.D0,0.D0),h1,n)   
        
        if (DIMAG(Ei) .lt. zero) then
@@ -270,7 +271,7 @@ C########################################################################
 	 EndDo
         EndDo
        
-        CALL ZGEMM('N','N',n,n,n,(1.D0,0.D0),h2,n,ldual,n,
+        call HI_zgemm ('N','N',n,n,n,(1.D0,0.D0),h2,n,ldual,n,
      &  (0.D0,0.D0),rdual,n)              
         
         h1_dag=rdual
@@ -799,7 +800,7 @@ C==========================================================
       ENDDO
       ANORM=MAXVAL(WRK1(1:n))
       
-      CALL ZGEMM('N','N',n,n,n,(1.D0,0.D0),h1_dag,n,hi,n,
+      call HI_zgemm ('N','N',n,n,n,(1.D0,0.D0),h1_dag,n,hi,n,
      &  (0.D0,0.D0),hh,n)
      
 C      do i=1,n
@@ -853,7 +854,7 @@ C==========================================================
 	EndDo
        EndDo
        
-       CALL ZGEMM('N','C',n,n,n,(1.D0,0.D0),hj,n,hh,n,
+       call HI_zgemm ('N','C',n,n,n,(1.D0,0.D0),hj,n,hh,n,
      &  (0.D0,0.D0),hi,n)
      
       EndIf 
@@ -894,7 +895,7 @@ C  Left lead
 C ==========================================================
       If (side .eq. 'L') Then
 
-       CALL ZGEMM('N','N',n,n,n,(-1.D0,0.D0),h1,n,hh,n,
+       call HI_zgemm ('N','N',n,n,n,(-1.D0,0.D0),h1,n,hh,n,
      &  (0.D0,0.D0),h0,n)
      
 C       do i=1,n
@@ -910,7 +911,7 @@ C       enddo
         h0(j,j)=(1.d0,0.d0)+h0(j,j)
        enddo
 
-       CALL ZGEMM('N','N',n,n,n,(1.D0,0.D0),h0,n,hi,n,
+       call HI_zgemm ('N','N',n,n,n,(1.D0,0.D0),h0,n,hi,n,
      &  (0.D0,0.D0),a(1:n,1:n),n)
       
 C       do i=1,n
@@ -928,7 +929,7 @@ C  Right lead
 C==========================================================
       If (side .eq. 'R') then
 
-       CALL ZGEMM('N','N',n,n,n,(-1.D0,0.D0),hh,n,h1,n,
+       call HI_zgemm ('N','N',n,n,n,(-1.D0,0.D0),hh,n,h1,n,
      &  (0.D0,0.D0),h0,n)
      
 C       do i=1,n
@@ -944,7 +945,7 @@ C       enddo
         h0(j,j)=(1.d0,0.d0)+h0(j,j)
        enddo
       
-       CALL ZGEMM('N','N',n,n,n,(1.D0,0.D0),h0,n,hi,n,
+       call HI_zgemm ('N','N',n,n,n,(1.D0,0.D0),h0,n,hi,n,
      &  (0.D0,0.D0),a(n+1:2*n,n+1:2*n),n)
 C       do i=1,n
 C        do j=1,n

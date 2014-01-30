@@ -63,6 +63,7 @@ C ****************************************************************
 	integer, dimension (n) :: ipiv
 	
 	integer :: info, K, L, I, J
+	external :: HI_zgemm
 	
         allocate(S1E(n,n),H1E(n,n),U(n,n),VMat(n,n))
         allocate(work(3*n),rwork(2*n),tau(n))
@@ -98,14 +99,14 @@ C ****************************************************************
 	endif
 	 
         If (side_rank .EQ. 'N') Then
-	 Call ZGEMM('N','N',N,N,N,(1.0D0,0.D0),U,N,H1E,N,
+	 call HI_zgemm ('N','N',N,N,N,(1.0D0,0.D0),U,N,H1E,N,
      &    (0.D0,0.D0),VH,N)
-	 Call ZGEMM('N','N',N,N,N,(1.0D0,0.D0),VMat,N,S1E,N,
+	 call HI_zgemm ('N','N',N,N,N,(1.0D0,0.D0),VMat,N,S1E,N,
      &    (0.D0,0.D0),VS,N)	    
         Else
-	  Call ZGEMM ('C','C',N,N,N,(1.0D0,0.D0),H1E,N,
+	  call HI_zgemm ('C','C',N,N,N,(1.0D0,0.D0),H1E,N,
      &     U,N,(0.D0,0.D0),VH,N)
-	  Call ZGEMM ('C','C',N,N,N,(1.0D0,0.D0),S1E,N,
+	  call HI_zgemm ('C','C',N,N,N,(1.0D0,0.D0),S1E,N,
      &     VMat,N,(0.D0,0.D0),VS,N)
      
      

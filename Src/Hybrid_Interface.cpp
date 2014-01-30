@@ -10,6 +10,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#ifndef MAGMA
+# include <math.h>
+#endif
 
 #ifdef MAGMA
 # include <cuda.h>
@@ -115,8 +118,9 @@ int GPUcount = 0;
 int VirtualGPUcount = 0;
 int myGPU = -1;
 bool IuseGPU = false;
+#ifdef HAVE_CUBLAS
 cublasHandle_t myHandle;
-
+#endif
 
 //-----------------------------------------
 // Initializes the environment

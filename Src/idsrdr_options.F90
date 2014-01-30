@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -41,9 +43,10 @@ MODULE idsrdr_options
   
   PUBLIC ! default is public
 
-  logical :: calcdos      ! Calculate total DOS?
   logical :: readunitstf  ! Read 'UnitIndex' block?
   logical :: tightbinding ! Tight-binding calculation?
+  logical :: writeondisk  ! Write Green's functions on disk?
+  logical :: phonEqui     ! Consider the phonons in equilibrium?
 
   integer :: NDefects     ! Number of defects blocks
   integer :: NTenerg      ! Number of transmission energy points
@@ -51,16 +54,12 @@ MODULE idsrdr_options
   integer :: ntypeunits   ! Number of unit types
   integer :: nunits       ! Total number of units
   integer :: NIVP         ! Number of bias potential points
-  integer :: symmetry     ! 
   integer :: norbitals    ! Number of orbitals
-  integer :: numberrings  ! 
   integer :: nAsymmPts    ! Number of energy grid points
                           ! for asymmetric term integral
   integer :: ProcsPerGPU  ! Number of processes running per GPU
 
   integer, parameter :: label_length = 60 ! Length of system label
-
-  integer, allocatable, dimension (:) :: atoms_per_ring ! 
 
   real(8) :: avgdist      ! Average defect distance
   real(8) :: TEnergI      ! Initial transmission energy
@@ -78,11 +77,12 @@ MODULE idsrdr_options
   real(8) :: TBcouplS     ! Tight-binding simple defect coupling
   real(8) :: TBcouplSDB   ! Tight-binding simple defect coupling (DB)
   real(8) :: TBcouplDB    ! Tight-binding dangling bond coupling
+  real(8) :: phonDamp     ! Phenomenological damping parameter
+                          ! (~ inverse of phonon's lifetime)
 
   character(len=60) :: directory ! Working directory
   character(len=label_length), save :: slabel ! System Label
                                               ! (to name output files)
-  character(len=14) :: integraltype ! Integration method
 
 
 CONTAINS
@@ -105,22 +105,20 @@ CONTAINS
 !  logical IOnode              : True if it is the I/O node             !
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  ***************************** OUTPUT ******************************  !
-!  logical calcdos           : Calculate total DOS?                     !
 !  logical readunitstf       : Read 'UnitIndex' block?                  !
 !  logical tightbinding      : Tight-binding calculation?               !
+!  logical writeondisk       : Write Green's functions on disk?         !
+!  logical phonEqui          : Consider the phonons in equilibrium?     !
 !  integer NDefects          : Number of defects blocks                 !
 !  integer NTenerg           : Number of transmission energy points     !
 !  integer nspin             : Number of spin components                !
 !  integer ntypeunits        : Number of unit types                     !
 !  integer nunits            : Total number of units                    !
 !  integer NIVP              : Number of bias potential points          !
-!  integer symmetry          :                                          !
-!  integer norbitals         : Number of orbitals                       !
-!  integer numberrings       :                                          !
 !  integer nAsymmPts         : Number of energy grid points             !
 !                              for asymmetric term integral             !
-!  integer atoms_per_ring(numberrings) :                                !
 !  integer label_length      : Length of system label                   !
+!  integer ProcsPerGPU       : Number of processes running per GPU      !
 !  real*8 avgdist            : Average defect distance                  !
 !  real*8 TEnergI            : Initial transmission energy              !
 !  real*8 TEnergF            : Final transmission energy                !
@@ -139,18 +137,20 @@ CONTAINS
 !  real*8 TBcouplSDB         : Tight-binding simple defect coupling     !
 !                              (to DB)                                  !
 !  real*8 TBcouplDB          : Tight-binding dangling bond coupling     !
+!  real*8 phonDamp           : Phenomenological damping parameter       !
+!                              (~ inverse of phonon's lifetime)         !
 !  character(60) directory   : Working directory                        !
 !  character(label_length) slabel : System Label (for output files)     !
-!  character(14) integraltype : Integration method                      !
 !  *******************************************************************  !
   subroutine readopt
 
 !
 !   Modules
 !
-    use parallel,        only: IOnode, Nodes
 #ifdef MPI
-    use parallel,        only: MPI_Comm_MyWorld
+    use parallel,        only: IOnode, Nodes, MPI_Comm_MyWorld
+#else
+    use parallel,        only: IOnode, Nodes
 #endif
 
 #ifdef MPI
@@ -158,15 +158,14 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: iu, j
-    logical :: spinpol, isblock
+    logical :: spinpol
     character :: slabel_default*60
 #ifdef MPI
     integer :: MPIerror ! Return error code in MPI routines
 #endif
 
     if (IOnode) then
-       write (6,'(/,28("*"),a,28("*"))')                              &
+       write (6,'(/,28("*"),a,28("*"))')                                &
             ' Simulation parameters '
 
 !      Defile System Label (short name to label files).
@@ -227,18 +226,6 @@ CONTAINS
                '     =', nunits
        endif
 
-!      
-       symmetry = fdf_integer ('Symmetry', 1)
-       write (6,4)                                                      &
-            'readopt: Symmetry                                      =', &
-            symmetry
-
-!      Number of orbitals.
-       norbitals = fdf_integer ('NumberOfOrbitals', 1)
-       write (6,4)                                                      &
-            'readopt: Number of orbitals                            =', &
-            norbitals
-
 !      Electronic temperature.
        temp = fdf_physical ('ElectronicTemperature', 300.0d0, 'Ry')
        write (6,6)                                                      &
@@ -288,58 +275,26 @@ CONTAINS
                '     =', TEnergF, ' Ry'
        endif
 
-!      Calculate total DOS?
-       calcdos = fdf_boolean ('CalculateDos', .false.)
-       write (6,1)                                                      &
-            'readopt: Calculate total DOS?                          =', &
-            calcdos
-
-!      Number of rings (?).
-       numberrings = fdf_integer('NumberOfrings', 1)
-       write (6,4)                                                      &
-            'readopt: Number of rings                               =', &
-            numberrings
-
-!      Atoms per ring (?).
-       allocate (atoms_per_ring(numberrings))
-       atoms_per_ring = 0
-       isblock = fdf_block ('AtomsPerRing', iu)
-       if (isblock) then
-          do j = 1,numberrings
-             read (iu,*) atoms_per_ring(j)
-          enddo
-          write (6,'(a,i7,a,i3)') 'readopt: Atoms per ring        ' //  &
-               '                        =', 1, ' - ', atoms_per_ring(1)
-          do j = 2,numberrings
-             write (6,'(a,i8,a,i3)') '                            ' //  &
-                  '                           ', j, ' - ',              &
-                  atoms_per_ring(j)
-          enddo
-       else
-          write (6,2) 'readopt: Atoms per ring                     ' // &
-               '           = You must specify the number per ring.'
-       endif
-
-!      Working directory.
-       directory = fdf_string ('Directory', ' ')
-       write (6,2) 'readopt: Working directory                    ' //  &
-            '         =  ', directory	
-
-!      Integration method.
-       integraltype = ""
-       integraltype = fdf_string ('TypeOfIntegral', 'Sympson')
-       write (6,2) 'readopt: Integration method                   ' //  &
-            '         =  ', integraltype
-
 !      Number of energy grid points for asymmetric term integral.
        nAsymmPts = fdf_integer('AsymmGridPts', 1000)
-       if (nAsymmPts == 0) nAsymmPts = 1
-       do while (MOD(nAsymmPts,Nodes) /= 0)
-          nAsymmPts = nAsymmPts + 1
-       enddo
        write (6,4)                                                      &
             'readopt: Number of points at asymmetric term integral  =', &
             nAsymmPts
+
+!      Consider the phonons in equilibrium?
+       phonEqui = fdf_boolean ('PhononEquilibrium', .true.)
+       write (6,1)                                                      &
+            'readopt: Consider the phonons in equilibrium?     '    //  &
+            '     =', phonEqui
+
+       if (.not. phonEqui) then
+!         Phenomenological damping parameter
+!         (related to the inverse of phonon's lifetime).
+          phonDamp = fdf_physical ('PhononDamping', 0.05d0, 'Ry')
+          write (6,6)                                                   &
+               'readopt: Phenomenological phonon damping parameter' //  &
+               '     =', phonDamp, ' Ry'
+       endif
 
 !      Tight-binding calculation?
        tightbinding = fdf_boolean ('TightBinding', .false.)
@@ -405,15 +360,25 @@ CONTAINS
                   'readopt: Tight-binding dangling bond coupling  ' //  &
                   '        =', TBcouplDB, ' Ry'
 
-          endif ! ntypeunits > 2
+          endif
 
-       endif ! tightbinding
+       endif
+
+!      Write Green's functions on disk?
+       writeondisk = fdf_boolean ('WriteOnDisk', .true.)
+       write (6,1)                                                      &
+            'readopt: Write Green s functions on disk?              =', &
+            writeondisk
 
 !      Number of processes running in each GPU (default = 1).
        ProcsPerGPU = fdf_integer ('GPU.ProcsPerGPU', 1)
        write (6,4)                                                &
             'readopt: Number of processes running per GPU   ' //  &
             '        =', ProcsPerGPU
+!      Working directory.
+       directory = fdf_string ('Directory', ' ')
+       write (6,2) 'readopt: Working directory                    ' //  &
+            '         =  ', directory	
 
        write (6,'(2a)') 'readopt: ', repeat('*', 70)
 
@@ -429,10 +394,6 @@ CONTAINS
     call MPI_Bcast (nspin, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (ntypeunits, 1, MPI_Integer, 0,                      &
                     MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (symmetry, 1, MPI_Integer, 0,                        &
-                    MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (norbitals, 1, MPI_Integer, 0,                       &
-                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (temp, 1, MPI_Double_Precision, 0,                   &
                     MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (NIVP, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
@@ -440,20 +401,13 @@ CONTAINS
                     MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (VFinal, 1, MPI_Double_Precision, 0,                 &
                     MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (NTenerg, 1, MPI_Integer, 0, MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (NTenerg, 1, MPI_Integer, 0,                         &
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TEnergI, 1, MPI_Double_Precision, 0,                &
                     MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TEnergF, 1, MPI_Double_Precision, 0,                &
                     MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (calcdos, 1, MPI_Logical, 0, MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (numberrings, 1, MPI_Integer, 0,                     &
-                    MPI_Comm_MyWorld, MPIerror)
-    if (.not. IOnode) allocate (atoms_per_ring(numberrings))
-    call MPI_Bcast (atoms_per_ring, numberrings, MPI_Integer, 0,        &
-                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (directory, 60, MPI_Character, 0,                    &
-                    MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (integraltype, 14, MPI_Character, 0,                 &
                     MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (nAsymmPts, 1, MPI_Integer, 0,                       &
                     MPI_Comm_MyWorld, MPIerror)
@@ -481,7 +435,15 @@ CONTAINS
        call MPI_Bcast (TBcouplDB, 1, MPI_Double_Precision, 0,           &
                        MPI_Comm_MyWorld, MPIerror)
     endif
+    call MPI_Bcast (phonEqui, 1, MPI_Logical, 0,                        &
+                    MPI_Comm_MyWorld, MPIerror)
+    if (.not. phonEqui) then
+       call MPI_Bcast (phonDamp, 1, MPI_Double_Precision, 0,            &
+                       MPI_Comm_MyWorld, MPIerror)
+    endif
     call MPI_Bcast (ProcsPerGPU, 1, MPI_Integer, 0,                     &
+                    MPI_Comm_MyWorld, MPIerror)
+    call MPI_Bcast (writeondisk, 1, MPI_Logical, 0,                     &
                     MPI_Comm_MyWorld, MPIerror)
 !   It is not necessary to broadcast 'nunits' here.
 #endif
@@ -503,28 +465,7 @@ CONTAINS
 
 
 !  *******************************************************************  !
-!                                freeopt                                !
-!  *******************************************************************  !
-!  Description: free allocated vectors.                                 !
-!                                                                       !
-!  Written by Pedro Brandimarte, Oct 2013.                              !
-!  Instituto de Fisica                                                  !
-!  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
-!  ***************************** HISTORY *****************************  !
-!  Original version:    October 2013                                    !
-!  *******************************************************************  !
-  subroutine freeopt
-
-
-!   Free memory.
-    deallocate (atoms_per_ring)
-
-
-  end subroutine freeopt
-
-
-!  *******************************************************************  !
 
 
 END MODULE idsrdr_options
+

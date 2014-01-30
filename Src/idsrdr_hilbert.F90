@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -77,9 +79,10 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: IOnode
 #ifdef MPI
-    use parallel,        only: MPI_Comm_MyWorld
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
+    use parallel,        only: IOnode
 #endif
     use idsrdr_options,  only: nAsymmPts
 
@@ -221,6 +224,7 @@ CONTAINS
 !  Original version:    December 2013                                   !
 !  *******************************************************************  !
   subroutine freehilb
+
 
 !   Free memory.
     deallocate (ker)

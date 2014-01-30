@@ -67,6 +67,9 @@ C complex*8  S1R(dnuoR,dnuoR)    : Overlaps between unit cells in the
 C                                right lead
 C *******************************************************************
 
+      use idsrdr_io,       only: IOassign, IOclose
+      use idsrdr_string,   only: STRpaste
+
       implicit none
       
       integer
@@ -94,19 +97,19 @@ C Internal variables
       double precision, allocatable ::
      .     xijL(:,:), SL(:), HL(:,:), foo(:)
       character
-     .     paste*25
+     .     file*25
       
       external
-     .     io_assign, io_close, hsl
+     .     hsl
 
       if (iter.eq.1 .and. istep.eq.0 .and. iv.eq.0 .and. ik.eq.1) then
 
-         write(6,'(a,a,/)') 'zhsunits: Reading ',
-     .        paste(slabeli,'.DAT')
+         call STRpaste (slabeli, '.DAT', file)
+         write(6,'(a,a,/)') 'zhsunits: Reading ', file
 
 C Read data
-         call io_assign(iu1)
-         open(iu1,file=paste(slabeli,'.DAT'),status='old')
+         call IOassign(iu1)
+         open(iu1,file=file,status='old')
          read(iu1,*) slabel, nuoL, nspinL, maxnhL, efL, tempL,
      .        nscL(1), nscL(2), noL
          write(6,*)  slabel, nuoL, nspinL, maxnhL, efL, tempL,
@@ -139,7 +142,7 @@ c Read data of the left lead
             enddo
          enddo
 
-         call io_close(iu1)
+         call IOclose(iu1)
 
 c Compare supercell of leads and EM
          if (nsc(1).ne.nscL(1) .or. nsc(2).ne.nscL(2)) then
@@ -168,8 +171,9 @@ c Initialize overlaps and Hamiltonians
          SL = 0.d0
 
 c Read overlaps and Hamiltonians
-         call io_assign(iu)
-         open(iu,file=paste(slabel,'.HST'),status='old')
+         call IOassign(iu)
+         call STRpaste (slabel, '.HST', file)
+         open(iu,file=file,status='old')
          do iuo = 1, nuoL
             do j = 1, numhL(iuo) 
                ind = listhptrL(iuo) + j
@@ -178,7 +182,7 @@ c Read overlaps and Hamiltonians
                HL(ind,:) = foo
             enddo
          enddo
-         call io_close(iu)
+         call IOclose(iu)
         
          if(gamma) then 
 c Calculate S0, S1, H0 and H1 (left and right)

@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -21,12 +23,12 @@
 !  *******************************************************************  !
 !  Description: set/store parallel variables.                           !
 !                                                                       !
-!  Written by Pedro Brandimarte, Sep 2013.                              !
+!  Written by Alberto Torres, Jan 2014.                                 !
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
-!  e-mail: brandimarte@gmail.com                                        !
+!  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
-!  Original version:    September 2013                                  !
+!  Original version:    January 2014                                    !
 !  *******************************************************************  !
 
 MODULE parallel
@@ -36,26 +38,26 @@ MODULE parallel
 
   PUBLIC ! default is public
 
-  integer, save :: Node = 0          ! Actual node (rank)
+  integer, save :: Node = 0 ! Actual node (rank)
 
-  integer, save :: Nodes = 1         ! Total number of nodes (comm_size)
+  integer, save :: Nodes = 1 ! Total number of nodes (comm_size)
 
-  logical, save :: IOnode = .false.  ! True if it is the I/O node
+  logical, save :: IOnode = .false. ! True if it is the I/O node
 
-
-!## Alberto:
-  integer, save :: MPI_Comm_MyWorld = 0   ! MPI communicator
+  integer, save :: MPI_Comm_MyWorld = 0 ! MPI communicator
 
 #ifdef MASTER_SLAVE
-  integer, save :: Master = 0             ! Rank of the Master process
+  integer, save :: Master = 0 ! Rank of the Master process
 
-  logical, save :: IamMaster = .false.    ! Only one to rule them all
+  logical, save :: IamMaster = .false. ! Only one to rule them all
 #endif
 
-  integer, save :: ProcsPerGPU = 0        ! Procs running per GPU (zero if you don't have any)
+  integer, save :: ProcsPerGPU = 0 ! Procs running per GPU
+                                   ! (zero if you don't have any)
 
 
 !  *******************************************************************  !
 
 
 END MODULE parallel
+

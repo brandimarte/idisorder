@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -38,6 +40,8 @@ MODULE idsrdr_init
   use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use fdf
+  use master_slave,    only: 
+  use idsrdr_io,       only: 
 
   implicit none
 
@@ -79,17 +83,20 @@ CONTAINS
 !
 ! Modules
 !
-    use parallel,        only: Node, Nodes, IOnode
 #ifdef MPI
-    use parallel,        only: MPI_Comm_MyWorld
-#endif
 #ifdef MASTER_SLAVE
-    use parallel,        only: Master, IamMaster
+    use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld,   &
+                               Master, IamMaster
     use master_slave,    only: Init_Master, Kill_Master
+#else
+    use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld
 #endif
-    use idsrdr_options,  only: readopt
+#else
+    use parallel,        only: Node, Nodes, IOnode
+#endif
+    use idsrdr_options,  only: readopt, ProcsPerGPU
     use idsrdr_leads,    only: readleads
-    use idsrdr_options,  only: ProcsPerGPU
+    use idsrdr_io,       only: IOinit
 
 #ifdef MPI
     include "mpif.h"
@@ -109,30 +116,39 @@ CONTAINS
     call MPI_Comm_size (MPI_Comm_World, Nodes, MPIerror)
 #endif
 
-
     IOnode = (Node == 0)
 
 !   Print version information.
     if (IOnode) then
 
 !      Print header.
+#ifdef MPI
        call header (Nodes)
+#else
+       call header
+#endif
 
 !      Initial time.
        call cpu_time (time_begin)
 
     endif
 
+!   Init logical units control.
+    call IOinit
 
-!## Alberto:
+!## BEGIN Alberto
+
+!   Use 'MPI_Comm_World' only to communicate with
+!   the 'Master' otherwise use 'MPI_Comm_MyWorld'.
 #ifdef MASTER_SLAVE
-    Master = Nodes-1                      ! Defining Master as the last process (rank)
-    if (Node == Master) IamMaster=.true.  ! Slaves get the default .false.
+    Master = Nodes - 1 ! defining Master as the last process (rank)
+    if (Node == Master) IamMaster=.true. ! Slaves get the default .false.
 
-!   Create "world" communicator for slaves: MPI_Comm_MyWorld
+!   Create "world" communicator for slaves: 'MPI_Comm_MyWorld'.
     call MPI_Comm_group (MPI_Comm_World, group_World, MPIerror)
     call MPI_Group_excl (group_World, 1, Master, group_Slave, MPIerror)
-    call MPI_Comm_create(MPI_Comm_World, group_Slave, MPI_Comm_MyWorld, MPIerror)
+    call MPI_Comm_create (MPI_Comm_World, group_Slave,                  &
+                          MPI_Comm_MyWorld, MPIerror)
 
     Nodes = Nodes - 1
     call MPI_Barrier (MPI_Comm_World, MPIerror)
@@ -144,24 +160,14 @@ CONTAINS
 !   No master, no slave; and we are all equals:
     MPI_Comm_MyWorld = MPI_Comm_World
 #endif
-!   ***
-!   Use MPI_Comm_World only to communicate with the Master,
-!   otherwise use MPI_Comm_MyWorld
-!   ***
-!## End Alberto
 
+!## END Alberto
 
 !   Initialise read.
     call initread
 
 !   Read simulation data.
     call readopt
-
-!   Initialise CPU-GPU interface
-    call HI_Init(Node, ProcsPerGPU) ! Try to read module vars directly from C?
-    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
-    call HI_PrintInfo(Node, ProcsPerGPU)
-    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
 
 !   Number of unit cells along parallel directions.
     nsc = 1
@@ -197,13 +203,13 @@ CONTAINS
 ! Modules
 !
     use parallel,        only: IOnode
+    use idsrdr_io,       only: IOassign, IOclose
 
 !   Local variables.
     character string*20
     character filein*20, fileout*20, line*150 
     integer :: count, length, lun, lun_tmp
     logical :: debug_input, file_exists
-    external :: io_assign, io_close
 
 !   Print welcome and presentation.
     if (IOnode) then
@@ -217,14 +223,14 @@ CONTAINS
           write (6,'(a)') 'WARNING: ' //                                &
                'I-Disorder is reading its input from file INPUT_DEBUG'
            
-          call io_assign(lun)
+          call IOassign(lun)
           filein = 'INPUT_DEBUG'
           open (lun, file='INPUT_DEBUG', form='formatted', status='old')
           rewind (lun)
        else
           write (6,'(a,/)') 'initread: Reading from standard input'
           lun = 5
-          call io_assign (lun_tmp)
+          call IOassign (lun_tmp)
           do
              call system_clock (count)
              write (string,*) count
@@ -250,9 +256,9 @@ CONTAINS
 
 !      Choose proper file for fdf processing.
        if (debug_input) then
-          call io_close (lun)
+          call IOclose (lun)
        else
-          call io_close (lun_tmp)
+          call IOclose (lun_tmp)
        endif
 
 !      Set up fdf.
@@ -279,10 +285,16 @@ CONTAINS
 !  ****************************** INPUT ******************************  !
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  *******************************************************************  !
+#ifdef MPI
   subroutine header (Nodes)
+#else
+  subroutine header
+#endif
 
 !   Input variables.
+#ifdef MPI
     integer, intent(in) :: Nodes
+#endif
 
 !   Local variables.
     integer, dimension(8) :: values
@@ -291,35 +303,37 @@ CONTAINS
 
     write (6,'(/,a,73(1h*),/)') '   '
     write (6,'(a,/)')                                                   &
-         '                         *  WELCOME TO I-DISORDER  *'
-    write (6,'(a,i4,a,i2,a,i2,a,i2,a,i2,a,i2)')                         &
+         '                   *  WELCOME TO I-DISORDER CODE v2014.01  *'
+    write (6,'(a,i4,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,i2.2)')               &
          '                            ',                                &
          values(1), '.', values(2), '.', values(3), ' , ',              &
          values(5), ':', values(6), ':', values(7)
-    write (6,'(/,a,a)') '      ', 'Written by Alexandre Reily Rocha' // &
-         ' and Pedro Brandimarte, 2007-2013'
-    write (6,'(/,a,a)') '      ', 'CUDA implementation by Alberto '  // &
-         'Torres, 2014'
-    write (6,'(/,a,a)') '      ', 'Copyright (c), All Rights Reserved'
-    write (6,'(/,a,a)') '      ', 'This program is free software. '  // &
+    write (6,'(/,a)') '      Written by Alexandre Reily Rocha '      // &
+         '(reilya@ift.unesp.br),'
+    write (6,'(a)') '                 Pedro Brandimarte '            // &
+         '(brandimarte@gmail.com) and'
+    write (6,'(a)') '                 Alberto Torres '               // &
+         '(alberto.trj@gmail.com).'
+    write (6,'(/,a)') '      Copyright (c), All Rights Reserved'
+    write (6,'(/,a)') '      This program is free software. '        // &
          'You can redistribute it and/or'
-    write (6,'(a,a)') '      ', 'modify it under the terms of the '  // &
+    write (6,'(a)') '      modify it under the terms of the '        // &
          'GNU General Public License'
-    write (6,'(a,a)') '      ', '(version 3 or later) as published ' // &
+    write (6,'(a)') '      (version 3 or later) as published '       // &
          'by the Free Software Foundation'
-    write (6,'(a,a)') '      ', '<http://fsf.org/>. See the GNU '    // &
+    write (6,'(a)') '      <http://fsf.org/>. See the GNU '          // &
          'General Public License for details.'
     write (6,'(/,a,73(1h*))') '   '
 
 #ifdef MPI
     if (Nodes > 1) then
-       write(6,'(/,a,i4,a)')                                         &
+       write(6,'(/,a,i4,a)')                                            &
             '* Running on ', Nodes, ' nodes in parallel'
     else
        write(6,'(/,a,i4,a)') '* Running in serial mode with MPI'
     endif
 #else
-       write(6,'(/,a,i4,a)') '* Running in serial mode'
+    write(6,'(/,a,i4,a)') '* Running in serial mode'
 #endif
 
 

@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -38,12 +40,14 @@ MODULE idsrdr_ephcoupl
 !
   use parallel,        only: 
   use idsrdr_options,  only: 
+  use idsrdr_io,       only: 
+  use idsrdr_string,   only: 
 
   implicit none
 
   PRIVATE ! default is private
   PUBLIC :: eph, neph, nModes, norbDyn, idxF, idxL, ephIdx,             &
-            freq, Meph, EPHread, EPHfree
+            freq, Meph, EPHread, freeEPH
 
   logical :: eph ! Inelastic calculation?
 
@@ -113,11 +117,14 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: IOnode
 #ifdef MPI
-    use parallel,        only: MPI_Comm_MyWorld
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
+    use parallel,        only: IOnode
 #endif
     use idsrdr_options,  only: nspin, directory
+    use idsrdr_io,       only: IOassign, IOclose
+    use idsrdr_string,   only: STRpaste
 
 #ifdef MPI
     include "mpif.h"
@@ -132,9 +139,8 @@ CONTAINS
 !   Local variables.
     integer :: iu, idx, nu, i, l, s, sDyn, nDyn
     complex(8), dimension(:), allocatable :: aux
-    character(len=100), external :: paste
+    character(len=100) :: file
     logical :: found
-    external :: io_assign, io_close
 #ifdef MPI
     integer :: MPIerror
 #endif
@@ -172,8 +178,9 @@ CONTAINS
     if (ephIndic(nu) == 1) then ! consider eph interaction
 
 !      Check if electron-phonon coupling file exists.
-       inquire (file=paste(directory, paste(fileunits(nu),'.Meph')),    &
-                exist=found)
+       call STRpaste (fileunits(nu), '.Meph', file)
+       call STRpaste (directory, file, file)
+       inquire (file=file, exist=found)
        if (.not.found) go to 123
 
 !      Set e-ph index vector.
@@ -185,10 +192,8 @@ CONTAINS
                " electron-phonon coupling matrix ", idx,  "..."
 
 !         Opens the file.
-          call io_assign (iu)
-          open (iu,                                                     &
-               file=paste(directory, paste(fileunits(nu),'.Meph')),     &
-               form='formatted', status='old')
+          call IOassign (iu)
+          open (iu, file=file, form='formatted', status='old')
 
 !         Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
 !         dynamic orbitals (norbDyn), first orbital index (idxF) and
@@ -252,7 +257,7 @@ CONTAINS
           Meph(idx)%M = Meph(idx)%M / 13.60569253D0
 
 !         Closes the file.
-          call io_close (iu)
+          call IOclose (iu)
 
 !         Free memory.
           deallocate (aux)
@@ -271,8 +276,9 @@ CONTAINS
        if (ephIndic(nu) == 1) then ! consider eph interaction
 
 !         Check if electron-phonon coupling file exists.
-          inquire (file=paste(directory, paste(fileunits(nu),'.Meph')), &
-               exist=found)
+          call STRpaste (fileunits(nu), '.Meph', file)
+          call STRpaste (directory, file, file)
+          inquire (file=file, exist=found)
           if (.not.found) go to 123
 
 !         Set e-ph index vector.
@@ -284,10 +290,8 @@ CONTAINS
                   " electron-phonon coupling matrix ", idx,  "..."
 
 !            Opens the file.
-             call io_assign (iu)
-             open (iu,                                                  &
-                  file=paste(directory, paste(fileunits(nu),'.Meph')),  &
-                  form='formatted', status='old')
+             call IOassign (iu)
+             open (iu, file=file, form='formatted', status='old')
 
 !            Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
 !            dynamic orbitals (norbDyn), first orbital index (idxF) and
@@ -351,7 +355,7 @@ CONTAINS
              Meph(idx)%M = Meph(idx)%M / 13.60569253D0
 
 !            Closes the file.
-             call io_close (iu)
+             call IOclose (iu)
 
 !            Free memory.
              deallocate (aux)
@@ -371,8 +375,9 @@ CONTAINS
     if (ephIndic(nu) == 1) then ! consider eph interaction
 
 !      Check if electron-phonon coupling file exists.
-       inquire (file=paste(directory, paste(fileunits(nu),'.Meph')),    &
-                exist=found)
+       call STRpaste (fileunits(nu), '.Meph', file)
+       call STRpaste (directory, file, file)
+       inquire (file=file, exist=found)
        if (.not.found) go to 123
 
 !      Set e-ph index vector.
@@ -384,10 +389,8 @@ CONTAINS
                " electron-phonon coupling matrix ", idx,  "..."
 
 !         Opens the file.
-          call io_assign (iu)
-          open (iu,                                                     &
-               file=paste(directory, paste(fileunits(nu),'.Meph')),     &
-               form='formatted', status='old')
+          call IOassign (iu)
+          open (iu, file=file, form='formatted', status='old')
 
 !         Reads: # of spin (sDyn), # of dynamic atoms (nDyn), # of
 !         dynamic orbitals (norbDyn), first orbital index (idxF) and
@@ -451,7 +454,7 @@ CONTAINS
           Meph(idx)%M = Meph(idx)%M / 13.60569253D0
 
 !         Closes the file.
-          call io_close (iu)
+          call IOclose (iu)
 
 !         Free memory.
           deallocate (aux)
@@ -490,7 +493,6 @@ CONTAINS
     enddo
 #endif
 
-
     RETURN
 
 123 if (IOnode) then
@@ -506,11 +508,12 @@ CONTAINS
        RETURN
     endif
 
-end subroutine EPHread
+
+  end subroutine EPHread
 
 
 !  *******************************************************************  !
-!                                EPHfree                                !
+!                                freeEPH                                !
 !  *******************************************************************  !
 !  Description: free allocated vectors.                                 !
 !                                                                       !
@@ -521,7 +524,7 @@ end subroutine EPHread
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
-  subroutine EPHfree
+  subroutine freeEPH
 
 !   Local variables.
     integer :: i
@@ -543,7 +546,7 @@ end subroutine EPHread
     endif
 
 
-  end subroutine EPHfree
+  end subroutine freeEPH
 
 
 !  *******************************************************************  !

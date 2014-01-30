@@ -1,7 +1,9 @@
 !  *******************************************************************  !
-!  I-Disorder Fortran Code                                              !
+!  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    !
+!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
+!             Pedro Brandimarte (brandimarte@gmail.com) and             !
+!             Alberto Torres (alberto.trj@gmail.com).                   !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -35,16 +37,15 @@
 !  Instituto de Fisica                                                  !
 !  Universidade de Sao Paulo                                            !
 !  e-mail: alberto.trj@gmail.com                                        !
-!                                                                       !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    October 2013                                    !
 !  *******************************************************************  !
 
+MODULE idsrdr_engrid
+
 #ifdef MASTER_SLAVE
 #include "master-slave.h"
 #endif
-
-MODULE idsrdr_engrid
 
 !
 !   Modules
@@ -61,9 +62,10 @@ MODULE idsrdr_engrid
   integer :: NTenerg_div ! number of energy grid points per node
 
 #ifdef MASTER_SLAVE
-  integer, allocatable, dimension (:) :: MyEiRecord ! Keep track what node does which Ei
+  integer, allocatable, dimension (:) :: MyEiRecord ! Keep track what
+                                                    ! node does which Ei
 #endif
-  double precision, allocatable, dimension (:) :: Ei ! energy grid points
+  real(8), allocatable, dimension (:) :: Ei ! energy grid points
 
 
 CONTAINS
@@ -159,35 +161,31 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: Node
-!
-!   Input variables
-!
+
+!   Input variables.
     integer, intent(in) :: NTenerg, NTenerg_div
-    double precision, intent(in) :: TenergI, TenergF
-    double precision, dimension (NTenerg_div), intent(out) :: Ei
-!
+    real(8), intent(in) :: TenergI, TenergF
+    real(8), dimension (NTenerg_div), intent(out) :: Ei
+
 !   Local variables.
-!
     integer :: i
-    double precision :: dE
-!
-!   Initialize   
-!
+    real(8) :: dE
+
+!   Initializations.  
     Ei = 0.d0
-    dE = (TenergF-TenergI)/dble(NTenerg)
+    dE = (TenergF - TenergI) / DBLE(NTenerg)
 
 #if defined MPI && !defined MASTER_SLAVE
 !   Only MPI
     do i = 1, NTenerg_div
 !      Energ = initial + node shift          + point shift
        Ei(i) = TenergI + Node*NTenerg_div*dE + (i-1)*dE
-    end do
 #else
 !   MASTER_SLAVE and serial fall here
     do i = 1, NTenerg
        Ei(i) = TenergI + (i-1)*dE
-    end do
 #endif
+    end do
 
 
   end subroutine energygrid
@@ -207,8 +205,10 @@ CONTAINS
 !  *******************************************************************  !
   subroutine freegrid
 
+
 !   Free memory.
     deallocate (Ei)
+
 
   end subroutine freegrid
 
@@ -217,3 +217,4 @@ CONTAINS
 
 
 END MODULE idsrdr_engrid
+
