@@ -10,9 +10,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#ifndef MAGMA
-# include <math.h>
-#endif
+#include <math.h>
 
 #ifdef MAGMA
 # include <cuda.h>
@@ -63,6 +61,7 @@ extern "C" void zsytri_(char* uplo, int *N, doubleComplex *A, int *LDA, int *ipi
 
 
 /* For use with fortran (mandatory, of course): */
+#define FORTRAN
 #ifdef FORTRAN
 # define HI_Init             hi_init_
 # define HI_Finalize         hi_finalize_
@@ -99,6 +98,10 @@ extern "C" void HI_zsymm(char *side, char *uplo, int *M, int *N,
                          doubleComplex *alpha, doubleComplex *A, int *LDA,
                          doubleComplex *B, int *LDB, doubleComplex *beta,
                          doubleComplex *C, int *LDC);
+extern "C" void HI_zhemm(char *side, char *uplo, int *M, int *N,
+                         doubleComplex *alpha, doubleComplex *A, int *LDA,
+                         doubleComplex *B, int *LDB, doubleComplex *beta,
+                         doubleComplex *C, int *LDC);
 
 extern "C" void HI_zgeInvert(doubleComplex *A, int *M);
 extern "C" void HI_zsyInvert(char *uplo, doubleComplex *A, int *M);
@@ -118,7 +121,7 @@ int GPUcount = 0;
 int VirtualGPUcount = 0;
 int myGPU = -1;
 bool IuseGPU = false;
-#ifdef HAVE_CUBLAS
+#ifdef MAGMA
 cublasHandle_t myHandle;
 #endif
 
@@ -309,7 +312,7 @@ static inline cublasFillMode_t char2cublas_fill(char *char_op)
 //----------------------------------------------------------------------------
 // Multiplies two double complex symmetric matrices using only 1 xPU (x=G,C).
 //
-// Same interface as BLAS 3 zgemm
+// Same interface as BLAS 3 zsymm
 //----------------------------------------------------------------------------
 // Alberto Torres, Jan 2014
 //----------------------------------------------------------------------------
@@ -363,6 +366,66 @@ void HI_zsymm(char *side, char *uplo, int *M, int *N,
     else // Use CPU
 #endif
         zsymm_(side, uplo, M, N, alpha, A, LDA, B, LDB, beta, C, LDC);
+}
+
+
+//----------------------------------------------------------------------------
+// Multiplies two double complex hermitian matrices using only 1 xPU (x=G,C).
+//
+// Same interface as BLAS 3 zhemm
+//----------------------------------------------------------------------------
+// Alberto Torres, Jan 2014
+//----------------------------------------------------------------------------
+void HI_zhemm(char *side, char *uplo, int *M, int *N, 
+              doubleComplex *alpha, doubleComplex *A, int *LDA,
+              doubleComplex *B, int *LDB, doubleComplex *beta,
+              doubleComplex *C, int *LDC)
+{
+#ifdef MAGMA
+    if(IuseGPU) // Use GPU
+    {
+        const size_t size = sizeof(cuDoubleComplex);
+
+        const int ldA = *LDA;
+        const int ldB = *LDB;
+        const int ldC = *LDC;
+        const int lddA = ldA;  // This ones could be made multiples of 32
+        const int lddB = ldB;
+        const int lddC = ldC;
+
+        const cuDoubleComplex za=(cuDoubleComplex)*alpha;
+        const cuDoubleComplex zb=(cuDoubleComplex)*beta;
+
+        cublasSideMode_t cuSide = char2cublas_side(side);
+        cublasFillMode_t cuUpLo = char2cublas_fill(uplo);
+
+        int rA;
+        if(cuSide == CUBLAS_SIDE_LEFT) rA = *M;
+        else rA = *N;
+        const int cA = rA;
+        const int rB = *M, cB = *N;
+        const int rC = *M, cC = *N;
+
+        cuDoubleComplex *dA, *dB, *dC;
+       
+        cudaMalloc((void**)&dA, lddA*cA * size);
+        cudaMalloc((void**)&dB, lddB*cB * size);
+        cudaMalloc((void**)&dC, lddC*cC * size);
+
+        cublasSetMatrix(rA, cA, size, A, ldA, dA, lddA);
+        cublasSetMatrix(rB, cB, size, B, ldB, dB, lddB);
+
+        cublasZhemm(myHandle, cuSide, cuUpLo, rC, cC, &za, dA, lddA, dB, lddB, &zb, dC, lddC);
+
+        cublasGetMatrix(rC, cC, size, dC, lddC, C, ldC);
+
+        cudaFree(dA);
+        cudaFree(dB);
+        cudaFree(dC);
+    }
+    else // Use CPU
+#endif
+        zhemm_(side, uplo, M, N, alpha, A, LDA, B, LDB, beta, C, LDC);
 }
 
 
