@@ -56,10 +56,6 @@ MODULE idsrdr_end
 
   implicit none
 
-#ifdef MASTER_SLAVE
-  include "master-slave.h"
-#endif
-
   PUBLIC  :: finalize
   PRIVATE ! default is private
 

@@ -375,6 +375,7 @@ CONTAINS
        write (6,4)                                                &
             'readopt: Number of processes running per GPU   ' //  &
             '        =', ProcsPerGPU
+
 !      Working directory.
        directory = fdf_string ('Directory', ' ')
        write (6,2) 'readopt: Working directory                    ' //  &

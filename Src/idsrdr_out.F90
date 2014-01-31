@@ -72,6 +72,7 @@ CONTAINS
 !  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                 : True if it is the I/O node          !
+!  integer NIVP                   : Number of bias potential points     !
 !  *******************************************************************  !
   subroutine output
 
@@ -79,6 +80,7 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
+    use idsrdr_options,  only: NIVP
 
     if (IOnode) write (6,'(/,28("*"),a,29("*"))')                       &
             ' Writing output files '
@@ -91,6 +93,8 @@ CONTAINS
 
 !   Write calculated dissipated powers to files.
     call writepower
+
+    if (NIVP < 3) return
 
 !   Write calculated differential conductance ('dI/dV') to files.
     call writedIdV

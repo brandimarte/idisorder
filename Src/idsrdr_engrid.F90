@@ -59,10 +59,6 @@ MODULE idsrdr_engrid
   PUBLIC  :: engrid, freegrid, NTenerg_div, Ei
   PRIVATE :: energygrid
 
-#ifdef MASTER_SLAVE
-  include "master-slave.h"
-#endif
-
   integer :: NTenerg_div ! number of energy grid points per node
 
 #ifdef MASTER_SLAVE

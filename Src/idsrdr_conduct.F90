@@ -44,9 +44,8 @@ MODULE idsrdr_conduct
 
   implicit none
   
-  PUBLIC  :: conductinit, conduct, alldIdV, dIdV, d2IdV2, freedIdV,     &
-             sumAlldIdV
-  PRIVATE :: computedIdV, computed2IdV2
+  PUBLIC  :: conduct, alldIdV, dIdV, d2IdV2, freedIdV, sumAlldIdV
+  PRIVATE :: conductinit, computedIdV, computed2IdV2
 
 ! Type for storing calculated differential conductance.
   TYPE alldIdV
@@ -87,8 +86,6 @@ CONTAINS
 !
     use idsrdr_options,  only: nspin, NIVP
     use idsrdr_engrid,   only: NTenerg_div
-
-    if (NIVP < 3) return
 
 !   Allocate and initializes current array.
     allocate (dIdV(NTenerg_div,nspin,NIVP))
@@ -132,6 +129,9 @@ CONTAINS
 
     if (IOnode) write (6,'(a)', advance='no')                           &
          '      computing differential conductance... '
+
+!   Initialize calculated differential conductances arrays.
+    call conductinit
 
 !   Compute the differential conductance.
     call computedIdV

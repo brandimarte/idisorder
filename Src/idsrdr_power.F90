@@ -36,7 +36,6 @@ MODULE idsrdr_power
 !
 !   Modules
 !
-  use parallel,        only: 
   use idsrdr_units,    only: 
   use idsrdr_options,  only: 
   use idsrdr_engrid,   only: 
@@ -138,7 +137,6 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
-!  logical IOnode               : True if it is the I/O node            !
 !  integer NL                   : Number of left lead orbitals          !
 !  integer NR                   : Number of right lead orbitals         !
 !  complex(8) Sigma_L(NL,NL)    : Left-lead self-energy                 !
@@ -163,7 +161,6 @@ CONTAINS
 !
 !   Modules
 !
-    use parallel,        only: IOnode
     use idsrdr_leads,    only: NL, NR, Sigma_L, Sigma_R
     use idsrdr_options,  only: writeondisk
     use idsrdr_units,    only: nunitseph, eph_type
@@ -190,9 +187,6 @@ CONTAINS
 !   Sets the lead's coupling matrices.
     Gamma_L = zi * (Sigma_L - DCONJG(Sigma_L))
     Gamma_R = zi * (Sigma_R - DCONJG(Sigma_R))
-
-    if (IOnode) write (6,'(a)', advance='no')                           &
-         '      computing dissipated power... '
 
     IF (writeondisk) THEN
 
@@ -288,8 +282,6 @@ CONTAINS
        enddo
 
     ENDIF ! IF (writeondisk)
-
-    if (IOnode) write(6,'(a)') " ok!"
 
 !   Free memory.
     deallocate (Gamma_L)

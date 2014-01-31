@@ -45,34 +45,27 @@ PROGRAM IDISORDER
 ! Modules
 !
 #ifdef MASTER_SLAVE
+  use master_slave,    only: Master_SetupLoop, Slave_AskWork
   use parallel,        only: IOnode, Node
+  use idsrdr_options,  only: nspin, NIVP, VInitial, dV, NTenerg
+  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei, MyEiRecord
 #else
   use parallel,        only: IOnode
+  use idsrdr_options,  only: nspin, NIVP, VInitial, dV
+  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
 #endif
   use idsrdr_init,     only: init
   use idsrdr_units,    only: makeunits
-#ifdef MASTER_SLAVE
-  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei, MyEiRecord
-#else
-  use idsrdr_engrid,   only: engrid, NTenerg_div, Ei
-#endif
   use idsrdr_hilbert,  only: hilbertkernel
-  use idsrdr_spectral, only: spectralinit, spectral
-  use idsrdr_green,    only: greeninit, greenfunctions
-#ifdef MASTER_SLAVE
-  use idsrdr_options,  only: nspin, NIVP, VInitial, dV, NTenerg
-#else
-  use idsrdr_options,  only: nspin, NIVP, VInitial, dV
-#endif
+  use idsrdr_arrays,   only: initarrays
   use idsrdr_leads,    only: leadsSelfEn
-  use idsrdr_power,    only: powerinit, power
-  use idsrdr_current,  only: currentinit, current
-  use idsrdr_conduct,  only: conductinit, conduct
+  use idsrdr_green,    only: greenfunctions
+  use idsrdr_spectral, only: spectral
+  use idsrdr_power,    only: power
+  use idsrdr_current,  only: current
+  use idsrdr_conduct,  only: conduct
   use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
-#ifdef MASTER_SLAVE
-  use master_slave,    only: Master_SetupLoop, Slave_AskWork
-#endif
 
   implicit none
 
@@ -92,23 +85,13 @@ PROGRAM IDISORDER
 ! Compute interpolation kernel function.
   call hilbertkernel
 
-! Initialize spectral function and DOS arrays.
-  call spectralinit
+! Allocate and initialize some arrays.
+  call initarrays
 
-! Initialize calculated power and occupation arrays.
-  call powerinit
-
-! Initialize calculated current array.
-  call currentinit
-
-! Initialize calculated differential conductances arrays.
-  call conductinit
-
-! Initialize Green's functions structures.
-  call greeninit
 
   if (IOnode) write (6,'(/,28("*"),a,28("*"),/)')                       &
        ' Transport Calculation '
+
 
 #ifdef MASTER_SLAVE
   call Master_SetupLoop (NTenerg)
@@ -116,8 +99,6 @@ PROGRAM IDISORDER
   do while (.true.)
 
      call Slave_AskWork (ienergy)
-
-     write (*,'(a,i2,a,i4)') 'Node ', Node, ' received iE = ', ienergy 
 
      if (ienergy == ENDWORK_MSG) exit
 
@@ -139,6 +120,12 @@ PROGRAM IDISORDER
 
         Vbias = VInitial
 
+        if (IOnode) then
+           write (6,'(a)', advance='no')                                &
+                '      computing dissipated power and current... '
+           flush (6)
+        endif
+
         do iv = 1,NIVP ! over bias points
 
 !          Calculate dissipated power into phonon system.
@@ -150,6 +137,8 @@ PROGRAM IDISORDER
            Vbias = Vbias + dV
 
         enddo
+
+        if (IOnode) write(6,'(a)') " ok!"
 
      enddo
   enddo

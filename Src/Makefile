@@ -77,8 +77,8 @@ OBJS += Hybrid_Interface.o idsrdr_string.o idsrdr_io.o gensvd.o rank.o  \
 	idsrdr_options.o idsrdr_leads.o idsrdr_init.o idsrdr_ephcoupl.o \
 	idsrdr_engrid.o idsrdr_units.o idsrdr_distrib.o idsrdr_green.o  \
 	idsrdr_spectral.o idsrdr_hilbert.o idsrdr_power.o               \
-	idsrdr_current.o idsrdr_conduct.o idsrdr_out.o idsrdr_end.o     \
-	idisorder.o
+	idsrdr_current.o idsrdr_arrays.o idsrdr_conduct.o idsrdr_out.o  \
+	idsrdr_end.o idisorder.o
 
 #  *******************************************************************  #
 
@@ -125,15 +125,17 @@ clean:
 #hsl.o : 
 #hsunits.o : idsrdr_io.o idsrdr_string.o hsl.o
 #identify.o : 
-#idsorder.o : parallel.o idsrdr_init.o idsrdr_units.o idsrdr_engrid.o   \
+#idisorder.o : parallel.o idsrdr_init.o idsrdr_units.o idsrdr_engrid.o  \
 #	idsrdr_spectral.o idsrdr_green.o idsrdr_options.o               \
 #       idsrdr_leads.o idsrdr_current.o idsrdr_end.o master_slave.o     \
-#       idsrdr_power.o idsrdr_conduct.o
+#       idsrdr_power.o idsrdr_conduct.o idsrdr_arrays.o
+#idsrdr_arrays.o : idsrdr_green.o idsrdr_spectral.o idsrdr_power.o      \
+#       idsrdr_current.o
 #idsrdr_check.o : parallel.o
 #idsrdr_conduct.o : parallel.o idsrdr_options.o idsrdr_engrid.o         \
 #       idsrdr_current.o
-#idsrdr_current.o : parallel.o idsrdr_options.o idsrdr_engrid.o         \
-#	idsrdr_leads.o idsrdr_ephcoupl.o idsrdr_green.o idsrdr_units.o  \
+#idsrdr_current.o : idsrdr_options.o idsrdr_engrid.o idsrdr_leads.o     \
+#	idsrdr_ephcoupl.o idsrdr_green.o idsrdr_units.o                 \
 #	idsrdr_recipes.o idsrdr_distrib.o idsrdr_hilbert.o idsrdr_io.o  \
 #	idsrdr_power.o
 #idsrdr_distrib.o :
@@ -156,9 +158,9 @@ clean:
 #idsrdr_out.o : parallel.o idsrdr_options.o idsrdr_engrid.o             \
 #	idsrdr_units.o idsrdr_spectral.o idsrdr_current.o idsrdr_io.o   \
 #	idsrdr_string.o idsrdr_power.o idsrdr_conduct.o
-#idsrdr_power.o : parallel.o idsrdr_units.o idsrdr_options.o            \
-#	idsrdr_engrid.o idsrdr_leads.o idsrdr_ephcoupl.o idsrdr_green.o \
-#	idsrdr_io.o idsrdr_distrib.o
+#idsrdr_power.o : idsrdr_units.o idsrdr_options.o idsrdr_engrid.o       \
+#	idsrdr_leads.o idsrdr_ephcoupl.o idsrdr_green.o idsrdr_io.o     \
+#	idsrdr_distrib.o
 #idsrdr_random.o : parallel.o
 #idsrdr_spectral.o : parallel.o idsrdr_options.o idsrdr_engrid.o        \
 #	idsrdr_ephcoupl.o idsrdr_units.o idsrdr_green.o idsrdr_io.o

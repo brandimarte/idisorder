@@ -37,11 +37,11 @@ MODULE idsrdr_init
 ! Modules
 !
   use parallel,        only:
+  use idsrdr_io,       only: 
   use idsrdr_options,  only: 
   use idsrdr_leads,    only: 
   use fdf
   use master_slave,    only: 
-  use idsrdr_io,       only: 
 
   implicit none
 

@@ -1,5 +1,4 @@
-#if defined WHATEVER && !defined WHATEVER
-/* *******************************************************************  !
+!  *******************************************************************  !
 !  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
 !  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
@@ -31,8 +30,7 @@
 !  e-mail: alberto.trj@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    January 2014                                    !
-!  ******************************************************************* */
-#endif
+!  *******************************************************************  !
 
 #define TASK_ENERGYLOOP  1
 #define TASK_EXIT        2
