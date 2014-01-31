@@ -1,4 +1,4 @@
-#  *************************************************************** ****  #
+#  *******************************************************************  #
 #  I-Disorder Fortran Code                                              #
 #                                                                       #
 #  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    #
@@ -173,9 +173,12 @@ FPPFLAGS_MPI = -DMPI -DMASTER_SLAVE
 # Uncomment to use GPUs with the MAGMA library
 FPPFLAGS_GPU = $(GPU_DEFS)
 
+# Debug (print tests).
+FPPFLAGS_DEBUG = -DDEBUG
+
 # Other definitions might be needed to work around some glitch in the
 # compiler. For old versions of gfortran, add -DGFORTRAN.
-FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_GPU)
+FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_DEBUG) $(FPPFLAGS_GPU)
 
 # All included flags.
 INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
