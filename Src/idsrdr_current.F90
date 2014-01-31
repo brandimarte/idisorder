@@ -43,7 +43,6 @@ MODULE idsrdr_current
   use idsrdr_ephcoupl, only: 
   use idsrdr_green,    only: 
   use idsrdr_units,    only: 
-  use idsrdr_check,    only: 
   use idsrdr_recipes,  only: 
   use idsrdr_distrib,  only: 
   use idsrdr_hilbert,  only: 
@@ -52,7 +51,8 @@ MODULE idsrdr_current
 
   implicit none
   
-  PUBLIC  :: currentinit, current, calcCurr, allcurr, freecurr
+  PUBLIC  :: currentinit, current, calcCurr, allcurr, freecurr,         &
+             sumCalcCurr
   PRIVATE :: elastic, transmission, inelSymm, inelSymmDisk, asymmPre,   &
              inelAsymm, inelAsymmDisk, testInelSymm, testInelAsymm,     &
              kbTol, eoverh
@@ -312,19 +312,19 @@ CONTAINS
 !   Local variables.
     integer :: r, c
     complex(8), dimension (:,:), allocatable :: IJ, JI
-    external :: zhemm
+    external :: HI_zhemm
 
 !   Allocate auxiliary matrices.
     allocate (IJ(NI,NJ))
     allocate (JI(NJ,NI))
 
 !   ('IJ = Gamma_I * Gr_ij')
-    call zhemm ('L', 'L', NI, NJ, (1.d0,0.d0), Gamma_I, NI,             &
-                Gr_ij, NI, (0.d0,0.d0), IJ, NI)
+    call HI_zhemm ('L', 'L', NI, NJ, (1.d0,0.d0), Gamma_I, NI,          &
+                   Gr_ij, NI, (0.d0,0.d0), IJ, NI)
 
 !   ('JI^dagger = Gr_ij * Gamma_J')
-    call zhemm ('R', 'L', NI, NJ, (1.d0,0.d0), Gamma_J, NJ,             &
-                Gr_ij, NI, (0.d0,0.d0), JI, NI)
+    call HI_zhemm ('R', 'L', NI, NJ, (1.d0,0.d0), Gamma_J, NJ,          &
+                   Gr_ij, NI, (0.d0,0.d0), JI, NI)
 
 !   Calculates the transmission coefficient.
     Tij = 0.d0
@@ -419,7 +419,7 @@ CONTAINS
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, A
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm
 
 !   Initialize variable.
     Isymm = 0.d0
@@ -450,69 +450,70 @@ CONTAINS
 !         -- 1st PART: 'G*Meph*G*Gamma_R*G^dagger*Meph' --
 
 !         ('Aux1 = Gamma_R * Gr_Mn^*')
-          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_R, NR, GrCJG, NR, (0.d0,0.d0), Aux1, NR)
+          call HI_zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_R, NR, GrCJG, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+          call HI_zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
-          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
-                      (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
-                      (0.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,      &
+                         (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,         &
+                         (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         ('Aux4 = Meph * Aux3')
-          call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.d0,0.d0), Meph(idx)%M(:,:,ispin,w),            &
-                      norbDyn(idx), Aux3, norbDyn(idx), (0.d0,0.d0),    &
-                      Aux4, norbDyn(idx))
+          call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),          &
+                         (1.d0,0.d0), Meph(idx)%M(:,:,ispin,w),         &
+                         norbDyn(idx), Aux3, norbDyn(idx), (0.d0,0.d0), &
+                         Aux4, norbDyn(idx))
 
 !         ('Aux5 = Gr_1n * Aux4')
-          call zgemm ('N', 'N', NL, norbDyn(idx), norbDyn(idx),         &
-                      (1.d0,0.d0), Gr_1n(j)%G, NL, Aux4,                &
-                      norbDyn(idx), (0.d0,0.d0), Aux5, NL)
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), norbDyn(idx),      &
+                         (1.d0,0.d0), Gr_1n(j)%G, NL, Aux4,             &
+                         norbDyn(idx), (0.d0,0.d0), Aux5, NL)
 
 !         -- 2nd PART: 'Gamma_R*G^dagger*Meph*A*Meph' --
 
 !         ('Aux1 = Aux2 * A') (where 'Aux2 = Gamma_R * Gr_Mn^* * Meph')
-          call zhemm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      A, norbDyn(idx), Aux2, NR, (0.d0,0.d0), Aux1, NR)
+          call HI_zhemm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0), A,    &
+                         norbDyn(idx), Aux2, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+          call HI_zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         -- 3rd PART: 'G^dagger*Gamma_L*(1st PART + i/2*G*2nd PART)' --
 
 !         ('Aux5 = i/2 * Gr_1M * Aux2 + Aux5')
-          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (0.d0,0.5d0),     &
-                      Gr_1M, NL, Aux2, NR, (1.d0,0.d0), Aux5, NL)
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), NR, (0.d0,0.5d0),  &
+                         Gr_1M, NL, Aux2, NR, (1.d0,0.d0), Aux5, NL)
 
 !         ('Aux6 = Gamma_L * Aux5')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_L, NL, Aux5, NL, (0.d0,0.d0), Aux6, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Aux5, NL, (0.d0,0.d0), Aux6, NL)
 
 !         ('Aux4 = Gr_1n^dagger * Aux6')
-          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
-                      (1.d0,0.d0), Gr_1n(j)%G, NL, Aux6, NL,            &
-                      (0.d0,0.d0), Aux4, norbDyn(idx))
+          call HI_zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,      &
+                         (1.d0,0.d0), Gr_1n(j)%G, NL, Aux6, NL,         &
+                         (0.d0,0.d0), Aux4, norbDyn(idx))
 
 !         -- 4rd PART: 'G^dagger*Gamma_L*G*(-i/2 * H.c.)' --
 
 !         ('Aux6 = Gamma_L * Gr_1n')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
-                      NL, Gr_1n(j)%G, NL, (0.d0,0.d0), Aux6, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Gr_1n(j)%G, NL, (0.d0,0.d0),      &
+                         Aux6, NL)
 
 !         ('Aux1 = Gr_1M^dagger * Aux6')
-          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
-                      Gr_1M, NL, Aux6, NL, (0.d0,0.d0), Aux1, NR)
+          call HI_zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),   &
+                         Gr_1M, NL, Aux6, NL, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux7 = Aux1 * (-i/2 * H.c.)') (where 'H.c. = Aux2^dagger')
-          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (0.d0,-0.5d0),    &
-                      Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
+          call HI_zgemm ('N', 'C', NR, NR, norbDyn(idx), (0.d0,-0.5d0), &
+                         Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
           do i = 1,norbDyn(idx)
@@ -637,7 +638,7 @@ CONTAINS
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, &
                                                A, auxGr_1n, auxGr_Mn
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm
 
 !   Initialize variable.
     Isymm = 0.d0
@@ -686,69 +687,70 @@ CONTAINS
 !         -- 1st PART: 'G*Meph*G*Gamma_R*G^dagger*Meph' --
 
 !         ('Aux1 = Gamma_R * Gr_Mn^*')
-          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_R, NR, GrCJG, NR, (0.d0,0.d0), Aux1, NR)
+          call HI_zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_R, NR, GrCJG, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+          call HI_zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
-          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
-                      (1.d0,0.d0), auxGr_Mn, NR, Aux2, NR,              &
-                      (0.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,      &
+                         (1.d0,0.d0), auxGr_Mn, NR, Aux2, NR,           &
+                         (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         ('Aux4 = Meph * Aux3')
-          call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.d0,0.d0), Meph(idx)%M(:,:,ispin,w),            &
-                      norbDyn(idx), Aux3, norbDyn(idx), (0.d0,0.d0),    &
-                      Aux4, norbDyn(idx))
+          call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),          &
+                         (1.d0,0.d0), Meph(idx)%M(:,:,ispin,w),         &
+                         norbDyn(idx), Aux3, norbDyn(idx), (0.d0,0.d0), &
+                         Aux4, norbDyn(idx))
 
 !         ('Aux5 = Gr_1n * Aux4')
-          call zgemm ('N', 'N', NL, norbDyn(idx), norbDyn(idx),         &
-                      (1.d0,0.d0), auxGr_1n, NL, Aux4,                  &
-                      norbDyn(idx), (0.d0,0.d0), Aux5, NL)
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), norbDyn(idx),      &
+                         (1.d0,0.d0), auxGr_1n, NL, Aux4,               &
+                         norbDyn(idx), (0.d0,0.d0), Aux5, NL)
 
 !         -- 2nd PART: 'Gamma_R*G^dagger*Meph*A*Meph' --
 
 !         ('Aux1 = Aux2 * A') (where 'Aux2 = Gamma_R * Gr_Mn^* * Meph')
-          call zhemm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      A, norbDyn(idx), Aux2, NR, (0.d0,0.d0), Aux1, NR)
+          call HI_zhemm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0), A,    &
+                         norbDyn(idx), Aux2, NR, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+          call HI_zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         -- 3rd PART: 'G^dagger*Gamma_L*(1st PART + i/2*G*2nd PART)' --
 
 !         ('Aux5 = i/2 * Gr_1M * Aux2 + Aux5')
-          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (0.d0,0.5d0),     &
-                      Gr_1M, NL, Aux2, NR, (1.d0,0.d0), Aux5, NL)
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), NR, (0.d0,0.5d0),  &
+                         Gr_1M, NL, Aux2, NR, (1.d0,0.d0), Aux5, NL)
 
 !         ('Aux6 = Gamma_L * Aux5')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_L, NL, Aux5, NL, (0.d0,0.d0), Aux6, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Aux5, NL, (0.d0,0.d0), Aux6, NL)
 
 !         ('Aux4 = Gr_1n^dagger * Aux6')
-          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
-                      (1.d0,0.d0), auxGr_1n, NL, Aux6, NL,              &
-                      (0.d0,0.d0), Aux4, norbDyn(idx))
+          call HI_zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,      &
+                         (1.d0,0.d0), auxGr_1n, NL, Aux6, NL,           &
+                         (0.d0,0.d0), Aux4, norbDyn(idx))
 
 !         -- 4rd PART: 'G^dagger*Gamma_L*G*(-i/2 * H.c.)' --
 
 !         ('Aux6 = Gamma_L * Gr_1n')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
-                      NL, auxGr_1n, NL, (0.d0,0.d0), Aux6, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, auxGr_1n, NL, (0.d0,0.d0),        &
+                         Aux6, NL)
 
 !         ('Aux1 = Gr_1M^dagger * Aux6')
-          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
-                      Gr_1M, NL, Aux6, NL, (0.d0,0.d0), Aux1, NR)
+          call HI_zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),   &
+                         Gr_1M, NL, Aux6, NL, (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux7 = Aux1 * (-i/2 * H.c.)') (where 'H.c. = Aux2^dagger')
-          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (0.d0,-0.5d0),    &
-                      Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
+          call HI_zgemm ('N', 'C', NR, NR, norbDyn(idx), (0.d0,-0.5d0), &
+                         Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
           do i = 1,norbDyn(idx)
@@ -945,7 +947,7 @@ CONTAINS
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm
 
 !   Initialize variable.
     Iasymm = 0.d0
@@ -973,69 +975,71 @@ CONTAINS
 !         -- 1st PART: 'G*Gamma_R*G^dagger*Meph' --
 
 !         ('Aux1 = Gamma_R * Gr_Mn^*')
-          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_R, NR, Gr_MnCJG, NR, (0.d0,0.d0), Aux1, NR)
+          call HI_zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_R, NR, Gr_MnCJG, NR, (0.d0,0.d0),        &
+                         Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+          call HI_zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
-          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
-                      (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,            &
-                      (0.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,      &
+                         (1.d0,0.d0), Gr_Mn(j)%G, NR, Aux2, NR,         &
+                         (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 2nd PART: '-G*Gamma_L*G^dagger*Meph + 1st PART' --
 
 !         ('Aux4 = Gr_1n^* * Meph')
-          call zsymm ('R', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Gr_1nCJG, NL, (0.d0,0.d0), Aux4, NL)
+          call HI_zsymm ('R', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Gr_1nCJG, NL, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux5 = Gamma_L * Aux4')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
 
 !         ('Aux3 = - Gr_1n^T * Aux5 + Aux3')
-          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NL,         &
-                      (-1.d0,0.d0), Gr_1n(j)%G, NL, Aux5, NL,           &
-                      (1.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NL,      &
+                         (-1.d0,0.d0), Gr_1n(j)%G, NL, Aux5, NL,        &
+                         (1.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 3rd PART:
 !                'G^dagger*Gamma_L*G*Gamma_R*G^dagger*Meph*(2nd Part)' --
 
 !         ('Aux1 = Aux2 * Aux3') (where 'Aux2= Gamma_R * Gr_Mn^* * Meph')
-          call zgemm ('N', 'N', NR, norbDyn(idx), norbDyn(idx),         &
-                      (1.d0,0.d0), Aux2, NR, Aux3,                      &
-                      norbDyn(idx), (0.d0,0.d0), Aux1, NR)
+          call HI_zgemm ('N', 'N', NR, norbDyn(idx), norbDyn(idx),      &
+                         (1.d0,0.d0), Aux2, NR, Aux3,                   &
+                         norbDyn(idx), (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux4 = Gr_1M * Aux1')
-          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (1.d0,0.d0),      &
-                      Gr_1M, NL, Aux1, NR, (0.d0,0.d0), Aux4, NL)
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), NR, (1.d0,0.d0),   &
+                         Gr_1M, NL, Aux1, NR, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux5 = Gamma_L*Aux4')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
-                      NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
 
 !         ('Aux3 = Gr_1n^dagger * Aux5')
-          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
-                      (1.d0,0.d0), Gr_1n(j)%G, NL, Aux5, NL,            &
-                      (0.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,      &
+                         (1.d0,0.d0), Gr_1n(j)%G, NL, Aux5, NL,         &
+                         (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 4rd PART: 'G^dagger*Gamma_L*G*(H.c.)' --
 
 !         ('Aux4 = Gamma_L * Gr_1n')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
-                      NL, Gr_1n(j)%G, NL, (0.d0,0.d0), Aux4, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Gr_1n(j)%G, NL, (0.d0,0.d0),      &
+                         Aux4, NL)
 
 !         ('Aux2 = Gr_1M^dagger * Aux4')
-          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
-                      Gr_1M, NL, Aux4, NL, (0.d0,0.d0), Aux2, NR)
+          call HI_zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),   &
+                         Gr_1M, NL, Aux4, NL, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux6 = Aux2 * (H.c.)') ('H.c. = Aux1^dagger')
-          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (1.d0,0.0d0),     &
-                      Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
+          call HI_zgemm ('N', 'C', NR, NR, norbDyn(idx), (1.d0,0.0d0),  &
+                         Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
           do i = 1,norbDyn(idx)
@@ -1136,7 +1140,7 @@ CONTAINS
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG,      &
                                                auxGr_1n, auxGr_Mn
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm
 
 !   Initialize variable.
     Iasymm = 0.d0
@@ -1178,69 +1182,71 @@ CONTAINS
 !         -- 1st PART: 'G*Gamma_R*G^dagger*Meph' --
 
 !         ('Aux1 = Gamma_R * Gr_Mn^*')
-          call zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_R, NR, Gr_MnCJG, NR, (0.d0,0.d0), Aux1, NR)
+          call HI_zhemm ('L', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_R, NR, Gr_MnCJG, NR, (0.d0,0.d0),        &
+                         Aux1, NR)
 
 !         ('Aux2 = Aux1 * Meph')
-          call zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Aux1, NR, (0.d0,0.d0), Aux2, NR)
+          call HI_zsymm ('R', 'L', NR, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Aux1, NR, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux3 = Gr_Mn^T * Aux2')
-          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,         &
-                      (1.d0,0.d0), auxGr_Mn, NR, Aux2, NR,              &
-                      (0.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NR,      &
+                         (1.d0,0.d0), auxGr_Mn, NR, Aux2, NR,           &
+                         (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 2nd PART: '-G*Gamma_L*G^dagger*Meph + 1st PART' --
 
 !         ('Aux4 = Gr_1n^* * Meph')
-          call zsymm ('R', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
-                      Meph(idx)%M(:,:,ispin,w), norbDyn(idx),           &
-                      Gr_1nCJG, NL, (0.d0,0.d0), Aux4, NL)
+          call HI_zsymm ('R', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Meph(idx)%M(:,:,ispin,w), norbDyn(idx),        &
+                         Gr_1nCJG, NL, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux5 = Gamma_L * Aux4')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),          &
-                      Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
 
 !         ('Aux3 = - Gr_1n^T * Aux5 + Aux3')
-          call zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NL,         &
-                      (-1.d0,0.d0), auxGr_1n, NL, Aux5, NL,             &
-                      (1.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('T', 'N', norbDyn(idx), norbDyn(idx), NL,      &
+                         (-1.d0,0.d0), auxGr_1n, NL, Aux5, NL,          &
+                         (1.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 3rd PART:
 !                'G^dagger*Gamma_L*G*Gamma_R*G^dagger*Meph*(2nd Part)' --
 
 !         ('Aux1 = Aux2 * Aux3') (where 'Aux2= Gamma_R * Gr_Mn^* * Meph')
-          call zgemm ('N', 'N', NR, norbDyn(idx), norbDyn(idx),         &
-                      (1.d0,0.d0), Aux2, NR, Aux3,                      &
-                      norbDyn(idx), (0.d0,0.d0), Aux1, NR)
+          call HI_zgemm ('N', 'N', NR, norbDyn(idx), norbDyn(idx),      &
+                         (1.d0,0.d0), Aux2, NR, Aux3,                   &
+                         norbDyn(idx), (0.d0,0.d0), Aux1, NR)
 
 !         ('Aux4 = Gr_1M * Aux1')
-          call zgemm ('N', 'N', NL, norbDyn(idx), NR, (1.d0,0.d0),      &
-                      Gr_1M, NL, Aux1, NR, (0.d0,0.d0), Aux4, NL)
+          call HI_zgemm ('N', 'N', NL, norbDyn(idx), NR, (1.d0,0.d0),   &
+                         Gr_1M, NL, Aux1, NR, (0.d0,0.d0), Aux4, NL)
 
 !         ('Aux5 = Gamma_L*Aux4')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
-                      NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, Aux4, NL, (0.d0,0.d0), Aux5, NL)
 
 !         ('Aux3 = Gr_1n^dagger * Aux5')
-          call zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,         &
-                      (1.d0,0.d0), auxGr_1n, NL, Aux5, NL,              &
-                      (0.d0,0.d0), Aux3, norbDyn(idx))
+          call HI_zgemm ('C', 'N', norbDyn(idx), norbDyn(idx), NL,      &
+                         (1.d0,0.d0), auxGr_1n, NL, Aux5, NL,           &
+                         (0.d0,0.d0), Aux3, norbDyn(idx))
 
 !         -- 4rd PART: 'G^dagger*Gamma_L*G*(H.c.)' --
 
 !         ('Aux4 = Gamma_L * Gr_1n')
-          call zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0), Gamma_L, &
-                      NL, auxGr_1n, NL, (0.d0,0.d0), Aux4, NL)
+          call HI_zhemm ('L', 'L', NL, norbDyn(idx), (1.d0,0.d0),       &
+                         Gamma_L, NL, auxGr_1n, NL, (0.d0,0.d0),        &
+                         Aux4, NL)
 
 !         ('Aux2 = Gr_1M^dagger * Aux4')
-          call zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),      &
-                      Gr_1M, NL, Aux4, NL, (0.d0,0.d0), Aux2, NR)
+          call HI_zgemm ('C', 'N', NR, norbDyn(idx), NL, (1.d0,0.d0),   &
+                         Gr_1M, NL, Aux4, NL, (0.d0,0.d0), Aux2, NR)
 
 !         ('Aux6 = Aux2 * (H.c.)') ('H.c. = Aux1^dagger')
-          call zgemm ('N', 'C', NR, NR, norbDyn(idx), (1.d0,0.0d0),     &
-                      Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
+          call HI_zgemm ('N', 'C', NR, NR, norbDyn(idx), (1.d0,0.0d0),  &
+                         Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
           do i = 1,norbDyn(idx)
@@ -1343,7 +1349,6 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits
     use idsrdr_leads,    only: Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
-    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR, ephunit, ephtype, norbDyn
@@ -1356,14 +1361,13 @@ CONTAINS
 
 !   Local variables.
     integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, ueph
-    integer, allocatable, dimension (:) :: ipiv
     real(8), allocatable, dimension (:,:) :: STot
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8) :: foo
     complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
                                                 Gamma_LTot, Gamma_RTot, &
                                                 Aux1, Aux2, Aux3
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm, HI_zgeInvert
 
 !   Get the total dimension.
     dimTot = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
@@ -1376,7 +1380,6 @@ CONTAINS
     allocate (STot(dimTot,dimTot))
     allocate (HTot(dimTot,dimTot))
     allocate (GrTot(dimTot,dimTot))
-    allocate (ipiv(dimTot))
     STot = 0.d0
     HTot = 0.d0
 
@@ -1433,13 +1436,11 @@ CONTAINS
     GrTot(1:NL,1:NL) = GrTot(1:NL,1:NL) - Sigma_L
     GrTot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                      &
          GrTot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
-    call CHECKzgetrf (dimTot, GrTot, ipiv)
-    call CHECKzgetri (dimTot, GrTot, ipiv)
+    call HI_zgeInvert (Grtot, dimTot)
 
 !   Free memory.
     deallocate (HTot)
     deallocate (STot)
-    deallocate (ipiv)
 
 !   Allocate full matrices.
     allocate (Gamma_LTot(dimTot,dimTot))
@@ -1510,57 +1511,62 @@ CONTAINS
 !   -- 1st PART: 'i/2*G*(Gamma_R*G^dagger*Meph*A*Meph - H.c.' --
 
 !   ('Aux1 = Gamma_RTot * GrTot^dagger')
-    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
-                Gamma_RTot, dimTot, GrTot, dimTot,                      &
-                (0.d0,0.d0), Aux1, dimTot)
+    call HI_zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   Gamma_RTot, dimTot, GrTot, dimTot,                   &
+                   (0.d0,0.d0), Aux1, dimTot)
 
 !   ('Aux2 = Aux1 * MephTot')
-    call zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
-                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
+    call HI_zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,      &
+                   dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
 
 !   Spectral matrix (obs.: 'GrTot' is symmetric).
     Aux1 = zi * (GrTot - DCONJG(GrTot))
 
 !   ('Aux3 = Aux2 * Aux1')
-    call zhemm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), Aux1,            &
-                dimTot, Aux2, dimTot, (0.d0,0.d0), Aux3, dimTot)
+    call HI_zhemm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), Aux1,         &
+                   dimTot, Aux2, dimTot, (0.d0,0.d0), Aux3, dimTot)
 
 !   ('Aux1 = Aux3 * MephTot')
-    call zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
-                dimTot, Aux3, dimTot, (0.d0,0.d0), Aux1, dimTot)
+    call HI_zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,      &
+                   dimTot, Aux3, dimTot, (0.d0,0.d0), Aux1, dimTot)
 
 !   ('Aux3 = i/2 * GrTot * Aux1')
-    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (0.d0,0.5d0), GrTot,  &
-                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux3, dimTot)
+    call HI_zgemm ('N', 'N', dimTot, dimTot, dimTot, (0.d0,0.5d0),      &
+                   GrTot, dimTot, Aux1, dimTot, (0.d0,0.d0),            &
+                   Aux3, dimTot)
 
 !   ('Aux3 = -i/2 * GrTot * Aux1^dagger + Aux3')
-    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (0.d0,-0.5d0), GrTot, &
-                dimTot, Aux1, dimTot, (1.d0,0.d0), Aux3, dimTot)
+    call HI_zgemm ('N', 'C', dimTot, dimTot, dimTot, (0.d0,-0.5d0),     &
+                   GrTot, dimTot, Aux1, dimTot, (1.d0,0.d0),            &
+                   Aux3, dimTot)
 
 !   -- 2nd PART: 'G*Meph*G*Gamma_R*G^dagger*Meph + 1st PART' --
 
 !   ('Aux1 = GrTot * Aux2')
 !                    (where 'Aux2 = Gamma_RTot * GrTot^dagger * MephTot')
-    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), GrTot,   &
-                dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
+    call HI_zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0),            &
+                   Aux1, dimTot)
 
 !   ('Aux2 = MephTot * Aux1')
-    call zsymm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
-                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
+    call HI_zsymm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,      &
+                   dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
 
 !   ('Aux3 = GrTot * Aux2 + Aux3')
-    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), GrTot,   &
-                dimTot, Aux2, dimTot, (1.d0,0.d0), Aux3, dimTot)
+    call HI_zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   GrTot, dimTot, Aux2, dimTot, (1.d0,0.d0),            &
+                   Aux3, dimTot)
 
 !   -- 3rd PART: 'G^dagger*Gamma_L*(2nd PART)' --
 
 !   ('Aux2 = Gamma_LTot * Aux3')
-    call zhemm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), Gamma_LTot,      &
-                dimTot, Aux3, dimTot, (0.d0,0.d0), Aux2, dimTot)
+    call HI_zhemm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), Gamma_LTot,   &
+                   dimTot, Aux3, dimTot, (0.d0,0.d0), Aux2, dimTot)
 
 !   ('Aux1 = GrTot^dagger * Aux2')
-    call zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
-                GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
+    call HI_zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0),            &
+                   Aux1, dimTot)
 
     foo = 0.d0
     do i = 1,dimTot
@@ -1713,7 +1719,6 @@ CONTAINS
                                S1unit, H1unit, Sunits, Hunits
     use idsrdr_leads,    only: Sigma_L, Sigma_R
     use idsrdr_ephcoupl, only: ephIdx, idxF, idxL
-    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR, ephunit, ephtype, norbDyn
@@ -1726,14 +1731,13 @@ CONTAINS
 
 !   Local variables.
     integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, ueph
-    integer, allocatable, dimension (:) :: ipiv
     real(8), allocatable, dimension (:,:) :: STot
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8) :: foo
     complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
                                                 Gamma_LTot, Gamma_RTot, &
                                                 Aux1, Aux2, Aux3
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm, HI_zgeInvert
 
 !   Get the total dimension.
     dimTot = unitdimensions(ntypeunits+1) + unitdimensions(ntypeunits+2)
@@ -1746,7 +1750,6 @@ CONTAINS
     allocate (STot(dimTot,dimTot))
     allocate (HTot(dimTot,dimTot))
     allocate (GrTot(dimTot,dimTot))
-    allocate (ipiv(dimTot))
     STot = 0.d0
     HTot = 0.d0
 
@@ -1803,13 +1806,11 @@ CONTAINS
     GrTot(1:NL,1:NL) = GrTot(1:NL,1:NL) - Sigma_L
     GrTot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) =                      &
          GrTot(dimTot-NR+1:dimTot,dimTot-NR+1:dimTot) - Sigma_R
-    call CHECKzgetrf (dimTot, GrTot, ipiv)
-    call CHECKzgetri (dimTot, GrTot, ipiv)
+    call HI_zgeInvert (Grtot, dimTot)
 
 !   Free memory.
     deallocate (HTot)
     deallocate (STot)
-    deallocate (ipiv)
 
 !   Allocate full matrices.
     allocate (Gamma_LTot(dimTot,dimTot))
@@ -1881,52 +1882,55 @@ CONTAINS
 !            'Gamma_R*G^dagger*Meph*G*(Gamma_R-Gamma_L)*G^dagger*Meph' --
 
 !   ('Aux1 = Gamma_RTot * GrTot^dagger')
-    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
-                Gamma_RTot, dimTot, GrTot, dimTot,                      &
-                (0.d0,0.d0), Aux1, dimTot)
+    call HI_zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   Gamma_RTot, dimTot, GrTot, dimTot,                   &
+                   (0.d0,0.d0), Aux1, dimTot)
 
 !   ('Aux2 = Aux1 * MephTot')
-    call zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
-                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
+    call HI_zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,      &
+                   dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
 
 !   ('Aux1 = Aux2 * GrTot')
-    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), Aux2,    &
-                dimTot, GrTot, dimTot, (0.d0,0.d0), Aux1, dimTot)
+    call HI_zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), Aux2, &
+                   dimTot, GrTot, dimTot, (0.d0,0.d0), Aux1, dimTot)
 
 !   ('Aux3 = Gamma_RTot - Gamma_LTot')
     Aux3 = Gamma_RTot - Gamma_LTot
 
 !   ('Aux2 = Aux1 * Aux3')
-    call zhemm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), Aux3,            &
-                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
+    call HI_zhemm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), Aux3,         &
+                   dimTot, Aux1, dimTot, (0.d0,0.d0), Aux2, dimTot)
 
 !   ('Aux3 = Aux2 * GrTot^dagger')
-    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0), Aux2,    &
-                dimTot, GrTot, dimTot, (0.d0,0.d0), Aux3, dimTot)
+    call HI_zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0), Aux2, &
+                   dimTot, GrTot, dimTot, (0.d0,0.d0), Aux3, dimTot)
 
 !   ('Aux1 = Aux3 * MephTot')
-    call zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,         &
-                dimTot, Aux3, dimTot, (0.d0,0.d0), Aux1, dimTot)
+    call HI_zsymm ('R', 'L', dimTot, dimTot, (1.d0,0.d0), MephTot,      &
+                   dimTot, Aux3, dimTot, (0.d0,0.d0), Aux1, dimTot)
 
 !   -- 2nd PART: 'G*(1st PART + H.c.)' --
 
 !   ('Aux3 = GrTot * Aux1')
-    call zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0), GrTot,   &
-                dimTot, Aux1, dimTot, (0.d0,0.d0), Aux3, dimTot)
+    call HI_zgemm ('N', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   GrTot, dimTot, Aux1, dimTot, (0.d0,0.d0),            &
+                   Aux3, dimTot)
 
 !   ('Aux3 = GrTot * Aux1^dagger + Aux3')
-    call zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0), GrTot,   &
-                dimTot, Aux1, dimTot, (1.d0,0.d0), Aux3, dimTot)
+    call HI_zgemm ('N', 'C', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   GrTot, dimTot, Aux1, dimTot, (1.d0,0.d0),            &
+                   Aux3, dimTot)
 
 !   -- 3rd PART: 'G^dagger*Gamma_L*(2nd PART)' --
 
 !   ('Aux2 = Gamma_LTot * Aux3')
-    call zhemm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), Gamma_LTot,      &
-                dimTot, Aux3, dimTot, (0.d0,0.d0), Aux2, dimTot)
+    call HI_zhemm ('L', 'L', dimTot, dimTot, (1.d0,0.d0), Gamma_LTot,   &
+                   dimTot, Aux3, dimTot, (0.d0,0.d0), Aux2, dimTot)
 
 !   ('Aux1 = GrTot^dagger * Aux2')
-    call zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),          &
-                GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0), Aux1, dimTot)
+    call HI_zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
+                   GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0),            &
+                   Aux1, dimTot)
 
     foo = 0.d0
     do i = 1,dimTot
@@ -2040,6 +2044,47 @@ CONTAINS
 
 
   end subroutine freecurr
+
+
+!  *******************************************************************  !
+!                              sumCalcCurr                              !
+!  *******************************************************************  !
+!  Description: function for suming two items of type 'calcCurr' (to    !
+!  be used at MPI collective operations like 'MPI_Reduce').             !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  ****************************** INPUT ******************************  !
+!  TYPE(calcCurr) inCurr(:,:,:)  : 1st item to be added                 !
+!  integer len                   : Total length of the items            !
+!                                  (1st dim x 2nd dim x 3rd dim)        !
+!  integer type                  : Created MPI data type                !
+!  ************************** INPUT/OUTPUT ***************************  !
+!  TYPE(calcCurr) outCurr(:,:,:) : 2nd item to be added                 !
+!  *******************************************************************  !
+  subroutine sumCalcCurr (inCurr, outCurr, len, type)
+
+!   Input variables.
+    integer, intent(in) :: len, type
+    TYPE(calcCurr), intent(in) :: inCurr(len)
+    TYPE(calcCurr), intent(inout) :: outCurr(len)
+
+!   Local variables.
+    integer :: i
+
+    i = type ! I know that it seems useless...
+    do i = 1,len
+       outCurr(i)%el = inCurr(i)%el + outCurr(i)%el
+       outCurr(i)%isymm = inCurr(i)%isymm + outCurr(i)%isymm
+       outCurr(i)%iasymm = inCurr(i)%iasymm + outCurr(i)%iasymm
+    enddo
+
+
+  end subroutine sumCalcCurr
 
 
 !  *******************************************************************  !

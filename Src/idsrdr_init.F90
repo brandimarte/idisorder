@@ -87,13 +87,14 @@ CONTAINS
 #ifdef MASTER_SLAVE
     use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld,   &
                                Master, IamMaster
+    use master_slave,    only: Init_Master, Kill_Master
 #else
     use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld
 #endif
 #else
     use parallel,        only: Node, Nodes, IOnode
 #endif
-    use idsrdr_options,  only: readopt
+    use idsrdr_options,  only: readopt, ProcsPerGPU
     use idsrdr_leads,    only: readleads
     use idsrdr_io,       only: IOinit
 
@@ -121,7 +122,11 @@ CONTAINS
     if (IOnode) then
 
 !      Print header.
+#ifdef MPI
        call header (Nodes)
+#else
+       call header
+#endif
 
 !      Initial time.
        call cpu_time (time_begin)
@@ -280,10 +285,16 @@ CONTAINS
 !  ****************************** INPUT ******************************  !
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  *******************************************************************  !
+#ifdef MPI
   subroutine header (Nodes)
+#else
+  subroutine header
+#endif
 
 !   Input variables.
+#ifdef MPI
     integer, intent(in) :: Nodes
+#endif
 
 !   Local variables.
     integer, dimension(8) :: values

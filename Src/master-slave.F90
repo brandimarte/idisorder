@@ -34,14 +34,14 @@
 
 MODULE master_slave
 
+#include "master-slave.h"
+
 !
 ! Modules
 !
   use parallel,        only:
 
   implicit none
-
-  include "master-slave.h"
 
   PUBLIC  :: Init_Master, Kill_Master, Master_SetupLoop, Slave_AskWork
   PRIVATE :: Master_Distribute
@@ -155,7 +155,7 @@ CONTAINS
     include "mpif.h"
 
 !   Local variables.
-    integer :: MPIerror, MPIstatus(MPI_STATUS_SIZE)
+    integer :: MPIerror
 
     if (.not. IamMaster) then
        write (*,'(a,i4)')                                               &

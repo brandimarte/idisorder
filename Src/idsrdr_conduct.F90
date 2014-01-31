@@ -44,9 +44,9 @@ MODULE idsrdr_conduct
 
   implicit none
   
-  PUBLIC  :: conductinit, conduct, alldIdV, dIdV, d2IdV2, freedIdV
-  PRIVATE :: computedIdV
-!!$  PRIVATE :: computedIdV, computed2IdV2
+  PUBLIC  :: conductinit, conduct, alldIdV, dIdV, d2IdV2, freedIdV,     &
+             sumAlldIdV
+  PRIVATE :: computedIdV, computed2IdV2
 
 ! Type for storing calculated differential conductance.
   TYPE alldIdV
@@ -305,6 +305,47 @@ CONTAINS
 
 
   end subroutine freedIdV
+
+
+!  *******************************************************************  !
+!                              sumAlldIdV                               !
+!  *******************************************************************  !
+!  Description: function for suming two items of type 'alldIdV' (to be  !
+!  used at MPI collective operations like 'MPI_Reduce').                !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  ****************************** INPUT ******************************  !
+!  TYPE(alldIdV) indIdV(:,:,:)   : 1st item to be added                 !
+!  integer len                   : Total length of the items            !
+!                                  (1st dim x 2nd dim x 3rd dim)        !
+!  integer type                  : Created MPI data type                !
+!  ************************** INPUT/OUTPUT ***************************  !
+!  TYPE(alldIdV) outdIdV(:,:,:) : 2nd item to be added                 !
+!  *******************************************************************  !
+  subroutine sumAlldIdV (indIdV, outdIdV, len, type)
+
+!   Input variables.
+    integer, intent(in) :: len, type
+    TYPE(alldIdV), intent(in) :: indIdV(len)
+    TYPE(alldIdV), intent(inout) :: outdIdV(len)
+
+!   Local variables.
+    integer :: i
+
+    i = type ! I know that it seems useless...
+    do i = 1,len
+       outdIdV(i)%el = indIdV(i)%el + outdIdV(i)%el
+       outdIdV(i)%symm = indIdV(i)%symm + outdIdV(i)%symm
+       outdIdV(i)%asymm = indIdV(i)%asymm + outdIdV(i)%asymm
+    enddo
+
+
+  end subroutine sumAlldIdV
 
 
 !  *******************************************************************  !

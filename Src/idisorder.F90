@@ -37,6 +37,10 @@
 
 PROGRAM IDISORDER
 
+#ifdef MASTER_SLAVE
+#include "master-slave.h"
+#endif
+
 !
 ! Modules
 !
@@ -71,10 +75,6 @@ PROGRAM IDISORDER
 #endif
 
   implicit none
-
-#ifdef MASTER_SLAVE
-  include "master-slave.h"
-#endif
 
 ! Local variables.
   integer :: ienergy, ispin, iv

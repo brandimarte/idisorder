@@ -84,9 +84,7 @@ CONTAINS
 !
 #ifdef MPI
     use parallel, only: MPI_Comm_MyWorld
-#endif
 
-#ifdef MPI
     include "mpif.h"
 #endif
 
@@ -169,9 +167,7 @@ CONTAINS
 !
 #ifdef MPI
     use parallel, only: MPI_Comm_MyWorld
-#endif
 
-#ifdef MPI
     include "mpif.h"
 #endif
 
@@ -264,9 +260,7 @@ CONTAINS
 !
 #ifdef MPI
     use parallel, only: MPI_Comm_MyWorld
-#endif
 
-#ifdef MPI
     include "mpif.h"
 #endif
 
@@ -335,9 +329,7 @@ CONTAINS
 !
 #ifdef MPI
     use parallel, only: MPI_Comm_MyWorld
-#endif
 
-#ifdef MPI
     include "mpif.h"
 #endif
 
@@ -421,9 +413,7 @@ CONTAINS
 !
 #ifdef MPI
     use parallel, only: MPI_Comm_MyWorld
-#endif
 
-#ifdef MPI
     include "mpif.h"
 #endif
 
@@ -506,9 +496,7 @@ CONTAINS
 !
 #ifdef MPI
     use parallel, only: MPI_Comm_MyWorld
-#endif
 
-#ifdef MPI
     include "mpif.h"
 #endif
 

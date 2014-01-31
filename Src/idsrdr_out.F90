@@ -72,7 +72,6 @@ CONTAINS
 !  Original version:    January 2014                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                 : True if it is the I/O node          !
-!  integer NIVP                : Number of bias potential points        !
 !  *******************************************************************  !
   subroutine output
 
@@ -80,7 +79,6 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: IOnode
-    use idsrdr_options,  only: NIVP
 
     if (IOnode) write (6,'(/,28("*"),a,29("*"))')                       &
             ' Writing output files '
@@ -93,8 +91,6 @@ CONTAINS
 
 !   Write calculated dissipated powers to files.
     call writepower
-
-    if (NIVP < 3) return
 
 !   Write calculated differential conductance ('dI/dV') to files.
     call writedIdV
@@ -139,7 +135,11 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MASTER_SLAVE
+    use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode, Node, Nodes
+#endif
     use idsrdr_options,  only: nspin, label_length, slabel, directory
     use idsrdr_engrid,   only: NTenerg_div, Ei
     use idsrdr_units,    only: nunitseph
@@ -152,15 +152,18 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: J, n, e, s, iuSpc, iuDos
+    integer :: J, e, s, iuSpc, iuDos
 !!$    real(8), parameter :: pi = 3.14159265358979323846264338327950241D0
     real(8), dimension(:), allocatable :: buffEn
     real(8), dimension(:,:), allocatable :: buffSpc, buffDos
     character(len=10) :: suffix
     character(len=label_length+70) :: fnSpc, fnDos
 #ifdef MPI
-    integer :: MPIerror
+#ifndef MASTER_SLAVE
+    integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#endif
+    integer :: MPIerror
 #endif
 
     do J = 1,nunitseph+1 ! over units with e-ph intereaction
@@ -350,11 +353,19 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MASTER_SLAVE
+    use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode, Node, Nodes
+#endif
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
+#ifdef MASTER_SLAVE
+    use idsrdr_current,  only: calcCurr, allcurr, sumCalcCurr
+#else
     use idsrdr_current,  only: calcCurr, allcurr
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -363,7 +374,7 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: n, e, s, v, iuVxI, iuExVxI, iuExVxIel, iuExVxIsy,        &
+    integer :: e, s, v, iuVxI, iuExVxI, iuExVxIel, iuExVxIsy,           &
                iuExVxIasy, iuExVxItot
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
@@ -372,8 +383,13 @@ CONTAINS
     character(len=label_length+70) :: fVxI, fExVxI, fExVxIel,           &
                                       fExVxIsy, fExVxIasy, fExVxItot
 #ifdef MPI
-    integer :: MPIerror, MPIcalcCurr
+#ifndef MASTER_SLAVE
+    integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
+#endif
+    integer :: MPIerror, MPIcalcCurr
     integer :: blocklens(1) ! # of elements in each block
     integer :: blockdispl(1) ! byte displacement of each block
     integer :: oldtypes(1) ! type of elements in each block
@@ -446,9 +462,12 @@ CONTAINS
 
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_create (sumCalcCurr, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (allcurr(1,1,1), buffCurr,                          &
-                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPI_Sum,      &
+                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPIop,        &
                      0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
@@ -568,6 +587,7 @@ CONTAINS
 #ifdef MASTER_SLAVE
     else
        deallocate (buffCurr)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif
@@ -626,7 +646,11 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MASTER_SLAVE
+    use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode, Node, Nodes
+#endif
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
@@ -641,7 +665,7 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: n, e, s, v, u, w, idx,                                   &
+    integer :: e, s, v, u, w, idx,                                      &
                iuVxPtot, iuExPtot, iuExVxPtot, iuVxP, iuExP
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
@@ -652,8 +676,11 @@ CONTAINS
                                       fVxP, fExP
 
 #ifdef MPI
-    integer :: MPIerror
+#ifndef MASTER_SLAVE
+    integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#endif
+    integer :: MPIerror
 #endif
 
     do u = 1,nunitseph ! over units with e-ph intereaction
@@ -883,11 +910,19 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MASTER_SLAVE
+    use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode, Node, Nodes
+#endif
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
+#ifdef MASTER_SLAVE
+    use idsrdr_conduct,  only: alldIdV, dIdV, sumAlldIdV
+#else
     use idsrdr_conduct,  only: alldIdV, dIdV
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -896,7 +931,7 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: n, e, s, v, iuVxdI, iuExVxdI, iuExVxdIel, iuExVxdIsy,    &
+    integer :: e, s, v, iuVxdI, iuExVxdI, iuExVxdIel, iuExVxdIsy,       &
                iuExVxdIasy, iuExVxdItot
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
@@ -905,8 +940,13 @@ CONTAINS
     character(len=label_length+70) :: fVxdI, fExVxdI, fExVxdIel,        &
                                       fExVxdIsy, fExVxdIasy, fExVxdItot
 #ifdef MPI
-    integer :: MPIerror, MPIalldIdV
+#ifndef MASTER_SLAVE
+    integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
+#endif
+    integer :: MPIerror, MPIalldIdV
     integer :: blocklens(1) ! # of elements in each block
     integer :: blockdispl(1) ! byte displacement of each block
     integer :: oldtypes(1) ! type of elements in each block
@@ -980,9 +1020,12 @@ CONTAINS
 
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_create (sumAlldIdV, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (dIdV(1,1,1), buffdIdV,                             &
-                     NTenerg_div*nspin*NIVP, MPIalldIdV, MPI_Sum,       &
+                     NTenerg_div*nspin*NIVP, MPIalldIdV, MPIop,         &
                      0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
@@ -1099,6 +1142,7 @@ CONTAINS
 #ifdef MASTER_SLAVE
     else
        deallocate (buffdIdV)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif
@@ -1156,11 +1200,19 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MASTER_SLAVE
+    use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
+#else
     use parallel,        only: IOnode, Node, Nodes
+#endif
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
+#ifdef MASTER_SLAVE
+    use idsrdr_conduct,  only: alldIdV, d2IdV2, sumAlldIdV
+#else
     use idsrdr_conduct,  only: alldIdV, d2IdV2
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -1169,7 +1221,7 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: n, e, s, v, iuVxd2I, iuExVxd2I, iuExVxd2Iel,             &
+    integer :: e, s, v, iuVxd2I, iuExVxd2I, iuExVxd2Iel,                &
                iuExVxd2Isy, iuExVxd2Iasy, iuExVxd2Itot
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
@@ -1179,8 +1231,13 @@ CONTAINS
                                       fExVxd2Isy, fExVxd2Iasy,          &
                                       fExVxd2Itot
 #ifdef MPI
-    integer :: MPIerror, MPIalld2IdV2
+#ifndef MASTER_SLAVE
+    integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
+#endif
+    integer :: MPIerror, MPIalld2IdV2
     integer :: blocklens(1) ! # of elements in each block
     integer :: blockdispl(1) ! byte displacement of each block
     integer :: oldtypes(1) ! type of elements in each block
@@ -1255,9 +1312,12 @@ CONTAINS
 
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_create (sumAlldIdV, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (d2IdV2(1,1,1), buffd2IdV2,                         &
-                     NTenerg_div*nspin*NIVP, MPIalld2IdV2, MPI_Sum,     &
+                     NTenerg_div*nspin*NIVP, MPIalld2IdV2, MPIop,       &
                      0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
@@ -1382,6 +1442,7 @@ CONTAINS
 #ifdef MASTER_SLAVE
     else
        deallocate (buffd2IdV2)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif

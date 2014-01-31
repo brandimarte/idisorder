@@ -187,7 +187,7 @@ CONTAINS
 !   Local variables.
     integer :: I, K, idx, ueph
     complex(8), dimension(:,:), allocatable :: Aux1, Aux2, cpS
-    external :: zsymm
+    external :: HI_zsymm
 
 !   Initialize variables.
     idx = ephIdx(ntypeunits+1)
@@ -205,14 +205,14 @@ CONTAINS
              %S(idxF(idx):idxL(idx),idxF(idx):idxL(idx))
 
 !      ('Aux1 = Gr_nn * Saux')
-       call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), Gr_nn(ueph)%G,       &
-                   norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
+       call HI_zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), Gr_nn(ueph)%G,    &
+                      norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !      ('Aux2 = Saux * Aux1')
-       call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), Aux1,                &
-                   norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
+       call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), Aux1,             &
+                      norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
        spctrl(ienergy,ispin,ueph) = 0.D0
        dos(ienergy,ispin,ueph) = 0.D0
@@ -250,14 +250,14 @@ CONTAINS
                                        idxF(idx):idxL(idx))
 
 !         ('Aux1 = GrMM * Saux')
-          call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.D0,0.D0), cpS, norbDyn(idx), Gr_nn(ueph)%G,    &
-                      norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
+          call HI_zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),          &
+                         (1.D0,0.D0), cpS, norbDyn(idx), Gr_nn(ueph)%G, &
+                         norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !         ('Aux2 = Saux * Aux1')
-          call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.D0,0.D0), cpS, norbDyn(idx), Aux1,             &
-                      norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
+          call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),          &
+                         (1.D0,0.D0), cpS, norbDyn(idx), Aux1,          &
+                         norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
           spctrl(ienergy,ispin,ueph) = 0.D0
           dos(ienergy,ispin,ueph) = 0.D0
@@ -298,14 +298,14 @@ CONTAINS
                                     idxF(idx):idxL(idx))
 
 !      ('Aux1 = GrMM * Saux')
-       call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), Gr_nn(ueph)%G,       &
-                   norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
+       call HI_zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), Gr_nn(ueph)%G,    &
+                      norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !      ('Aux2 = Saux * Aux1')
-       call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), Aux1,                &
-                   norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
+       call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), Aux1,             &
+                      norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
        spctrl(ienergy,ispin,ueph) = 0.D0
        dos(ienergy,ispin,ueph) = 0.D0
@@ -382,7 +382,7 @@ CONTAINS
 !   Local variables.
     integer :: I, K, idx, ueph
     complex(8), dimension(:,:), allocatable :: Aux1, Aux2, cpS, cpGr
-    external :: zsymm
+    external :: HI_zsymm
 
 !   Initialize variables.
     idx = ephIdx(ntypeunits+1)
@@ -409,14 +409,14 @@ CONTAINS
                        cpGr, norbDyn(idx), norbDyn(idx))
 
 !      ('Aux1 = Gr_nn * Saux')
-       call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), cpGr,                &
-                   norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
+       call HI_zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), cpGr,             &
+                      norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !      ('Aux2 = Saux * Aux1')
-       call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), Aux1,                &
-                   norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
+       call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), Aux1,             &
+                      norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
        spctrl(ienergy,ispin,ueph) = 0.D0
        dos(ienergy,ispin,ueph) = 0.D0
@@ -461,14 +461,14 @@ CONTAINS
                           cpGr, norbDyn(idx), norbDyn(idx))
 
 !         ('Aux1 = GrMM * Saux')
-          call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.D0,0.D0), cpS, norbDyn(idx), cpGr,             &
-                      norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
+          call HI_zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),          &
+                         (1.D0,0.D0), cpS, norbDyn(idx), cpGr,          &
+                         norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !         ('Aux2 = Saux * Aux1')
-          call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
-                      (1.D0,0.D0), cpS, norbDyn(idx), Aux1,             &
-                      norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
+          call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),          &
+                         (1.D0,0.D0), cpS, norbDyn(idx), Aux1,          &
+                         norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
           spctrl(ienergy,ispin,ueph) = 0.D0
           dos(ienergy,ispin,ueph) = 0.D0
@@ -516,14 +516,14 @@ CONTAINS
                        cpGr, norbDyn(idx), norbDyn(idx))
 
 !      ('Aux1 = GrMM * Saux')
-       call zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), cpGr,                &
-                   norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
+       call HI_zsymm ('R', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), cpGr,             &
+                      norbDyn(idx), (0.D0,0.D0), Aux1, norbDyn(idx))
 
 !      ('Aux2 = Saux * Aux1')
-       call zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),                &
-                   (1.D0,0.D0), cpS, norbDyn(idx), Aux1,                &
-                   norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
+       call HI_zsymm ('L', 'L', norbDyn(idx), norbDyn(idx),             &
+                      (1.D0,0.D0), cpS, norbDyn(idx), Aux1,             &
+                      norbDyn(idx), (0.D0,0.D0), Aux2, norbDyn(idx))
 
        spctrl(ienergy,ispin,ueph) = 0.D0
        dos(ienergy,ispin,ueph) = 0.D0

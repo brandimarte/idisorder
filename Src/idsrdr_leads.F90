@@ -40,7 +40,6 @@ MODULE idsrdr_leads
 !
   use parallel,        only: 
   use idsrdr_options,  only: 
-  use idsrdr_check,    only: 
   use idsrdr_io,       only: 
   use idsrdr_string,   only: 
 
@@ -545,11 +544,6 @@ CONTAINS
   subroutine selfenergy (SIDE, side_rank, number, N2, Ei, H0, H1,       &
                          S0, S1, Sigma, Q, INFO, nrchan)
 
-!
-!   Modules
-!
-    use idsrdr_check,    only: CHECKzgetrf, CHECKzgetri
-
 !   Input variables.
     integer, intent(in) :: number, N2
     integer, intent(out) :: INFO, nrchan
@@ -560,7 +554,6 @@ CONTAINS
 
 !   Local variables.
     integer :: N3, nlchan, I, J
-    integer, allocatable, dimension (:) :: IPIV, IPIV2
     complex(8), parameter :: smear = (0.d0,0.d0)
     complex(8), allocatable, dimension (:,:) :: T1_aux, T1_dag, T1,     &
                                                 H0_aux, H1_aux,         &
@@ -570,15 +563,13 @@ CONTAINS
     complex(8), allocatable, dimension (:,:) :: Gr_1
     complex(8), allocatable, dimension (:,:) :: foo23
     complex(8), allocatable, dimension (:,:) :: foo32, aux32
-    external :: zgemm, DECIMATE_LEADS, LEADS
+    external :: DECIMATE_LEADS, LEADS, HI_zgemm, HI_zgeInvert
 
 !   Allocate matrices and arrays.
     allocate (T1_aux(N2,N2), H0_aux(N2,N2), H1_aux(N2,N2),              &
               H1_dag_aux(N2,N2), h0corr(N2,N2))
     allocate (Gr(2*(N2-number),2*(N2-number)))
     allocate (Gr_1(N2-number,N2-number))
-    allocate (IPIV(n2-number))
-    allocate (IPIV2(n2))
 
 !   Initialize variables.
     N3 = N2 - number
@@ -588,11 +579,11 @@ CONTAINS
     nlchan = 0
 
 !   ('T1_aux = Q^dagger * H0_aux')
-    call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,               &
-                H0_aux, N2, (0.d0,0.d0), T1_aux, N2)
+    call HI_zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,            &
+                   H0_aux, N2, (0.d0,0.d0), T1_aux, N2)
 !   ('H0_aux = T1_aux * Q')
-    call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,          &
-                Q, N2, (0.d0,0.d0), H0_aux, N2)
+    call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,       &
+                   Q, N2, (0.d0,0.d0), H0_aux, N2)
 
     IF (side_rank /= '0') THEN
 
@@ -602,8 +593,8 @@ CONTAINS
           T1_aux = H1 - Ei*S1
 
 !         ('H1_aux = Q^dagger * T1_aux')
-          call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,         &
-                      T1_aux, N2, (0.d0,0.d0), H1_aux, N2)
+          call HI_zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
+                         T1_aux, N2, (0.d0,0.d0), H1_aux, N2)
 
 !         ('T1_aux = H1^dagger - Ei*S1^dagger')
           do I = 1,N2
@@ -613,16 +604,16 @@ CONTAINS
           enddo
 
 !         ('H1_dag_aux = T1_aux * Q')
-          call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,    &
-                      Q, N2, (0.d0,0.d0), H1_dag_aux, N2)
+          call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2, &
+                         Q, N2, (0.d0,0.d0), H1_dag_aux, N2)
 
        Else
 
           T1_aux = H1 - Ei*S1
 
 !         ('H1_aux = T1_aux * Q')
-          call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2,    &
-                      Q, N2, (0.d0,0.d0), H1_aux, N2)
+          call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_aux, N2, &
+                         Q, N2, (0.d0,0.d0), H1_aux, N2)
 
 !         ('T1_aux = H1^dagger - Ei*S1^dagger')
           do I = 1,N2
@@ -632,8 +623,8 @@ CONTAINS
           enddo
 
 !         ('H1_dag_aux = Q^dagger * T1_aux')
-          call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,         &
-                      T1_aux, N2, (0.d0,0.d0), H1_dag_aux, N2)
+          call HI_zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
+                         T1_aux, N2, (0.d0,0.d0), H1_dag_aux, N2)
 
        EndIf
 
@@ -682,18 +673,17 @@ CONTAINS
 
 !            ('T1_aux = Gr_1 * T1')
              foo32 = T1(1:N3,:)
-             call zgemm ('N', 'N', N3, N2, N3,( 1.d0,0.d0), Gr_1, N3,   &
-                         foo32, N3, (0.d0,0.d0), aux32, N3)
+             call HI_zgemm ('N', 'N', N3, N2, N3,( 1.d0,0.d0),          &
+                            Gr_1, N3, foo32, N3, (0.d0,0.d0), aux32, N3)
 
 !            ('Sigma = T1_dag * T1_aux')
              foo23 = T1_dag(:,1:N3)
-             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
-                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0),          &
+                            foo23, N2, aux32, N3, (0.d0,0.d0), Sigma, N2)
 
 !            (Gr_2 = (-h0corr - Sigma)^-1')
              Gr_2 = -h0corr - Sigma
-             call CHECKzgetrf (N2, Gr_2, IPIV2)
-             call CHECKzgetri (N2, Gr_2, IPIV2)
+             call HI_zgeInvert (Gr_2, N2)
 
              if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
                                             ! since 'smear'is set to 0?
@@ -702,8 +692,8 @@ CONTAINS
                 allocate (Gr_square(N2,N2))
 
 !               ('Gr_square = Gr_2 * Gr_2')
-                call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2,    &
-                            N2, Gr_2, N2, (0.d0,0.d0), Gr_square, N2)
+                call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2, &
+                               N2, Gr_2, N2, (0.d0,0.d0), Gr_square, N2)
 
                 Gr_2 = Gr_2 - smear*Gr_square
 
@@ -715,11 +705,11 @@ CONTAINS
              T1 = H1 - Ei*S1
 
 !            ('T1_aux = T1 * Q^dagger')
-             call zgemm ('N', 'C', N2, N2, N2, (1.d0,0.d0), T1, N2,     &
-                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+             call HI_zgemm ('N', 'C', N2, N2, N2, (1.d0,0.d0), T1, N2,  &
+                            Q, N2, (0.d0,0.d0), T1_aux, N2)
 !            ('T1 = Q^dagger * T1_aux')
-             call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
-                         T1_aux, N2, (0.d0,0.d0), T1, N2)     
+             call HI_zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,   &
+                            T1_aux, N2, (0.d0,0.d0), T1, N2)     
 
 !            ('T1_dag = H1^dagger - Ei*S1^dagger')
              do i = 1,N2
@@ -729,19 +719,19 @@ CONTAINS
              enddo
 
 !            ('T1_aux = T1_dag * Q')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_dag, N2, &
-                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),          &
+                            T1_dag, N2, Q, N2, (0.d0,0.d0), T1_aux, N2)
 !            ('T1_dag = Q * T1_aux')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
-                         T1_aux, N2, (0.d0,0.d0), T1_dag, N2)     
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,   &
+                            T1_aux, N2, (0.d0,0.d0), T1_dag, N2)     
 
 !            ('T1_aux = Gr_2 * T1')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2, N2,   &
-                         T1, N2, (0.d0,0.d0), T1_aux, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),          &
+                            Gr_2, N2, T1, N2, (0.d0,0.d0), T1_aux, N2)
 
 !            ('Sigma = T1_dag * T1_aux')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_dag, N2, &
-                         T1_aux, N2, (0.d0,0.d0), Sigma, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1_dag,  &
+                            N2, T1_aux, N2, (0.d0,0.d0), Sigma, N2)
 
 !            Free memory.
              deallocate (Gr_2)
@@ -763,13 +753,11 @@ CONTAINS
              if (side_rank /= '0') then
 
 !               (Gr_1 = (Gr(1:N3,1:N3))^-1')
-                call CHECKzgetrf (N3, Gr_1, IPIV)
-                call CHECKzgetri (N3, Gr_1, IPIV)
+                call HI_zgeInvert (Gr_1, N3)
 
 !               (Gr_1 = (Gr_1 - h0corr)^-1')
                 Gr_1 = Gr_1 - h0corr(number+1:N2,number+1:N2)
-                call CHECKzgetrf (N3, Gr_1, IPIV)
-                call CHECKzgetri (N3, Gr_1, IPIV)
+                call HI_zgeInvert (Gr_1, N3)
 
              endif
 
@@ -780,9 +768,9 @@ CONTAINS
                 allocate (Gr_square(N3,N3))
 
 !               ('Gr_square = Gr_1 * Gr_1')
-                call zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),          &
-                            Gr_1, N3, Gr_1,N3, (0.d0,0.d0),             &
-                            Gr_square, N3)
+                call HI_zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),       &
+                               Gr_1, N3, Gr_1,N3, (0.d0,0.d0),          &
+                               Gr_square, N3)
 
                 Gr_1 = Gr_1 - smear*Gr_square
 
@@ -793,13 +781,13 @@ CONTAINS
 
 !            ('T1_aux = Gr_1 * T1')
              foo32 = T1(1:N3,:)
-             call zgemm ('N', 'N', N3, N2, N3, (1.d0,0.d0), Gr_1, N3,   &
-                         foo32, N3, (0.d0,0.d0), aux32, N3)
+             call HI_zgemm ('N', 'N', N3, N2, N3, (1.d0,0.d0),          &
+                            Gr_1, N3, foo32, N3, (0.d0,0.d0), aux32, N3)
 
 !            ('Sigma = T1_dag * T1_aux')
              foo23 = T1_dag(:,1:N3)
-             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
-                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0),          &
+                            foo23, N2, aux32, N3, (0.d0,0.d0), Sigma, N2)
  
           endif ! if (side_rank == 'N')
         
@@ -816,18 +804,17 @@ CONTAINS
           
 !            ('T1_aux = Gr_1 * T1_dag')
              foo32 = T1_dag(1:N3,:)
-             call zgemm ('N', 'N', N3, N2, N3,( 1.d0,0.d0), Gr_1, N3,   &
-                         foo32, N3, (0.d0,0.d0), aux32, N3)
+             call HI_zgemm ('N', 'N', N3, N2, N3,( 1.d0,0.d0),          &
+                            Gr_1, N3, foo32, N3, (0.d0,0.d0), aux32, N3)
 
 !            ('Sigma = T1 * T1_aux')
              foo23 = T1(:,1:N3)
-             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
-                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0),          &
+                            foo23, N2, aux32, N3, (0.d0,0.d0), Sigma, N2)
 
 !            (Gr_2 = (-h0corr - Sigma)^-1')
              Gr_2 = -h0corr - Sigma
-             call CHECKzgetrf (N2, Gr_2, IPIV2)
-             call CHECKzgetri (N2, Gr_2, IPIV2)
+             call HI_zgeInvert (Gr_2, N2)
 
              if (DIMAG(smear) > 1.d-7) then ! PB: it will never happen
                                             ! since 'smear'is set to 0?
@@ -836,8 +823,8 @@ CONTAINS
                 allocate (Gr_square(N2,N2))
 
 !               ('Gr_square = Gr_2 * Gr_2')
-                call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2,    &
-                            N2, Gr_2, N2, (0.d0,0.d0), Gr_square, N2)
+                call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2, &
+                               N2, Gr_2, N2, (0.d0,0.d0), Gr_square, N2)
 
                 Gr_2 = Gr_2 - smear*Gr_square
 
@@ -849,11 +836,11 @@ CONTAINS
              T1 = H1 - Ei*S1
 
 !            ('T1_aux = T1 * Q')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1, N2,     &
-                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1, N2,  &
+                            Q, N2, (0.d0,0.d0), T1_aux, N2)
 !            ('T1 = Q * T1_aux')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
-                         T1_aux, N2, (0.d0,0.d0), T1, N2)     
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,   &
+                            T1_aux, N2, (0.d0,0.d0), T1, N2)     
 
 !            ('T1_dag = H1^dagger - Ei*S1^dagger')
              do I = 1,N2
@@ -863,19 +850,19 @@ CONTAINS
              enddo
 
 !            ('T1_aux = T1_dag * Q^dagger')
-             call zgemm ('N', 'C', N2, N2, N2, (1.d0,0.d0), T1_dag, N2, &
-                         Q, N2, (0.d0,0.d0), T1_aux, N2)
+             call HI_zgemm ('N', 'C', N2, N2, N2, (1.d0,0.d0),          &
+                            T1_dag, N2, Q, N2, (0.d0,0.d0), T1_aux, N2)
 !            ('T1_dag = Q^dagger * T1_aux')
-             call zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,      &
-                         T1_aux, N2, (0.d0,0.d0), T1_dag, N2)     
+             call HI_zgemm ('C', 'N', N2, N2, N2, (1.d0,0.d0), Q, N2,   &
+                            T1_aux, N2, (0.d0,0.d0), T1_dag, N2)     
 
 !            ('T1_aux = Gr_2 * T1_dag')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2, N2,   &
-                         T1_dag, N2, (0.d0,0.d0), T1_aux, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), Gr_2,    &
+                            N2, T1_dag, N2, (0.d0,0.d0), T1_aux, N2)
 
 !            ('Sigma = T1 * T1_aux')
-             call zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1, N2,     &
-                         T1_aux, N2, (0.d0,0.d0), Sigma, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0), T1, N2,  &
+                            T1_aux, N2, (0.d0,0.d0), Sigma, N2)
 
 !            Free memory.
              deallocate (Gr_2)
@@ -897,13 +884,11 @@ CONTAINS
              if (side_rank /= '0') then
 
 !               (Gr_1 = (Gr(1:N3,1:N3))^-1')
-                call CHECKzgetrf (N3, Gr_1, IPIV)
-                call CHECKzgetri (N3, Gr_1, IPIV)
+                call HI_zgeInvert (Gr_1, N3)
 
 !               (Gr_1 = (Gr_1 - h0corr)^-1')
                 Gr_1 = Gr_1 - h0corr(number+1:N2,number+1:N2)
-                call CHECKzgetrf (N3, Gr_1, IPIV)
-                call CHECKzgetri (N3, Gr_1, IPIV)
+                call HI_zgeInvert (Gr_1, N3)
 
              endif
 
@@ -914,9 +899,9 @@ CONTAINS
                 allocate (Gr_square(N3,N3))
 
 !               ('Gr_square = Gr_1 * Gr_1')
-                call zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),          &
-                            Gr_1, N3, Gr_1, N3, (0.d0,0.d0),            &
-                            Gr_square, N3)
+                call HI_zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),       &
+                               Gr_1, N3, Gr_1, N3, (0.d0,0.d0),         &
+                               Gr_square, N3)
 
                 Gr_1 = Gr_1 - smear*Gr_square
 
@@ -927,13 +912,13 @@ CONTAINS
 
 !            ('T1_aux = Gr_1 * T1_dag')
              foo32 = T1_dag(1:N3,:)
-             call zgemm ('N', 'N', N3, N2, N3, (1.d0,0.d0), Gr_1, N3,   &
-                         foo32, N3, (0.d0,0.d0), aux32, N3)
+             call HI_zgemm ('N', 'N', N3, N2, N3, (1.d0,0.d0),          &
+                            Gr_1, N3, foo32, N3, (0.d0,0.d0), aux32, N3)
 
 !            ('Sigma = T1 * T1_aux')
              foo23 = T1(:,1:N3)
-             call zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0), foo23, N2,  &
-                         aux32, N3, (0.d0,0.d0), Sigma, N2)
+             call HI_zgemm ('N', 'N', N2, N2, N3, (1.d0,0.d0),          &
+                            foo23, N2, aux32, N3, (0.d0,0.d0), Sigma, N2)
 
           endif ! if (side_rank == 'C')
 
@@ -949,8 +934,6 @@ CONTAINS
     deallocate (T1_aux, H1_aux, H1_dag_aux, h0corr)
     deallocate (Gr)
     deallocate (Gr_1)
-    deallocate (IPIV)
-    deallocate (IPIV2)
     deallocate (foo23)
     deallocate (foo32, aux32)
     deallocate (T1, T1_dag)
