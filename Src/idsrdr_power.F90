@@ -344,7 +344,7 @@ CONTAINS
     integer :: w, i
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2
-    external :: zsymm, zgemm
+    external :: HI_zsymm, HI_zgemm
 
 !   Allocate auxiliary matrices.
     allocate (Aux1(norbDyn,norbDyn))
@@ -358,14 +358,14 @@ CONTAINS
 !      -- 'Meph*A*Meph*A' --
 
 !      ('Aux1 = Meph * Aux2')
-       call zsymm ('L', 'L', norbDyn, norbDyn, (1.d0,0.d0),             &
-                   Meph(idx)%M(:,:,ispin,w), norbDyn, Aux2, norbDyn,    &
-                   (0.d0,0.d0), Aux1, norbDyn)
+       call HI_zsymm ('L', 'L', norbDyn, norbDyn, (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn, Aux2,          &
+                      norbDyn, (0.d0,0.d0), Aux1, norbDyn)
 
 !      ('Aux2 = Aux1 * Aux1')
-       call zgemm ('N', 'N', norbDyn, norbDyn, norbDyn,                 &
-                   (1.d0,0.d0), Aux1, norbDyn, Aux1, norbDyn,           &
-                   (0.d0,0.d0), Aux2, norbDyn)
+       call HI_zgemm ('N', 'N', norbDyn, norbDyn, norbDyn,              &
+                      (1.d0,0.d0), Aux1, norbDyn, Aux1,                 &
+                      norbDyn, (0.d0,0.d0), Aux2, norbDyn)
 
 !      Compute the trace.
        do i = 1,norbDyn
@@ -444,7 +444,7 @@ CONTAINS
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Gr1nCJG, GrMnCJG, Aux1,  &
                                                Aux2, Aux3, Aux4, Aux5
-    external :: zsymm, zhemm, zgemm
+    external :: HI_zsymm, HI_zhemm, HI_zgemm
 
 !   Allocate auxiliary matrices.
     allocate (Gr1nCJG(NL,norbDyn))
@@ -468,38 +468,38 @@ CONTAINS
 !      -- 1st PART: 'Meph*G*Gamma_L*G^dagger' --
 
 !      ('Aux1 = Gamma_L * Gr_1n^*')
-       call zhemm ('L', 'L', NL, norbDyn, (1.d0,0.d0), Gamma_L, NL,     &
-                   Gr1nCJG, NL, (0.d0,0.d0), Aux1, NL)
+       call HI_zhemm ('L', 'L', NL, norbDyn, (1.d0,0.d0), Gamma_L, NL,  &
+                      Gr1nCJG, NL, (0.d0,0.d0), Aux1, NL)
 
 !      ('Aux2 = Gr_1n^T * Aux1')
-       call zgemm ('T', 'N', norbDyn, norbDyn, NL, (1.d0,0.d0),         &
-                   Gr_1n, NL, Aux1, NL, (0.d0,0.d0), Aux2, norbDyn)
+       call HI_zgemm ('T', 'N', norbDyn, norbDyn, NL, (1.d0,0.d0),      &
+                      Gr_1n, NL, Aux1, NL, (0.d0,0.d0), Aux2, norbDyn)
 
 !      ('Aux3 = Meph * Aux2')
-       call zsymm ('L', 'L', norbDyn, norbDyn, (1.d0,0.d0),             &
-                   Meph(idx)%M(:,:,ispin,w), norbDyn, Aux2, norbDyn,    &
-                   (0.d0,0.d0), Aux3, norbDyn)
+       call HI_zsymm ('L', 'L', norbDyn, norbDyn, (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn, Aux2,          &
+                      norbDyn, (0.d0,0.d0), Aux3, norbDyn)
 
 !      -- 2nd PART: 'Meph*G*Gamma_R*G^dagger' --
 
 !      ('Aux4 = Gamma_R * Gr_Mn^*')
-       call zhemm ('L', 'L', NR, norbDyn, (1.d0,0.d0), Gamma_R, NR,     &
-                   GrMnCJG, NR, (0.d0,0.d0), Aux4, NR)
+       call HI_zhemm ('L', 'L', NR, norbDyn, (1.d0,0.d0), Gamma_R, NR,  &
+                      GrMnCJG, NR, (0.d0,0.d0), Aux4, NR)
 
 !      ('Aux2 = Gr_Mn^T * Aux4')
-       call zgemm ('T', 'N', norbDyn, norbDyn, NR, (1.d0,0.d0),         &
-                   Gr_Mn, NR, Aux4, NR, (0.d0,0.d0), Aux2, norbDyn)
+       call HI_zgemm ('T', 'N', norbDyn, norbDyn, NR, (1.d0,0.d0),      &
+                      Gr_Mn, NR, Aux4, NR, (0.d0,0.d0), Aux2, norbDyn)
 
 !      ('Aux5 = Meph * Aux2')
-       call zsymm ('L', 'L', norbDyn, norbDyn, (1.d0,0.d0),             &
-                   Meph(idx)%M(:,:,ispin,w), norbDyn, Aux2, norbDyn,    &
-                   (0.d0,0.d0), Aux5, norbDyn)
+       call HI_zsymm ('L', 'L', norbDyn, norbDyn, (1.d0,0.d0),          &
+                      Meph(idx)%M(:,:,ispin,w), norbDyn, Aux2,          &
+                      norbDyn, (0.d0,0.d0), Aux5, norbDyn)
 
 !      -- 1st PART * 2nd PART --
 
-       call zgemm ('N', 'N', norbDyn, norbDyn, norbDyn,                 &
-                   (1.d0,0.d0), Aux3, norbDyn, Aux5, norbDyn,           &
-                   (0.d0,0.d0), Aux2, norbDyn)
+       call HI_zgemm ('N', 'N', norbDyn, norbDyn, norbDyn,              &
+                      (1.d0,0.d0), Aux3, norbDyn, Aux5,                 &
+                      norbDyn, (0.d0,0.d0), Aux2, norbDyn)
 
 !      Compute the trace.
        do i = 1,norbDyn

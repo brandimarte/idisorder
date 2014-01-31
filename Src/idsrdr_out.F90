@@ -89,14 +89,14 @@ CONTAINS
 !   Write calculated currents to files.
     call writecurrent
 
-!!$!   Write calculated dissipated powers to files.
-!!$    call writepower
-!!$
-!!$!   Write calculated differential conductance ('dI/dV') to files.
-!!$    call writedIdV
-!!$
-!!$!   Write derivative of differential conductance ('d2I/dV2') to files.
-!!$    call writed2IdV2
+!   Write calculated dissipated powers to files.
+    call writepower
+
+!   Write calculated differential conductance ('dI/dV') to files.
+    call writedIdV
+
+!   Write derivative of differential conductance ('d2I/dV2') to files.
+    call writed2IdV2
 
 
   end subroutine output
@@ -463,7 +463,7 @@ CONTAINS
 !   Write to the output files.
 #ifdef MASTER_SLAVE
 !   Define a "MPI_SUM" operator for type 'calcCurr'.
-    call MPI_Op_Create (sumCalcCurr, .true., MPIop, MPIerror)
+    call MPI_Op_create (sumCalcCurr, .true., MPIop, MPIerror)
 
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (allcurr(1,1,1), buffCurr,                          &
@@ -587,6 +587,7 @@ CONTAINS
 #ifdef MASTER_SLAVE
     else
        deallocate (buffCurr)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif
@@ -917,7 +918,11 @@ CONTAINS
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
+#ifdef MASTER_SLAVE
+    use idsrdr_conduct,  only: alldIdV, dIdV, sumAlldIdV
+#else
     use idsrdr_conduct,  only: alldIdV, dIdV
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -938,6 +943,8 @@ CONTAINS
 #ifndef MASTER_SLAVE
     integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
 #endif
     integer :: MPIerror, MPIalldIdV
     integer :: blocklens(1) ! # of elements in each block
@@ -1013,9 +1020,12 @@ CONTAINS
 
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_create (sumAlldIdV, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (dIdV(1,1,1), buffdIdV,                             &
-                     NTenerg_div*nspin*NIVP, MPIalldIdV, MPI_Sum,       &
+                     NTenerg_div*nspin*NIVP, MPIalldIdV, MPIop,         &
                      0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
@@ -1132,6 +1142,7 @@ CONTAINS
 #ifdef MASTER_SLAVE
     else
        deallocate (buffdIdV)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif
@@ -1197,7 +1208,11 @@ CONTAINS
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
+#ifdef MASTER_SLAVE
+    use idsrdr_conduct,  only: alldIdV, d2IdV2, sumAlldIdV
+#else
     use idsrdr_conduct,  only: alldIdV, d2IdV2
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -1219,6 +1234,8 @@ CONTAINS
 #ifndef MASTER_SLAVE
     integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
 #endif
     integer :: MPIerror, MPIalld2IdV2
     integer :: blocklens(1) ! # of elements in each block
@@ -1295,9 +1312,12 @@ CONTAINS
 
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_create (sumAlldIdV, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
     call MPI_Reduce (d2IdV2(1,1,1), buffd2IdV2,                         &
-                     NTenerg_div*nspin*NIVP, MPIalld2IdV2, MPI_Sum,     &
+                     NTenerg_div*nspin*NIVP, MPIalld2IdV2, MPIop,       &
                      0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
@@ -1422,6 +1442,7 @@ CONTAINS
 #ifdef MASTER_SLAVE
     else
        deallocate (buffd2IdV2)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif

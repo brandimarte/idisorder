@@ -1,4 +1,4 @@
-#  *******************************************************************  #
+#  *************************************************************** ****  #
 #  I-Disorder Fortran Code                                              #
 #                                                                       #
 #  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    #
@@ -138,6 +138,9 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # might need something like -Lsomepath/ -lmpi ...
 MPI_LIBS = -L/opt/local/lib -lmpi
 
+# C++ standard.
+CXX_LIBS = -lstdc++ 
+
 # Even if you have an optimized system library (such as ESSL), you might
 # not have all of LAPACK. In particular, the divide_and_conquer routines
 # might not be available, or they might be buggy. 
@@ -162,7 +165,9 @@ MPI_INCLUDE = -I/opt/local/include
 # remember that you have to change the final building rules at the end
 # to use only FPPFLAGS. DEFS is deprecated.
 
-# MPI is self-explanatory.
+# MPI is self-explanatory. Remove the flag -DMASTER_SLAVE if
+# you intends to run in serial mode (for Master-Slave scheme
+# it is mandatory at least 2 nodes).
 FPPFLAGS_MPI = -DMPI -DMASTER_SLAVE
 
 # Uncomment to use GPUs with the MAGMA library
@@ -179,7 +184,7 @@ INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
 # Sometimes the BLAS are included in LAPACK (or it could be
 # that everything is included in SCALAPACK...). You might
 # need to experiment if you find  duplicate symbols.
-LIBS = $(GPU_LIBS) $(MKL_LIBS) $(MPI_LIBS) $(COMP_LIBS)
+LIBS = $(GPU_LIBS) $(MKL_LIBS) $(MPI_LIBS) $(COMP_LIBS) $(CXX_LIBS)
 
 # Dependency rules ---------
 

@@ -54,6 +54,7 @@ typedef complex doubleComplex;
 // We use the Fortran versions (the C ones are not stardard)
 extern "C" void zgemm_(char *opA, char *opB, int *M, int *N, int *K, doubleComplex *alpha, doubleComplex *A, int *LDA, doubleComplex *B, int *LDB, doubleComplex *beta, doubleComplex *C, int *LDC);
 extern "C" void zsymm_(char *side, char *uplo, int *M, int *N, doubleComplex *alpha, doubleComplex *A, int *LDA, doubleComplex *B, int *LDB, doubleComplex *beta, doubleComplex *C, int *LDC);
+extern "C" void zhemm_(char *side, char *uplo, int *M, int *N, doubleComplex *alpha, doubleComplex *A, int *LDA, doubleComplex *B, int *LDB, doubleComplex *beta, doubleComplex *C, int *LDC);
 extern "C" void zgetrf_(int *M, int *N, doubleComplex *A, int *LDA, int *ipiv, int *info);
 extern "C" void zgetri_(int *N, doubleComplex *A, int *LDA, int *ipiv, doubleComplex *work, const int *lwork, int *info);
 extern "C" void zsytrf_(char *uplo, int *N, doubleComplex *A, int *LDA, int *ipiv, doubleComplex *work, const int *lwork, int *info);
@@ -70,6 +71,7 @@ extern "C" void zsytri_(char* uplo, int *N, doubleComplex *A, int *LDA, int *ipi
 
 # define HI_zgemm            hi_zgemm_
 # define HI_zsymm            hi_zsymm_
+# define HI_zhemm            hi_zhemm_
 # define HI_zgeInvert        hi_zgeinvert_
 # define HI_zsyInvert        hi_zsyinvert_
 # define HI_Invert_prepare   hi_invert_prepare_
@@ -484,13 +486,13 @@ static inline void Zsymmetrize(char UpLo, doubleComplex *A, const int N)
 
     if(UpLo == 'L' || UpLo == 'l')
     {
-        for(int i=0; <N; i+)
+        for(int i=0; i<N; i++)
             for(int j=0; j<i; j++)
                 A[IDX(j,i,N)] = A[IDX(i,j,N)];
     }
     else if(UpLo == 'U' || UpLo == 'u')
     {
-        for(int i=0; <N; i+)
+        for(int i=0; i<N; i++)
             for(int j=0; j<i; j++)
                 A[IDX(i,j,N)] = A[IDX(j,i,N)];
     }
