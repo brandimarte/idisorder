@@ -63,9 +63,12 @@ CXX = icpc
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O2 -xHost -traceback -C -heap-arrays 1024 \
+FFLAGS = -O2 -xHost -traceback -C -fpe0 -heap-arrays 1024 \
          -warn unused,truncated_source,uncalled,declarations,usage
 CXXFLAGS = -O2 -xHost -traceback -C -Wall
+
+# C++ standard.
+CXX_LIBS = -lstdc++ 
 
 # Some systems do not have 'ranlib'. If so,
 # use "echo" instead of "ranlib".
@@ -137,9 +140,6 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # mpif90, MPI_LIBS can be left empty. If not, you
 # might need something like -Lsomepath/ -lmpi ...
 MPI_LIBS = -L/opt/local/lib -lmpi
-
-# C++ standard.
-CXX_LIBS = -lstdc++ 
 
 # Even if you have an optimized system library (such as ESSL), you might
 # not have all of LAPACK. In particular, the divide_and_conquer routines
