@@ -213,7 +213,7 @@ void HI_GetGPUcount(int *Ngpus) { *Ngpus = GPUcount; }
 #ifdef MAGMA
 static inline cublasOperation_t char2cublas_op(char *char_op)
 {
-	if      (*char_op == 'N' || *char_op == 'n') return(CUBLAS_OP_N);
+    if      (*char_op == 'N' || *char_op == 'n') return(CUBLAS_OP_N);
     else if (*char_op == 'T' || *char_op == 't') return(CUBLAS_OP_T);
     else if (*char_op == 'C' || *char_op == 'c') return(CUBLAS_OP_C);
 }
@@ -476,27 +476,23 @@ void HI_zgeInvert(doubleComplex *A, int *N)
 }
 
 
-#define CACHE 65536  // L1
+#define CACHE_L1 65536
+#define BLOCK_SIZE 16
 static inline void Zsymmetrize(char UpLo, doubleComplex *A, const int N)
 {
-    const int Block_size = (sqrt((int)CACHE))/sizeof(doubleComplex);
-    const int m=N/2;
+//    const int Block_size = (sqrt((int)CACHE_L1))/sizeof(doubleComplex);
 
     if(UpLo == 'L' || UpLo == 'l')
     {
-        for(int bi=0; bi<N; bi+=Block_size)
-            for(int bj=0; bj<bi; bj+=Block_size)
-                for(int i=bi; i<min(N, bi+Block_size); i++)
-                    for(int j=bj; j<min(m, bj+Block_size); j++)
-                        A[IDX(j,i,N)] = A[IDX(i,j,N)];
+        for(int i=0; <N; i+)
+            for(int j=0; j<i; j++)
+                A[IDX(j,i,N)] = A[IDX(i,j,N)];
     }
     else if(UpLo == 'U' || UpLo == 'u')
     {
-        for(int bi=0; bi<N; bi+=Block_size)
-            for(int bj=0; bj<bi; bj+=Block_size)
-                for(int i=bi; i<min(N, bi+Block_size); i++)
-                    for(int j=bj; j<min(m, bj+Block_size); j++)
-                        A[IDX(i,j,N)] = A[IDX(j,i,N)];
+        for(int i=0; <N; i+)
+            for(int j=0; j<i; j++)
+                A[IDX(i,j,N)] = A[IDX(j,i,N)];
     }
 }
 
