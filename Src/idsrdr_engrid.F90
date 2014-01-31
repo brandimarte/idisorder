@@ -43,6 +43,10 @@
 
 MODULE idsrdr_engrid
 
+#ifdef MASTER_SLAVE
+#include "master-slave.h"
+#endif
+
 !
 !   Modules
 !

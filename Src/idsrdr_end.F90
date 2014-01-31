@@ -33,6 +33,10 @@
 
 MODULE idsrdr_end
 
+#ifdef MASTER_SLAVE
+#include "master-slave.h"
+#endif
+
 !
 ! Modules
 !
