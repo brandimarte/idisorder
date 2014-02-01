@@ -169,6 +169,13 @@ CONTAINS
 !   Read simulation data.
     call readopt
 
+!   Initialise CPU-GPU interface.
+    call HI_Init (Node, ProcsPerGPU) ! Try to read module vars
+                                     ! directly from C?
+    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
+    call HI_PrintInfo (Node, ProcsPerGPU)
+    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
+
 !   Number of unit cells along parallel directions.
     nsc = 1
 

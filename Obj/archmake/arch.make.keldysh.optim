@@ -65,7 +65,7 @@ FC_SERIAL = ifort
 # Here we should put mainly optimization flags.
 FFLAGS = -O3 -xHost -ip -mp1 \
          -warn unused,truncated_source,uncalled,declarations,usage
-CXXFLAGS = -O3 -xHost -ip -mp1
+CXXFLAGS = -O3 -xHost -ip -mp1 -Wall
 
 # C++ standard.
 CXX_LIBS = -lstdc++ 
@@ -130,13 +130,13 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # If you want to use GPUs, define the following.
 # MAGMA, CUDA and CUBLAS libraries:
 # This is truly the most installation-dependent part, really.
-#CUDA_DIR    = /usr/local/cuda
-#MAGMA_DIR   = /opt/magma
-#MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
-#GPU_LIBS    = $(MAGMA_LIB) -L$(CUDA_DIR)/lib64 -lcublas -lcuda \
-#              -lcudart -lstdc++
-#GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
-#GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
+CUDA_DIR    = /usr/local/cuda-5.5
+MAGMA_DIR   = /home/pedro/local/src/magma/magma-1.4.1
+MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
+GPU_LIBS    = $(MAGMA_LIB) -L$(CUDA_DIR)/lib64 -lcublas -lcuda \
+              -lcudart -lstdc++
+GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
+GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
 
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you

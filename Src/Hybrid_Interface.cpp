@@ -62,8 +62,6 @@ extern "C" void zsytri_(char* uplo, int *N, doubleComplex *A, int *LDA, int *ipi
 
 
 /* For use with fortran (mandatory, of course): */
-#define FORTRAN
-#ifdef FORTRAN
 # define HI_Init             hi_init_
 # define HI_Finalize         hi_finalize_
 # define HI_GetGPUcount      hi_getgpucount_
@@ -77,7 +75,6 @@ extern "C" void zsytri_(char* uplo, int *N, doubleComplex *A, int *LDA, int *ipi
 # define HI_Invert_prepare   hi_invert_prepare_
 # define HI_Invert_expert    hi_invert_expert_
 # define HI_Invert_clear     hi_invert_clear_
-#endif
 
 
 /* Function prototypes */

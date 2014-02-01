@@ -128,13 +128,14 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # If you want to use GPUs, define the following.
 # MAGMA, CUDA and CUBLAS libraries:
 # This is truly the most installation-dependent part, really.
-#CUDA_DIR    = /usr/local/cuda
-#MAGMA_DIR   = /opt/magma
-#MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
-#GPU_LIBS    = $(MAGMA_LIB) -L$(CUDA_DIR)/lib64 -lcublas -lcuda \
-#              -lcudart -lstdc++
-#GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
-#GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
+CUDA_DIR    = /usr/local/cuda
+MAGMA_DIR   = /Users/pedro/src/magma-1.4.1
+MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
+GPU_LIBS    = $(MAGMA_LIB) $(CUDA_DIR)/lib/libcudart.5.5.dylib \
+              $(CUDA_DIR)/lib/libcuda.dylib \
+              $(CUDA_DIR)/lib/libcublas.5.5.dylib -lstdc++
+GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
+GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
 
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
