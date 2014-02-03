@@ -687,14 +687,14 @@ CONTAINS
     integer :: MPIerror
 #endif
 
+    if (IOnode .and. nunitseph > 0) write (6, '(/,a)')                  &
+         'Writing calculated dissipated powers to *.PWR files'
+
     do u = 1,nunitseph ! over units with e-ph intereaction
 
        idx = ephIdx(eph_type(u))
 
        if (IOnode) then
-
-          write (6, '(/,a)') 'Writing calculated dissipated powers ' // &
-               'to *.PWR files'
 
 !         Set file's names.
           write (suffix,'(i3)') u

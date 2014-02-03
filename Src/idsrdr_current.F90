@@ -407,7 +407,7 @@ CONTAINS
 
 !   Local variables.
     integer :: j, w, i, idx
-    real(8) :: foo
+    real(8) :: Imode, foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, A
@@ -508,11 +508,12 @@ CONTAINS
                          Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
+          Imode = 0.d0
           do i = 1,norbDyn(idx)
-             Isymm = Isymm + DREAL(Aux4(i,i))
+             Imode = Imode + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
-             Isymm = Isymm + DREAL(Aux7(i,i))
+             Imode = Imode + DREAL(Aux7(i,i))
           enddo
           
 #ifdef DEBUG
@@ -528,7 +529,8 @@ CONTAINS
                 * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
           foo = foo - (freq(idx)%F(w) + Vbias)                          &
                 * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
-          Isymm = eoverh * foo * Isymm
+          Imode = eoverh * foo * Imode
+          Isymm = Isymm + Imode
 
        enddo ! do w = 1,nModes(idx)
 
@@ -625,7 +627,7 @@ CONTAINS
 
 !   Local variables.
     integer :: j, w, i, idx
-    real(8) :: foo
+    real(8) :: Imode, foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, &
@@ -745,11 +747,12 @@ CONTAINS
                          Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
+          Imode = 0.d0
           do i = 1,norbDyn(idx)
-             Isymm = Isymm + DREAL(Aux4(i,i))
+             Imode = Imode + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
-             Isymm = Isymm + DREAL(Aux7(i,i))
+             Imode = Imode + DREAL(Aux7(i,i))
           enddo
           
 #ifdef DEBUG
@@ -765,7 +768,8 @@ CONTAINS
                 * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
           foo = foo - (freq(idx)%F(w) + Vbias)                          &
                 * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
-          Isymm = eoverh * foo * Isymm
+          Imode = eoverh * foo * Imode
+          Isymm = Isymm + Imode
 
        enddo ! do w = 1,nModes(idx)
 
@@ -935,6 +939,7 @@ CONTAINS
 
 !   Local variables.
     integer :: j, w, i, idx
+    real(8) :: Imode
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
@@ -1034,11 +1039,12 @@ CONTAINS
                          Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
+          Imode = 0.d0
           do i = 1,norbDyn(idx)
-             Iasymm = Iasymm + DREAL(Aux3(i,i))
+             Imode = Imode + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
-             Iasymm = Iasymm + DREAL(Aux6(i,i))
+             Imode = Imode + DREAL(Aux6(i,i))
           enddo
 
 #ifdef DEBUG
@@ -1049,7 +1055,8 @@ CONTAINS
 #endif
 
 !         Compute asymmetric pre-factor.
-          Iasymm = asymmPre (Ei, freq(idx)%F(w), Vbias) * Iasymm
+          Imode = asymmPre (Ei, freq(idx)%F(w), Vbias) * Imode
+          Iasymm = Iasymm + Imode
           
        enddo ! do w = 1,nModes(idx)
 
@@ -1127,6 +1134,7 @@ CONTAINS
 
 !   Local variables.
     integer :: j, w, i, idx
+    real(8) :: Imode
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
@@ -1241,11 +1249,12 @@ CONTAINS
                          Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
+          Imode = 0.d0
           do i = 1,norbDyn(idx)
-             Iasymm = Iasymm + DREAL(Aux3(i,i))
+             Imode = Imode + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
-             Iasymm = Iasymm + DREAL(Aux6(i,i))
+             Imode = Imode + DREAL(Aux6(i,i))
           enddo
 
 #ifdef DEBUG
@@ -1256,7 +1265,8 @@ CONTAINS
 #endif
 
 !         Compute asymmetric pre-factor.
-          Iasymm = asymmPre (Ei, freq(idx)%F(w), Vbias) * Iasymm
+          Imode = asymmPre (Ei, freq(idx)%F(w), Vbias) * Imode
+          Iasymm = Iasymm + Imode
           
        enddo ! do w = 1,nModes(idx)
 
@@ -1355,7 +1365,6 @@ CONTAINS
     integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, ueph
     real(8), allocatable, dimension (:,:) :: STot
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
-    complex(8) :: foo
     complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
                                                 Gamma_LTot, Gamma_RTot, &
                                                 Aux1, Aux2, Aux3
@@ -1560,11 +1569,6 @@ CONTAINS
                    GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0),            &
                    Aux1, dimTot)
 
-    foo = 0.d0
-    do i = 1,dimTot
-       foo = foo + Aux1(i,i)
-    enddo
-
     if (ephtype == ephIdx(ntypeunits+1)) then
        do j = idxF(ephtype),idxL(ephtype)
           do i = idxF(ephtype),idxL(ephtype)
@@ -1725,7 +1729,6 @@ CONTAINS
     integer :: i, j, k, utype, dim, dimTot, dimCpl, idxAnt, ueph
     real(8), allocatable, dimension (:,:) :: STot
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
-    complex(8) :: foo
     complex(8), allocatable, dimension (:,:) :: HTot, GrTot, MephTot,   &
                                                 Gamma_LTot, Gamma_RTot, &
                                                 Aux1, Aux2, Aux3
@@ -1923,11 +1926,6 @@ CONTAINS
     call HI_zgemm ('C', 'N', dimTot, dimTot, dimTot, (1.d0,0.d0),       &
                    GrTot, dimTot, Aux2, dimTot, (0.d0,0.d0),            &
                    Aux1, dimTot)
-
-    foo = 0.d0
-    do i = 1,dimTot
-       foo = foo + Aux1(i,i)
-    enddo
 
     if (ephtype == ephIdx(ntypeunits+1)) then
        do j = idxF(ephtype),idxL(ephtype)

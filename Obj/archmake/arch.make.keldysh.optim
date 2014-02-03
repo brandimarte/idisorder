@@ -133,8 +133,9 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 CUDA_DIR    = /usr/local/cuda-5.5
 MAGMA_DIR   = /home/pedro/local/src/magma/magma-1.4.1
 MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
-GPU_LIBS    = $(MAGMA_LIB) -L$(CUDA_DIR)/lib64 -lcublas -lcuda \
-              -lcudart -lstdc++
+GPU_LIBS    = $(MAGMA_LIB) $(CUDA_DIR)/lib64/libcublas.so.5.5.22 \
+              /usr/lib64/nvidia/libcuda.so.319.37 \
+              $(CUDA_DIR)/lib64/libcudart.so.5.5.22 -lstdc++
 GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
 GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
 

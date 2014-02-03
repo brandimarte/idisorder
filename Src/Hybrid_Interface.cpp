@@ -143,7 +143,7 @@ void HI_Init(int *Proc_id, int *ProcsPerGPU) //, int *FillMode)
 		fflush(stdout);
 	}
 
-	if(*ProcsPerGPU < 1) *ProcsPerGPU = 1;
+	if(*ProcsPerGPU < 1) *ProcsPerGPU = 0;
     VirtualGPUcount = GPUcount * (*ProcsPerGPU);   // We can pin more than one process to a gpu with ProcsPerGPU > 1
 
     if(*Proc_id < VirtualGPUcount)

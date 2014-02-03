@@ -137,17 +137,8 @@ CONTAINS
     call freedIdV
     call freeIO
 
-    if (IOnode) then
-
-!      Final time.
-       call cpu_time (time_end)
-
-       write (6,'(a,/)') ' done!'
-       write (6,'(a,f12.4,a)') "Time of calculation was ",              &
-            time_end - time_begin, " seconds"
-       write (6,'(/,a,/)') "End of program I-Disorder"
-    endif
-
+    if (IOnode) write (6,'(a,/)') ' done!'
+ 
 #ifdef MASTER_SLAVE
 !   Send the EXIT message to the master, causing him
 !   to finalize his existence (by his own hands!).
@@ -163,6 +154,16 @@ CONTAINS
 #ifdef MPI
     call MPI_Finalize (MPIerror)
 #endif
+
+    if (IOnode) then
+
+!      Final time.
+       call cpu_time (time_end)
+
+       write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
+            time_end - time_begin, " seconds"
+       write (6,'(/,a,/)') "End of program I-Disorder"
+    endif
 
 
   end subroutine finalize
