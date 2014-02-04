@@ -365,8 +365,11 @@ CONTAINS
     use idsrdr_options,  only: nspin, label_length, slabel, directory,  &
                                NIVP, VInitial, dV
     use idsrdr_engrid,   only: NTenerg_div, Ei
-    use idsrdr_current,  only: calcCurr, currEl, currSy, currAsy,
-    use idsrdr_units,    only: nunitseph
+#ifdef MASTER_SLAVE
+    use idsrdr_current,  only: calcCurr, allcurr, sumCalcCurr
+#else
+    use idsrdr_current,  only: calcCurr, allcurr
+#endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
 
@@ -375,11 +378,11 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: e, s, v, u, idx, iuVxI, iuExVxI, iuExVxIel, iuExVxIsy,   &
+    integer :: e, s, v, iuVxI, iuExVxI, iuExVxIel, iuExVxIsy,           &
                iuExVxIasy, iuExVxItot
-    real(8) :: Vbias, Isy, Iasy
-    real(8), dimension (:), allocatable :: buffEn, buffCurrEl
-    TYPE(calcCurr), allocatable, dimension (:) :: buffCurrSy, buffCurrAsy
+    real(8) :: Vbias
+    real(8), dimension(:), allocatable :: buffEn
+    TYPE(calcCurr), allocatable, dimension (:,:,:) :: buffCurr
     character(len=16) :: suffix
     character(len=label_length+70) :: fVxI, fExVxI, fExVxIel,           &
                                       fExVxIsy, fExVxIasy, fExVxItot
@@ -387,8 +390,13 @@ CONTAINS
 #ifndef MASTER_SLAVE
     integer :: n
     integer, dimension(MPI_Status_Size) :: MPIstatus
+#else
+    integer :: MPIop
 #endif
-    integer :: MPIerror
+    integer :: MPIerror, MPIcalcCurr
+    integer :: blocklens(1) ! # of elements in each block
+    integer :: blockdispl(1) ! byte displacement of each block
+    integer :: oldtypes(1) ! type of elements in each block
 #endif
 
     if (IOnode) then
@@ -435,57 +443,39 @@ CONTAINS
 
 !      Allocate buffers arrays.
        allocate (buffEn(NTenerg_div))
-       allocate (buffCurrEl(NTenerg_div,nspin,NIVP))
-       allocate (buffCurrSy(nunitseph))
-       allocate (buffCurrAsy(nunitseph))
-       do u = 1,nunitseph ! over units with e-ph
-          idx = ephIdx(eph_type(u))
-          allocate (buffCurrSy(u)%I(NTenerg_div,nspin,NIVP,nModes(idx)))
-          allocate (buffCurrAsy(u)%I(NTenerg_div,nspin,NIVP,nModes(idx)))
-       enddo
+       allocate (buffCurr(NTenerg_div,nspin,NIVP))
 
 #ifdef MASTER_SLAVE
     else
-       allocate (buffCurrEl(NTenerg_div,nspin,NIVP))
-       allocate (buffCurrSy(nunitseph))
-       allocate (buffCurrAsy(nunitseph))
-       do u = 1,nunitseph ! over units with e-ph
-          idx = ephIdx(eph_type(u))
-          allocate (buffCurrSy(u)%I(NTenerg_div,nspin,NIVP,nModes(idx)))
-          allocate (buffCurrAsy(u)%I(NTenerg_div,nspin,NIVP,nModes(idx)))
-       enddo
+       allocate (buffCurr(NTenerg_div,nspin,NIVP))
 #endif
 
     endif
 
+#ifdef MPI
+!   Set the description of 'calcCurr' type (3 doubles).
+    blocklens(1) = 3
+    blockdispl(1) = 0
+    oldtypes(1) = MPI_Double_Precision
+
+!   Define structured type and commit it.
+    call MPI_Type_create_struct (1, blocklens, blockdispl, oldtypes,    &
+                                 MPIcalcCurr, MPIerror)
+    call MPI_Type_commit (MPIcalcCurr, MPIerror)
+#endif
+
 !   Write to the output files.
 #ifdef MASTER_SLAVE
+!   Define a "MPI_SUM" operator for type 'calcCurr'.
+    call MPI_Op_create (sumCalcCurr, .true., MPIop, MPIerror)
+
 !   Reduce the reults to the IOnode and write
-    call MPI_Reduce (currEl(1,1,1), buffCurrEl,                         &
-                     NTenerg_div*nspin*NIVP, MPI_Double_Precision,      &
-                     MPI_Sum, 0, MPI_Comm_MyWorld, MPIerror)
-
-    do u = 1,nunitseph ! over units with e-ph
-       idx = ephIdx(eph_type(u))
-
-       call MPI_Reduce (currSy(u)%I(1,1,1,1), buffCurrSy(u)%I(1,1,1,1), &
-                        NTenerg_div*nspin*NIVP*nModes(idx),             &
-                        MPI_Double_Precision, MPI_Sum, 0,               &
-                        MPI_Comm_MyWorld, MPIerror)
-
-       call MPI_Reduce (currAsy(u)%I(1,1,1,1),                          &
-                        buffCurrAsy(u)%I(1,1,1,1),                      &
-                        NTenerg_div*nspin*NIVP*nModes(idx),             &
-                        MPI_Double_Precision, MPI_Sum, 0,               &
-                        MPI_Comm_MyWorld, MPIerror)
-    enddo
+    call MPI_Reduce (allcurr(1,1,1), buffCurr,                          &
+                     NTenerg_div*nspin*NIVP, MPIcalcCurr, MPIop,        &
+                     0, MPI_Comm_MyWorld, MPIerror)
 
     if (IOnode) then
-       currEl(:,:,:) = buffCurrEl(:,:,:)
-       do u = 1,nunitseph ! over units with e-ph
-          currSy(u)%I(:,:,:,:) = buffCurrSy(u)%I(:,:,:,:)
-          currAsy(u)%I(:,:,:,:) = buffCurrAsy(u)%I(:,:,:,:)
-       enddo
+       allcurr(:,:,:) = buffCurr(:,:,:)
 #elif defined MPI
     do n = 0,Nodes-1
        if (Node == n .and. IOnode) then
@@ -497,35 +487,28 @@ CONTAINS
 
                 do v = 1,NIVP
 
-!                  Sum inelastic contributions from all modes.
-                   Isy = 0.d0
-                   Iasy = 0.d0
-                   do u = 1,nunitseph ! over units with e-ph
-
-                      idx = ephIdx(eph_type(u))
-
-                      Isy = Isy + currSy(u)%I(e,s,v,1:nModes(idx))
-                      Iasy = Iasy + currAsy(u)%I(e,s,v,1:nModes(idx))
-
-                   enddo
-
 !                  OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
 !                  for writing in eV (from CODATA - 2012).
                    write (iuVxI, '(e17.8e3,e17.8e3,e17.8e3,'        //  &
-                        'e17.8e3,e17.8e3)') Vbias, currEl(e,s,v),       &
-                        Isy, Iasy, currEl(e,s,v) + Isy + Iasy
+                        'e17.8e3,e17.8e3)') Vbias, allcurr(e,s,v)%el,   &
+                        allcurr(e,s,v)%isymm, allcurr(e,s,v)%iasymm,    &
+                        allcurr(e,s,v)%el + allcurr(e,s,v)%isymm +      &
+                        allcurr(e,s,v)%iasymm
                    write (iuExVxI,                                      &
-                        '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,e17.8e3,' //  &
-                        'e17.8e3)') Ei(e), Vbias, currEl(e,s,v),        &
-                        Isy, Iasy, currEl(e,s,v) + Isy + Iasy
+                        '(e17.8e3,e17.8e3,e17.8e3,'                 //  &
+                        'e17.8e3,e17.8e3,e17.8e3)') Ei(e), Vbias,       &
+                        allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
+                        allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el        &
+                        + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
                    write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')       &
-                        Ei(e), Vbias, currEl(e,s,v)
+                        Ei(e), Vbias, allcurr(e,s,v)%el
                    write (iuExVxIsy, '(e17.8e3,e17.8e3,e17.8e3)')       &
-                        Ei(e), Vbias, Isy
+                        Ei(e), Vbias, allcurr(e,s,v)%isymm
                    write (iuExVxIasy, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e), Vbias, Iasy
+                        Ei(e), Vbias, allcurr(e,s,v)%iasymm
                    write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e), Vbias, currEl(e,s,v) + Isy + Iasy
+                        Ei(e), Vbias, allcurr(e,s,v)%el                 &
+                        + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
 
                    Vbias = Vbias + dV
 
@@ -546,37 +529,13 @@ CONTAINS
        elseif (Node == n) then
           call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,         &
                          0, 1, MPI_Comm_world, MPIerror)
-          call MPI_Send (currEl(1,1,1), NTenerg_div*nspin*NIVP,         &
-                         MPI_Double_Precision, 0, 2,                    &
-                         MPI_Comm_world, MPIerror)
-          do u = 1,nunitseph ! over units with e-ph
-             idx = ephIdx(eph_type(u))
-             call MPI_Send (currSy(u)%I(1,1,1,1),                       &
-                            NTenerg_div*nspin*NIVP*nModes(idx),         &
-                            MPI_Double_Precision, 0, 2+u,               &
-                            MPI_Comm_world, MPIerror)
-             call MPI_Send (currAsy(u)%I(1,1,1,1),                      &
-                            NTenerg_div*nspin*NIVP*nModes(idx),         &
-                            MPI_Double_Precision, 0, 2+u+nunitseph,     &
-                            MPI_Comm_world, MPIerror)
-          enddo
+          call MPI_Send (allcurr(1,1,1), NTenerg_div*nspin*NIVP,        &
+                         MPIcalcCurr, 0, 2, MPI_Comm_world, MPIerror)
        elseif (Node == 0) then
           call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,     &
                          n, 1, MPI_Comm_world, MPIstatus, MPIerror)
-          call MPI_Recv (buffCurrEl, NTenerg_div*nspin*NIVP,            &
-                         MPI_Double_Precision, n, 2,                    &
-                         MPI_Comm_world, MPIstatus, MPIerror)
-          do u = 1,nunitseph ! over units with e-ph
-             idx = ephIdx(eph_type(u))
-             call MPI_Recv (buffCurrSy(u)%I(1,1,1,1),                   &
-                            NTenerg_div*nspin*NIVP*nModes(idx),         &
-                            MPI_Double_Precision, n, 2+u,               &
-                            MPI_Comm_world, MPIstatus, MPIerror)
-             call MPI_Recv (buffCurrAsy(u)%I(1,1,1,1),                  &
-                            NTenerg_div*nspin*NIVP*nModes(idx),         &
-                            MPI_Double_Precision, n, 2+u+nunitseph,     &
-                            MPI_Comm_world, MPIstatus, MPIerror)
-          enddo
+          call MPI_Recv (buffCurr, NTenerg_div*nspin*NIVP, MPIcalcCurr, &
+                         n, 2, MPI_Comm_world, MPIstatus, MPIerror)
        endif
        if (n /= 0) then
           call MPI_Barrier (MPI_Comm_world, MPIerror)
@@ -588,37 +547,31 @@ CONTAINS
 
                    do v = 1,NIVP
 
-!                     Sum inelastic contributions from all modes.
-                      Isy = 0.d0
-                      Iasy = 0.d0
-                      do u = 1,nunitseph ! over units with e-ph
-
-                         idx = ephIdx(eph_type(u))
-
-                         Isy = Isy + buffCurrSy(u)%I(e,s,v,1:nModes(idx))
-                         Iasy = Iasy +                                  &
-                              buffCurrAsy(u)%I(e,s,v,1:nModes(idx))
-                      enddo
-
 !                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
 !                     for writing in eV (from CODATA - 2012).
                       write (iuVxI, '(e17.8e3,e17.8e3,e17.8e3,'     //  &
                            'e17.8e3,e17.8e3)') Vbias,                   &
-                           buffCurrEl(e,s,v), Isy, Iasy,                &
-                           buffCurrEl(e,s,v) + Isy + Iasy
-                      write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'   //  &
-                           'e17.8e3,e17.8e3,e17.8e3)') buffEn(e),       &
-                           Vbias, buffCurrEl(e,s,v), Isy, Iasy,         %
-                           buffCurrEl(e,s,v) + Isy + Iasy
+                           buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
+                           buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
+                           + buffCurr(e,s,v)%isymm                      &
+                           + buffCurr(e,s,v)%iasymm
+                      write (iuExVxI,                                   &
+                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'      //  &
+                           'e17.8e3,e17.8e3)') buffEn(e), Vbias,        &
+                           buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
+                           buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
+                           + buffCurr(e,s,v)%isymm                      &
+                           + buffCurr(e,s,v)%iasymm
                       write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                           buffEn(e), Vbias, buffCurrEl(e,s,v)
+                           buffEn(e), Vbias, buffCurr(e,s,v)%el
                       write (iuExVxIsy, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                           buffEn(e), Vbias, Isy
+                           buffEn(e), Vbias, buffCurr(e,s,v)%isymm
                       write (iuExVxIasy, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e), Vbias, Iasy
+                           buffEn(e), Vbias, buffCurr(e,s,v)%iasymm
                       write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e), Vbias, buffCurrEl(e,s,v) + Isy    &
-                           + Iasy
+                           buffEn(e), Vbias, buffCurr(e,s,v)%el         &
+                           + buffCurr(e,s,v)%isymm                      &
+                           + buffCurr(e,s,v)%iasymm
 
                       Vbias = Vbias + dV
 
@@ -649,27 +602,20 @@ CONTAINS
        call IOclose (iuExVxItot)
 
        deallocate (buffEn)
-       deallocate (buffCurrEl)
-       do u = 1,nunitseph ! over units with e-ph
-          deallocate (buffCurrSy(u)%I)
-          deallocate (buffCurrAsy(u)%I)
-       enddo
-       deallocate (buffCurrSy)
-       deallocate (buffCurrAsy)
+       deallocate (buffCurr)
 
 #ifdef MASTER_SLAVE
     else
        deallocate (buffCurr)
-       deallocate (buffCurrEl)
-       do u = 1,nunitseph ! over units with e-ph
-          deallocate (buffCurrSy(u)%I)
-          deallocate (buffCurrAsy(u)%I)
-       enddo
-       deallocate (buffCurrSy)
-       deallocate (buffCurrAsy)
+       call MPI_Op_free (MPIop, MPIerror)
 #endif
 
     endif
+
+!   Free MPI data type.
+#ifdef MPI
+    call MPI_Type_free (MPIcalcCurr, MPIerror)
+#endif
 
 
   end subroutine writecurrent
