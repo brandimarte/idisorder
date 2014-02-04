@@ -61,8 +61,8 @@ PROGRAM IDISORDER
   use idsrdr_leads,    only: leadsSelfEn
   use idsrdr_green,    only: greenfunctions
   use idsrdr_spectral, only: spectral
-  use idsrdr_power,    only: power
-  use idsrdr_current,  only: current
+  use idsrdr_power,    only: powerTr, power
+  use idsrdr_current,  only: currentTr, current
   use idsrdr_conduct,  only: conduct
   use idsrdr_out,      only: output
   use idsrdr_end,      only: finalize
@@ -118,13 +118,19 @@ PROGRAM IDISORDER
 !       Compute spectral function and DOS for units with e-ph.
         call spectral (ienergy, ispin)
 
-        Vbias = VInitial
-
         if (IOnode) then
            write (6,'(a)', advance='no')                                &
                 '      computing dissipated power and current... '
            flush (6)
         endif
+
+!       Calculate bias independent part of dissipated power.
+        call powerTr (ispin)
+
+!       Calculate bias independent part of current.
+        call currentTr (Ei(ienergy), ienergy, ispin)
+
+        Vbias = VInitial
 
         do iv = 1,NIVP ! over bias points
 

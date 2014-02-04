@@ -50,11 +50,11 @@ MODULE idsrdr_current
 
   implicit none
   
-  PUBLIC  :: currentinit, current, calcCurr, allcurr, freecurr,         &
-             sumCalcCurr
+  PUBLIC  :: currentinit, currentTr, current, calcCurr, allcurr,        &
+             freecurr, sumCalcCurr
   PRIVATE :: elastic, transmission, inelSymm, inelSymmDisk, asymmPre,   &
              inelAsymm, inelAsymmDisk, testInelSymm, testInelAsymm,     &
-             kbTol, eoverh
+             modeCurr, currSy, currAsy, kbTol, eoverh
 
 ! Type for storing calculated currents.
   TYPE calcCurr
@@ -66,6 +66,15 @@ MODULE idsrdr_current
 
 ! Calculated currents.
   TYPE(calcCurr), allocatable, dimension (:,:,:) :: allcurr
+
+! Type for storing calculated currents per mode contribution.
+  TYPE modeCurr
+     real(8), pointer :: I(:)
+  END TYPE modeCurr
+
+! Calculated currents per mode (for all units with e-ph).
+  TYPE(modeCurr), allocatable, dimension (:) :: currSy  ! symmetric
+  TYPE(modeCurr), allocatable, dimension (:) :: currAsy ! asymmetric
 
   real(8), parameter :: kbTol = 18.d0 ! tolerance value for temperature
 
@@ -82,8 +91,7 @@ CONTAINS
 !  *******************************************************************  !
 !                              currentinit                              !
 !  *******************************************************************  !
-!  Description: allocate array of type 'calcCurr' for storing           !
-!  calculated currents.                                                 !
+!  Description: allocates and initializes calculated currents arrays.   !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
@@ -95,6 +103,10 @@ CONTAINS
 !  integer nspin               : Number of spin components              !
 !  integer NIVP                : Number of bias potential points        !
 !  integer NTenerg_div         : Number of energy grid points per node  !
+!  integer nModes(neph)        : Number of vibrational modes            !
+!  integer ephIdx(ntypeunits+2): Unit index (those with e-ph)           !
+!  integer nunitseph           : Number of units with eph               !
+!  integer eph_type(nunitseph) : Units types with eph                   !
 !  *******************************************************************  !
   subroutine currentinit
 
@@ -103,21 +115,43 @@ CONTAINS
 !
     use idsrdr_options,  only: nspin, NIVP
     use idsrdr_engrid,   only: NTenerg_div
+    use idsrdr_ephcoupl, only: nModes, ephIdx
+    use idsrdr_units,    only: nunitseph, eph_type
 
-!   Allocate and initializes current array.
+!   Local variables.
+    integer :: u, idx
+
+!   Allocate and initialize current array.
     allocate (allcurr(NTenerg_div,nspin,NIVP))
     allcurr%el = 0.d0
     allcurr%isymm = 0.d0
     allcurr%iasymm = 0.d0
+
+!   Allocate pointer arrays.
+    allocate (currSy(nunitseph))
+    allocate (currAsy(nunitseph))
+
+    do u = 1,nunitseph ! over units with e-ph
+
+       idx = ephIdx(eph_type(u))
+
+!      Allocate memory and initialize.
+       allocate (currSy(u)%I(nModes(idx)))
+       allocate (currAsy(u)%I(nModes(idx)))
+       currSy(u)%I = 0.d0
+       currAsy(u)%I = 0.d0
+
+    enddo
 
 
   end subroutine currentinit
 
 
 !  *******************************************************************  !
-!                                current                                !
+!                               currentTr                               !
 !  *******************************************************************  !
-!  Description: interface subroutine for computing the current.         !
+!  Description: interface subroutine for computing the bias             !
+!  independent part of the current.                                     !
 !                                                                       !
 !  Written by Pedro Brandimarte, Nov 2013.                              !
 !  Instituto de Fisica                                                  !
@@ -135,10 +169,8 @@ CONTAINS
 !  real*8 Ei                    : Energy grid point                     !
 !  integer ienergy              : Energy grid index                     !
 !  integer ispin                : Spin component index                  !
-!  integer iv                   : Bias potential index                  !
-!  real*8 Vbias                 : Bias potential value                  !
 !  *******************************************************************  !
-  subroutine current (Ei, ienergy, ispin, iv, Vbias)
+  subroutine currentTr (Ei, ienergy, ispin)
 
 !
 !   Modules
@@ -147,11 +179,11 @@ CONTAINS
     use idsrdr_options,  only: writeondisk
 
 !   Input variables.
-    integer, intent(in) :: ienergy, ispin, iv
-    real(8), intent(in) :: Ei, Vbias
+    integer, intent(in) :: ienergy, ispin
+    real(8), intent(in) :: Ei
 
 !   Local variables.
-    real(8) :: Iel, Isymm, Iasymm
+    real(8) :: Iel
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L
     complex(8), allocatable, dimension (:,:) :: Gamma_R
@@ -164,57 +196,121 @@ CONTAINS
     Gamma_L = zi * (Sigma_L - DCONJG(Sigma_L))
     Gamma_R = zi * (Sigma_R - DCONJG(Sigma_R))
 
+!   Compute elastic contribution.
+    call elastic (Iel, NL, Gamma_L, NR, Gamma_R)
+    allcurr(ienergy,ispin,:)%el = Iel
+
     IF (writeondisk) THEN
 
-!      Compute elastic contribution.
-       call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
-
-!      Compute symmetric part of inelastic contribution.
+!      Compute symmetric and asymmetric parts of inelastic contribution.
 #ifdef DEBUG
-       call inelSymmDisk (Isymm, ienergy, ispin, iv, NL, Gamma_L,       &
-                          NR, Gamma_R, Vbias, Ei)
+       call inelSymmDisk (ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+       call inelAsymmDisk (ispin, NL, Gamma_L, NR, Gamma_R, Ei)
 #else
-       call inelSymmDisk (Isymm, ienergy, ispin, iv, NL, Gamma_L,       &
-                          NR, Gamma_R, Vbias)
+       call inelSymmDisk (ispin, NL, Gamma_L, NR, Gamma_R)
+       call inelAsymmDisk (ispin, NL, Gamma_L, NR, Gamma_R)
 #endif
-
-!      Compute asymmetric part of inelastic contribution.
-       call inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,                  &
-                           NR, Gamma_R, Vbias, Ei)
-
-!      Store calculated currents.
-       allcurr(ienergy,ispin,iv)%el = Iel
-       allcurr(ienergy,ispin,iv)%isymm = Isymm
-       allcurr(ienergy,ispin,iv)%iasymm = Iasymm
 
     ELSE ! write on memory...
 
-!      Compute elastic contribution.
-       call elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
-
-!      Compute symmetric part of inelastic contribution.
+!      Compute symmetric and asymmetric parts of inelastic contribution.
 #ifdef DEBUG
-       call inelSymm (Isymm, ienergy, ispin, iv, NL, Gamma_L,           &
-                      NR, Gamma_R, Vbias, Ei)
+       call inelSymm (ispin, NL, Gamma_L, NR, Gamma_R, Ei)
+       call inelAsymm (ispin, NL, Gamma_L, NR, Gamma_R, Ei)
 #else
-       call inelSymm (Isymm, ienergy, ispin, iv, NL, Gamma_L,           &
-                      NR, Gamma_R, Vbias)
+       call inelSymm (ispin, NL, Gamma_L, NR, Gamma_R)
+       call inelAsymm (ispin, NL, Gamma_L, NR, Gamma_R)
 #endif
-
-!      Compute asymmetric part of inelastic contribution.
-       call inelAsymm (Iasymm, ispin, NL, Gamma_L,                      &
-                       NR, Gamma_R, Vbias, Ei)
-
-!      Store calculated currents.
-       allcurr(ienergy,ispin,iv)%el = Iel
-       allcurr(ienergy,ispin,iv)%isymm = Isymm
-       allcurr(ienergy,ispin,iv)%iasymm = Iasymm
 
     ENDIF ! IF (writeondisk)
 
 !   Free memory.
     deallocate (Gamma_L)
     deallocate (Gamma_R)
+
+
+  end subroutine currentTr
+
+
+!  *******************************************************************  !
+!                                current                                !
+!  *******************************************************************  !
+!  Description: interface subroutine for computing the current.         !
+!                                                                       !
+!  Written by Pedro Brandimarte, Nov 2013.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    November 2013                                   !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nModes(neph)               : Number of vibrational modes     !
+!  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
+!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
+!                                       frequencies                     !
+!  integer nunitseph                  : Number of units with eph        !
+!  integer eph_type(nunitseph)        : Units types with eph            !
+!  real*8 temp                        : Electronic temperature          !
+!  TYPE(phonon) phOccup(nunitseph)%P(NTenerg_div,nspin,NIVP,nModes)     !
+!                                     : [real] Phonon occupation        !
+!  ****************************** INPUT ******************************  !
+!  real*8 Ei                    : Energy grid point                     !
+!  integer ienergy              : Energy grid index                     !
+!  integer ispin                : Spin component index                  !
+!  integer iv                   : Bias potential index                  !
+!  real*8 Vbias                 : Bias potential value                  !
+!  *******************************************************************  !
+  subroutine current (Ei, ienergy, ispin, iv, Vbias)
+
+!
+!   Modules
+!
+    use idsrdr_ephcoupl, only: nModes, ephIdx, freq
+    use idsrdr_units,    only: nunitseph, eph_type
+    use idsrdr_options,  only: temp
+    use idsrdr_distrib,  only: BoseEinstein
+    use idsrdr_power,    only: phOccup
+
+!   Input variables.
+    integer, intent(in) :: ienergy, ispin, iv
+    real(8), intent(in) :: Ei, Vbias
+
+!   Local variables.
+    integer :: ueph, w, idx
+    real(8) :: foo, Isy, Iasy
+
+!   Compute elastic pre-factor.
+    allcurr(ienergy,ispin,iv)%el = allcurr(ienergy,ispin,iv)%el *       &
+         eoverh * Vbias
+
+    Isy = 0.d0
+    Iasy = 0.d0
+    do ueph = 1,nunitseph ! over unit with e-ph
+
+       idx = ephIdx(eph_type(ueph))
+
+       do w = 1,nModes(idx) ! over phonon modes
+
+!         Compute symmetric pre-factor.
+          foo = 2.d0 * Vbias * phOccup(ueph)%P(ienergy,ispin,iv,w)
+          foo = foo + (freq(idx)%F(w) - Vbias)                          &
+               * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
+          foo = foo - (freq(idx)%F(w) + Vbias)                          &
+               * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
+          Isy = Isy + foo * currSy(ueph)%I(w)
+
+!         Compute asymmetric pre-factor.
+          Iasy = Iasy + asymmPre (Ei, freq(idx)%F(w), Vbias) *          &
+               currAsy(ueph)%I(w)
+
+       enddo ! do w = 1,nModes(idx)
+
+    enddo ! do ueph = 1,nunitseph
+
+!   Assign symmetric and asymmetric contribution.
+    allcurr(ienergy,ispin,iv)%isymm = eoverh * Isy
+    allcurr(ienergy,ispin,iv)%iasymm = eoverh * Iasy
+
 
 
   end subroutine current
@@ -238,11 +334,10 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
-!  real*8 Vbias                        : Bias potential                 !
 !  ***************************** OUTPUT ******************************  !
 !  real*8 Iel                          : Elastic current                !
 !  *******************************************************************  !
-  subroutine elastic (Iel, NL, Gamma_L, NR, Gamma_R, Vbias)
+  subroutine elastic (Iel, NL, Gamma_L, NR, Gamma_R)
 
 !
 !   Modules
@@ -251,15 +346,12 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: NL, NR
-    real(8), intent(in) :: Vbias
     real(8), intent(out) :: Iel
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Calculates the transmission coefficient.
     call transmission (NL, Gamma_L, NR, Gamma_R, Gr_1M, Iel)
-
-    Iel = eoverh * Vbias * Iel
 
 
   end subroutine elastic
@@ -350,8 +442,6 @@ CONTAINS
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
-!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
-!                                       frequencies                     !
 !  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
 !  integer nunitseph                  : Number of units with eph        !
 !  integer eph_type(nunitseph)        : Units types with eph            !
@@ -362,43 +452,30 @@ CONTAINS
 !  TYPE(green) Gr_nn(nunitseph)%G(unitdimensions,unitdimensions) :      !
 !                                                  [complex] G^r_{n,n}  !
 !  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
-!  real*8 temp                 : Electronic temperature                 !
-!  TYPE(phonon) phOccup(nunitseph)%P(NTenerg_div,nspin,NIVP,nModes)     !
-!                              : [real] Phonon occupation               !
 !  ****************************** INPUT ******************************  !
-!  integer ienergy                     : Energy grid index              !
 !  integer ispin                       : Spin component index           !
-!  integer iv                          : Bias potential index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex*8 Gamma_L(NL,NL)            : Left-lead coupling matrix      !
 !  complex*8 Gamma_R(NR,NR)            : Right-lead coupling matrix     !
-!  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : [DEBUG] Energy grid point      !
-!  ***************************** OUTPUT ******************************  !
-!  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
-  subroutine inelSymm (Isymm, ienergy, ispin, iv, NL, Gamma_L,          &
+  subroutine inelSymm (ispin, NL, Gamma_L,                              &
 #ifdef DEBUG
-                       NR, Gamma_R, Vbias, Ei)
+                       NR, Gamma_R, Ei)
 #else
-                       NR, Gamma_R, Vbias)
+                       NR, Gamma_R)
 #endif
 
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_nn, Gr_1M
-    use idsrdr_options,  only: temp
-    use idsrdr_distrib,  only: BoseEinstein
-    use idsrdr_power,    only: phOccup
 
 !   Input variables.
-    integer, intent(in) :: ienergy, ispin, iv, NL, NR
-    real(8), intent(out) :: Isymm
-    real(8), intent(in) :: Vbias
+    integer, intent(in) :: ispin, NL, NR
 #ifdef DEBUG
     real(8), intent(in) :: Ei
 #endif
@@ -407,14 +484,11 @@ CONTAINS
 
 !   Local variables.
     integer :: j, w, i, idx
-    real(8) :: Imode, foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
-    complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
-                                               Aux5, Aux6, Aux7, GrCJG, A
+    complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
+                                               Aux4, Aux5, Aux6,        &
+                                               Aux7, GrCJG, A
     external :: HI_zsymm, HI_zhemm, HI_zgemm
-
-!   Initialize variable.
-    Isymm = 0.d0
 
     do j = 1,nunitseph ! over unit with e-ph
 
@@ -508,29 +582,20 @@ CONTAINS
                          Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
-          Imode = 0.d0
+          currSy(j)%I(w) = 0.d0
           do i = 1,norbDyn(idx)
-             Imode = Imode + DREAL(Aux4(i,i))
+             currSy(j)%I(w) = currSy(j)%I(w) + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
-             Imode = Imode + DREAL(Aux7(i,i))
+             currSy(j)%I(w) = currSy(j)%I(w) + DREAL(Aux7(i,i))
           enddo
-          
+
 #ifdef DEBUG
 !         [test] Compute the matrices multiplication with full matrices.
           call testInelSymm (Ei, ispin, NL, Gamma_L,                    &
                              NR, Gamma_R, j, idx, norbDyn(idx),         &
                              Meph(idx)%M(:,:,ispin,w), Aux4, Aux7)
 #endif
-
-!         Compute symmetric pre-factor.
-          foo = 2.d0 * Vbias * phOccup(j)%P(ienergy,ispin,iv,w)
-          foo = foo + (freq(idx)%F(w) - Vbias)                          &
-                * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
-          foo = foo - (freq(idx)%F(w) + Vbias)                          &
-                * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
-          Imode = eoverh * foo * Imode
-          Isymm = Isymm + Imode
 
        enddo ! do w = 1,nModes(idx)
 
@@ -568,8 +633,6 @@ CONTAINS
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
-!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
-!                                       frequencies                     !
 !  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
 !  integer nunitseph                  : Number of units with eph        !
 !  integer eph_type(nunitseph)        : Units types with eph            !
@@ -580,45 +643,32 @@ CONTAINS
 !  TYPE(green) Gr_nn(nunitseph)%G(unitdimensions,unitdimensions) :      !
 !                                                  [complex] G^r_{n,n}  !
 !  complex(8) Gr_1M(NL,NR)                           : G^r_{1,M}        !
-!  real*8 temp                 : Electronic temperature                 !
-!  TYPE(phonon) phOccup(nunitseph)%P(NTenerg_div,nspin,NIVP,nModes)     !
-!                              : [real] Phonon occupation               !
 !  ****************************** INPUT ******************************  !
-!  integer ienergy                     : Energy grid index              !
 !  integer ispin                       : Spin component index           !
-!  integer iv                          : Bias potential index           !
 !  integer NL                          : Number of left lead orbitals   !
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
-!  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : [optional] Energy grid point   !
-!  ***************************** OUTPUT ******************************  !
-!  real*8 Isymm                : Symmetric part of inelastic current    !
 !  *******************************************************************  !
-  subroutine inelSymmDisk (Isymm, ienergy, ispin, iv, NL, Gamma_L,      &
+  subroutine inelSymmDisk (ispin, NL, Gamma_L,                          &
 #ifdef DEBUG
-                           NR, Gamma_R, Vbias, Ei)
+                           NR, Gamma_R, Ei)
 #else
-                           NR, Gamma_R, Vbias)
+                           NR, Gamma_R)
 #endif
 
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn_disk, Gr_1n_disk, Gr_nn_disk,      &
                                Gr_1M, greenload
-    use idsrdr_options,  only: temp
-    use idsrdr_distrib,  only: BoseEinstein
     use idsrdr_io,       only: IOopenStream, IOcloseStream
-    use idsrdr_power,    only: phOccup
 
 !   Input variables.
-    integer, intent(in) :: ienergy, ispin, iv, NL, NR
-    real(8), intent(out) :: Isymm
-    real(8), intent(in) :: Vbias
+    integer, intent(in) :: ispin, NL, NR
 #ifdef DEBUG
     real(8), optional, intent(in) :: Ei
 #endif
@@ -627,15 +677,11 @@ CONTAINS
 
 !   Local variables.
     integer :: j, w, i, idx
-    real(8) :: Imode, foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3, Aux4,  &
                                                Aux5, Aux6, Aux7, GrCJG, &
                                                A, auxGr_1n, auxGr_Mn
     external :: HI_zsymm, HI_zhemm, HI_zgemm
-
-!   Initialize variable.
-    Isymm = 0.d0
 
 !   Open Green's functions files.
     call IOopenStream (Gr_nn_disk%fname, Gr_nn_disk%lun)
@@ -747,12 +793,12 @@ CONTAINS
                          Aux1, NR, Aux2, NR, (0.d0,0.d0), Aux7, NR)
 
 !         Compute the trace.
-          Imode = 0.d0
+          currSy(j)%I(w) = 0.d0
           do i = 1,norbDyn(idx)
-             Imode = Imode + DREAL(Aux4(i,i))
+             currSy(j)%I(w) = currSy(j)%I(w) + DREAL(Aux4(i,i))
           enddo
           do i = 1,NR
-             Imode = Imode + DREAL(Aux7(i,i))
+             currSy(j)%I(w) = currSy(j)%I(w) + DREAL(Aux7(i,i))
           enddo
           
 #ifdef DEBUG
@@ -761,15 +807,6 @@ CONTAINS
                              NR, Gamma_R, j, idx, norbDyn(idx),         &
                              Meph(idx)%M(:,:,ispin,w), Aux4, Aux7)
 #endif
-
-!         Compute symmetric pre-factor.
-          foo = 2.d0 * Vbias * phOccup(j)%P(ienergy,ispin,iv,w)
-          foo = foo + (freq(idx)%F(w) - Vbias)                          &
-                * BoseEinstein (freq(idx)%F(w) - Vbias, temp)
-          foo = foo - (freq(idx)%F(w) + Vbias)                          &
-                * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
-          Imode = eoverh * foo * Imode
-          Isymm = Isymm + Imode
 
        enddo ! do w = 1,nModes(idx)
 
@@ -873,7 +910,7 @@ CONTAINS
                   * (FermiDirac (En(k), EfLead, temp)                   &
                   - FermiDirac (En(k)-Vbias, EfLead, temp))
     enddo
-    asymmPre = eoverh * asymmPre / 2.d0
+    asymmPre = asymmPre / 2.d0
 
 !   Free memory.
     deallocate (En, We)
@@ -899,8 +936,6 @@ CONTAINS
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
-!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
-!                                       frequencies                     !
 !  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
 !  integer nunitseph                  : Number of units with eph        !
 !  integer eph_type(nunitseph)        : Units types with eph            !
@@ -915,39 +950,37 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
-!  real*8 Vbias                        : Bias potential                 !
-!  real*8 Ei                           : Energy grid point              !
-!  ***************************** OUTPUT ******************************  !
-!  real*8 Iasymm               : Asymmetric part of inelastic current   !
+!  real*8 Ei                           : [DEBUG] Energy grid point      !
 !  *******************************************************************  !
-  subroutine inelAsymm (Iasymm, ispin, NL, Gamma_L,                     &
-                        NR, Gamma_R, Vbias, Ei)
+  subroutine inelAsymm (ispin, NL, Gamma_L,                             &
+#ifdef DEBUG
+                        NR, Gamma_R, Ei)
+#else
+                        NR, Gamma_R)
+#endif
 
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn, Gr_1n, Gr_1M
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
-    real(8), intent(in) :: Ei, Vbias
-    real(8), intent(out) :: Iasymm
+#ifdef DEBUG
+    real(8), intent(in) :: Ei
+#endif
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
     integer :: j, w, i, idx
-    real(8) :: Imode
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG
     external :: HI_zsymm, HI_zhemm, HI_zgemm
-
-!   Initialize variable.
-    Iasymm = 0.d0
 
     do j = 1,nunitseph ! over unit with e-ph
 
@@ -1039,12 +1072,12 @@ CONTAINS
                          Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
-          Imode = 0.d0
+          currAsy(j)%I(w) = 0.d0
           do i = 1,norbDyn(idx)
-             Imode = Imode + DREAL(Aux3(i,i))
+             currAsy(j)%I(w) = currAsy(j)%I(w) + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
-             Imode = Imode + DREAL(Aux6(i,i))
+             currAsy(j)%I(w) = currAsy(j)%I(w) + DREAL(Aux6(i,i))
           enddo
 
 #ifdef DEBUG
@@ -1054,10 +1087,6 @@ CONTAINS
                               Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
 #endif
 
-!         Compute asymmetric pre-factor.
-          Imode = asymmPre (Ei, freq(idx)%F(w), Vbias) * Imode
-          Iasymm = Iasymm + Imode
-          
        enddo ! do w = 1,nModes(idx)
 
 !      Free memory.
@@ -1093,8 +1122,6 @@ CONTAINS
 !  integer norbDyn(neph)       : Number of orbitals from dynamic atoms  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
-!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
-!                                       frequencies                     !
 !  integer ephIdx(ntypeunits+2)       : Unit index (those with e-ph)    !
 !  integer nunitseph                  : Number of units with eph        !
 !  integer eph_type(nunitseph)        : Units types with eph            !
@@ -1109,41 +1136,39 @@ CONTAINS
 !  integer NR                          : Number of right lead orbitals  !
 !  complex(8) Gamma_L(NL,NL)           : Left-lead coupling matrix      !
 !  complex(8) Gamma_R(NR,NR)           : Right-lead coupling matrix     !
-!  real*8 Vbias                        : Bias potential                 !
 !  real*8 Ei                           : Energy grid point              !
-!  ***************************** OUTPUT ******************************  !
-!  real*8 Iasymm               : Asymmetric part of inelastic current   !
 !  *******************************************************************  !
-  subroutine inelAsymmDisk (Iasymm, ispin, NL, Gamma_L,                 &
-                            NR, Gamma_R, Vbias, Ei)
+  subroutine inelAsymmDisk (ispin, NL, Gamma_L,                         &
+#ifdef DEBUG
+                            NR, Gamma_R, Ei)
+#else
+                            NR, Gamma_R)
+#endif
 
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, freq, ephIdx
+    use idsrdr_ephcoupl, only: nModes, norbDyn, Meph, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_green,    only: Gr_Mn_disk, Gr_1n_disk, Gr_1M, greenload
     use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
     integer, intent(in) :: ispin, NL, NR
-    real(8), intent(in) :: Ei, Vbias
-    real(8), intent(out) :: Iasymm
+#ifdef DEBUG
+    real(8), intent(in) :: Ei
+#endif
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
 
 !   Local variables.
     integer :: j, w, i, idx
-    real(8) :: Imode
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Aux1, Aux2, Aux3,        &
                                                Aux4, Aux5, Aux6,        &
                                                Gr_MnCJG, Gr_1nCJG,      &
                                                auxGr_1n, auxGr_Mn
     external :: HI_zsymm, HI_zhemm, HI_zgemm
-
-!   Initialize variable.
-    Iasymm = 0.d0
 
 !   Open Green's functions files.
     call IOopenStream (Gr_1n_disk%fname, Gr_1n_disk%lun)
@@ -1249,12 +1274,12 @@ CONTAINS
                          Aux2, NR, Aux1, NR, (0.d0,0.d0), Aux6, NR)
 
 !         Compute the trace.
-          Imode = 0.d0
+          currAsy(j)%I(w) = 0.d0
           do i = 1,norbDyn(idx)
-             Imode = Imode + DREAL(Aux3(i,i))
+             currAsy(j)%I(w) = currAsy(j)%I(w) + DREAL(Aux3(i,i))
           enddo
           do i = 1,NR
-             Imode = Imode + DREAL(Aux6(i,i))
+             currAsy(j)%I(w) = currAsy(j)%I(w) + DREAL(Aux6(i,i))
           enddo
 
 #ifdef DEBUG
@@ -1263,10 +1288,6 @@ CONTAINS
                               NR, Gamma_R, j, idx, norbDyn(idx),        &
                               Meph(idx)%M(:,:,ispin,w), Aux3, Aux6)
 #endif
-
-!         Compute asymmetric pre-factor.
-          Imode = asymmPre (Ei, freq(idx)%F(w), Vbias) * Imode
-          Iasymm = Iasymm + Imode
           
        enddo ! do w = 1,nModes(idx)
 
@@ -2025,11 +2046,26 @@ CONTAINS
 !  e-mail: brandimarte@gmail.com                                        !
 !  ***************************** HISTORY *****************************  !
 !  Original version:    January 2014                                    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nunitseph           : Number of units with eph               !
 !  *******************************************************************  !
   subroutine freecurr
 
+!
+!   Modules
+!
+    use idsrdr_units,    only: nunitseph
 
-!   Free memory.
+!   Local variables.
+    integer :: u
+
+!   First deallocates pointed arrays.
+    do u = 1,nunitseph ! over units with e-ph
+       deallocate (currSy(u)%I)
+       deallocate (currAsy(u)%I)
+    enddo
+    deallocate (currSy)
+    deallocate (currAsy)
     deallocate (allcurr)
 
 

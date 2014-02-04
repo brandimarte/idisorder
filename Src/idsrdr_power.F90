@@ -47,8 +47,9 @@ MODULE idsrdr_power
 
   implicit none
   
-  PUBLIC  :: powerinit, power, freepower, phonon, phPwr, phOccup
-  PRIVATE :: electronhole, effectiveEmission, occupPower
+  PUBLIC  :: powerinit, powerTr, power, freepower, phonon, phPwr, phOccup
+  PRIVATE :: electronhole, effectiveEmission, occupPower,               &
+             modePhon, modePwr, h
 
   TYPE phonon
      sequence
@@ -60,6 +61,15 @@ MODULE idsrdr_power
 
 ! Steady state phonon occupation for each mode (for all units).
   TYPE(phonon), allocatable, dimension (:) :: phOccup
+
+! Type for storing calculated powers per mode contribution.
+  TYPE modePhon
+     real(8), pointer :: Pem(:) ! dissipated power by effective emission
+     real(8), pointer :: Peh(:) ! dissipated power by e-h damping
+  END TYPE modePhon
+
+! Calculated powers per mode (for all units with e-ph).
+  TYPE(modePhon), allocatable, dimension (:) :: modePwr
 
 ! Constants. (physical constants from CODATA 2013)
   real(8), parameter :: h   = 4.135667516D-15 / 13.60569253D0 ! Ry*s
@@ -96,7 +106,7 @@ CONTAINS
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: neph, nModes, ephIdx
+    use idsrdr_ephcoupl, only: nModes, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_options,  only: nspin, NIVP
     use idsrdr_engrid,   only: NTenerg_div
@@ -107,6 +117,7 @@ CONTAINS
 !   Allocate pointer arrays.
     allocate (phPwr(nunitseph))
     allocate (phOccup(nunitseph))
+    allocate (modePwr(nunitseph))
 
     do u = 1,nunitseph ! over units with e-ph
 
@@ -115,6 +126,8 @@ CONTAINS
 !      Allocate memory.
        allocate (phPwr(u)%P(NTenerg_div,nspin,NIVP,nModes(idx)))
        allocate (phOccup(u)%P(NTenerg_div,nspin,NIVP,nModes(idx)))
+       allocate (modePwr(u)%Peh(nModes(idx)))
+       allocate (modePwr(u)%Pem(nModes(idx)))
        phPwr(u)%P = 0.d0
        phOccup(u)%P = 0.d0
 
@@ -125,10 +138,10 @@ CONTAINS
 
 
 !  *******************************************************************  !
-!                                 power                                 !
+!                                powerTr                                !
 !  *******************************************************************  !
-!  Description: interface subroutine for computing the phonon power     !
-!  and occupation.                                                      !
+!  Description: interface subroutine for computing the bias             !
+!  independent part of the phonon power.                                !
 !                                                                       !
 !  Written by Pedro Brandimarte, Jan 2014.                              !
 !  Instituto de Fisica                                                  !
@@ -151,12 +164,9 @@ CONTAINS
 !  TYPE(green) Gr_Mn(nunitseph)%G(NR,unitdimensions) : [complex]        !
 !                                                      G^r_{M,n}        !
 !  ****************************** INPUT ******************************  !
-!  integer ienergy              : Energy grid index                     !
 !  integer ispin                : Spin component index                  !
-!  integer iv                   : Bias potential index                  !
-!  real*8 Vbias                 : Bias potential                        !
 !  *******************************************************************  !
-  subroutine power (ienergy, ispin, iv, Vbias)
+  subroutine powerTr (ispin)
 
 !
 !   Modules
@@ -170,12 +180,10 @@ CONTAINS
     use idsrdr_io,       only: IOopenStream, IOcloseStream
 
 !   Input variables.
-    integer, intent(in) :: ienergy, ispin, iv
-    real(8), intent(in) :: VBias
+    integer, intent(in) :: ispin
 
 !   Local variables.
     integer :: ueph, idx
-    real(8), allocatable, dimension (:) :: Peh, Pem
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:,:) :: Gamma_L, Gamma_R,       &
                                                 Gnn, G1n, GMn
@@ -199,12 +207,6 @@ CONTAINS
 
           idx = ephIdx(eph_type(ueph))
 
-!         Allocate and initialize arrays.
-          allocate (Peh(nModes(idx)))
-          allocate (Pem(nModes(idx)))
-          Peh = 0.d0
-          Pem = 0.d0
-
 !         Allocate auxiliary matrix.
           allocate (Gnn(norbDyn(idx),norbDyn(idx)))
 
@@ -213,7 +215,7 @@ CONTAINS
                           norbDyn(idx), norbDyn(idx))
 
 !         Compute the electron-hole damping contribution.
-          call electronhole (Peh, ispin, idx, nModes(idx),              &
+          call electronhole (ispin, ueph, idx, nModes(idx),             &
                              norbDyn(idx), Gnn)
 
 !         Free memory.
@@ -229,17 +231,11 @@ CONTAINS
                           1, norbDyn(idx), GMn, NR, norbDyn(idx))
 
 !         Compute the nonequilibrium "effective emission" contribution.
-          call effectiveEmission (Pem, Vbias, ispin, idx, nModes(idx),  &
+          call effectiveEmission (ispin, ueph, idx, nModes(idx),        &
                                   NL, Gamma_L, NR, Gamma_R,             &
                                   norbDyn(idx), G1n, GMn)
 
-!         Compute the modes occupation and dissipated power.
-          call occupPower (ienergy, ispin, iv, ueph,                    &
-                           idx, nModes(idx), Peh, Pem)
-
 !         Free memory.
-          deallocate (Peh)
-          deallocate (Pem)
           deallocate (G1n)
           deallocate (GMn)
 
@@ -256,28 +252,14 @@ CONTAINS
 
           idx = ephIdx(eph_type(ueph))
 
-!         Allocate and initialize arrays.
-          allocate (Peh(nModes(idx)))
-          allocate (Pem(nModes(idx)))
-          Peh = 0.d0
-          Pem = 0.d0
-
 !         Compute the electron-hole damping contribution.
-          call electronhole (Peh, ispin, idx, nModes(idx),              &
+          call electronhole (ispin, ueph, idx, nModes(idx),             &
                              norbDyn(idx), Gr_nn(ueph)%G)
 
-          call effectiveEmission (Pem, Vbias, ispin, idx, nModes(idx),  &
+          call effectiveEmission (ispin, ueph, idx, nModes(idx),        &
                                   NL, Gamma_L, NR, Gamma_R,             &
                                   norbDyn(idx), Gr_1n(ueph)%G,          &
                                   Gr_Mn(ueph)%G)
-
-!         Compute the modes occupation and dissipated power.
-          call occupPower (ienergy, ispin, iv, ueph,                    &
-                           idx, nModes(idx), Peh, Pem)
-
-!         Free memory.
-          deallocate (Peh)
-          deallocate (Pem)
 
        enddo
 
@@ -286,6 +268,58 @@ CONTAINS
 !   Free memory.
     deallocate (Gamma_L)
     deallocate (Gamma_R)
+
+
+  end subroutine powerTr
+
+
+!  *******************************************************************  !
+!                                 power                                 !
+!  *******************************************************************  !
+!  Description: interface subroutine for computing the phonon power     !
+!  and occupation.                                                      !
+!                                                                       !
+!  Written by Pedro Brandimarte, Jan 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    January 2014                                    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer nunitseph            : Number of units with eph              !
+!  integer eph_type(nunitseph)  : Units types with eph                  !
+!  integer nModes               : Number of vibrational modes           !
+!  integer ephIdx(ntypeunits+2) : Unit index (those with e-ph)          !
+!  ****************************** INPUT ******************************  !
+!  integer ienergy              : Energy grid index                     !
+!  integer ispin                : Spin component index                  !
+!  integer iv                   : Bias potential index                  !
+!  real*8 Vbias                 : Bias potential                        !
+!  *******************************************************************  !
+  subroutine power (ienergy, ispin, iv, Vbias)
+
+!
+!   Modules
+!
+    use idsrdr_units,    only: nunitseph, eph_type
+    use idsrdr_ephcoupl, only: nModes, ephIdx
+
+!   Input variables.
+    integer, intent(in) :: ienergy, ispin, iv
+    real(8), intent(in) :: VBias
+
+!   Local variables.
+    integer :: ueph, idx
+
+    do ueph = 1,nunitseph ! over unit with e-ph
+
+       idx = ephIdx(eph_type(ueph))
+
+!      Compute the modes occupation and dissipated power.
+       call occupPower (ienergy, ispin, iv, ueph, idx,                  &
+                        nModes(idx), Vbias)
+
+    enddo
 
 
   end subroutine power
@@ -309,27 +343,23 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
-!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
-!                                       frequencies                     !
 !  ****************************** INPUT ******************************  !
 !  integer ispin               : Spin component index                   !
+!  integer ueph                : E-ph unit index                        !
 !  integer idx                 : Unit type index                        !
 !  integer nModes              : Number of vibrational modes            !
 !  integer norbDyn             : Number of orbitals from dynamic atoms  !
 !  complex*8 Gr_nn(norbDyn,norbDyn) : G^r_{n,n}                         !
-!  ***************************** OUTPUT ******************************  !
-!  real*8 Peh(nModes)          : Dissipated power by e-h damping        !
 !  *******************************************************************  !
-  subroutine electronhole (Peh, ispin, idx, nModes, norbDyn, Gr_nn)
+  subroutine electronhole (ispin, ueph, idx, nModes, norbDyn, Gr_nn)
 
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: Meph, freq
+    use idsrdr_ephcoupl, only: Meph
 
 !   Input variables.
-    integer, intent(in) :: ispin, idx, nModes, norbDyn
-    real(8), dimension (nModes), intent(out) :: Peh
+    integer, intent(in) :: ispin, ueph, idx, nModes, norbDyn
     complex(8), dimension (norbDyn,norbDyn), intent(in) :: Gr_nn
 
 !   Local variables.
@@ -360,10 +390,10 @@ CONTAINS
                       norbDyn, (0.d0,0.d0), Aux2, norbDyn)
 
 !      Compute the trace.
+       modePwr(ueph)%Peh(w) = 0.d0
        do i = 1,norbDyn
-          Peh(w) = Peh(w) + DREAL(Aux2(i,i))
+          modePwr(ueph)%Peh(w) = modePwr(ueph)%Peh(w) + DREAL(Aux2(i,i))
        enddo
-       Peh(w) = Peh(w) * freq(idx)%F(w) / h
 
     enddo ! do w = 1,nModes
 
@@ -392,12 +422,9 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  TYPE(ephCplng) Meph(neph)%M(norbDyn,norbDyn,nspin,nModes) :          !
 !                                   [complex*8] E-ph coupling matrices  !
-!  TYPE(ephFreq) freq(neph)%F(nModes) : [real*8] Vibrational mode's     !
-!                                       frequencies                     !
-!  real*8 temp                        : Electronic temperature          !
 !  ****************************** INPUT ******************************  !
-!  real*8 Vbias               : Bias potential                          !
 !  integer ispin              : Spin component index                    !
+!  integer ueph               : E-ph unit index                         !
 !  integer idx                : Unit type index                         !
 !  integer nModes             : Number of vibrational modes             !
 !  integer norbDyn            : Number of orbitals from dynamic atoms   !
@@ -408,23 +435,18 @@ CONTAINS
 !  complex*8 Gr_Mn(NR,norbDyn)      : G^r_{M,n}                         !
 !  complex*8 Gamma_L(NL,NL)         : Left-lead coupling matrix         !
 !  complex*8 Gamma_R(NR,NR)         : Right-lead coupling matrix        !
-!  ***************************** OUTPUT ******************************  !
-!  real*8 Pem(nModes)         : Dissipated power by effective emission  !
 !  *******************************************************************  !
-  subroutine effectiveEmission (Pem, Vbias, ispin, idx, nModes,         &
+  subroutine effectiveEmission (ispin, ueph, idx, nModes,               &
                                 NL, Gamma_L, NR, Gamma_R,               &
                                 norbDyn, Gr_1n, Gr_Mn)
 
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: Meph, freq
-    use idsrdr_options,  only: temp
+    use idsrdr_ephcoupl, only: Meph
 
 !   Input variables.
-    integer, intent(in) :: ispin, idx, nModes, NL, NR, norbDyn
-    real(8), intent(in) :: Vbias
-    real(8), dimension (nModes), intent(out) :: Pem
+    integer, intent(in) :: ispin, ueph, idx, nModes, NL, NR, norbDyn
     complex(8), dimension (NL,NL), intent(in) :: Gamma_L
     complex(8), dimension (NR,NR), intent(in) :: Gamma_R
     complex(8), dimension (NL,norbDyn), intent(in) :: Gr_1n
@@ -432,7 +454,6 @@ CONTAINS
 
 !   Local variables.
     integer :: w, i
-    real(8) :: coshVT, sinhVT, foo
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension(:,:) :: Gr1nCJG, GrMnCJG, Aux1,  &
                                                Aux2, Aux3, Aux4, Aux5
@@ -450,10 +471,6 @@ CONTAINS
 !   Copy the complex conjugate of 'Gr_1n' and 'Gr_Mn'.
     Gr1nCJG = DCONJG(Gr_1n)
     GrMnCJG = DCONJG(Gr_Mn)
-
-!   Compute bias and temperature dependent factors.
-    coshVT = DCOSH (Vbias / temp)
-    sinhVT = DSINH (Vbias / temp)
 
     do w = 1,nModes ! over phonon modes
 
@@ -494,16 +511,10 @@ CONTAINS
                       norbDyn, (0.d0,0.d0), Aux2, norbDyn)
 
 !      Compute the trace.
+       modePwr(ueph)%Pem(w) = 0.d0
        do i = 1,norbDyn
-          Pem(w) = Pem(w) + DREAL(Aux2(i,i))
+          modePwr(ueph)%Pem(w) = modePwr(ueph)%Pem(w) + DREAL(Aux2(i,i))
        enddo
-
-!      Compute pre-factor.
-       foo = freq(idx)%F(w) * (coshVT - 1.d0) /                         &
-            DTANH(freq(idx)%F(w)/(2.d0*temp))                           &
-            - Vbias * sinhVT
-       foo = foo / (h * (DCOSH(freq(idx)%F(w)/temp) - coshVT))
-       Pem(w) = Pem(w) * foo
 
     enddo ! do w = 1,nModes
 
@@ -545,11 +556,9 @@ CONTAINS
 !  integer ueph               : Unit index                              !
 !  integer idx                : Unit type index                         !
 !  integer nModes             : Number of vibrational modes             !
-!  real*8 Peh(nModes)         : Dissipated power by e-h damping         !
-!  real*8 Pem(nModes)         : Dissipated power by effective emission  !
+!  real*8 Vbias               : Bias potential value                    !
 !  *******************************************************************  !
-  subroutine occupPower (ienergy, ispin, iv, ueph,                      &
-                         idx, nModes, Peh, Pem)
+  subroutine occupPower (ienergy, ispin, iv, ueph, idx, nModes, Vbias)
 
 !
 !   Modules
@@ -561,26 +570,42 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ienergy, ispin, iv, ueph, idx, nModes
-    real(8), dimension (nModes), intent(in) :: Peh, Pem
+    real(8), intent(in) :: Vbias
 
 !   Local variables.
     integer :: w
-    real(8) :: bose
+    real(8) :: coshVT, sinhVT, foo, bose, Pem, Peh
+
+!   Compute bias and temperature dependent factors.
+    coshVT = DCOSH (Vbias / temp)
+    sinhVT = DSINH (Vbias / temp)
 
     do w = 1,nModes ! over phonon modes
 
+!      Compute effective-emission pre-factor.
+       foo = freq(idx)%F(w) * (coshVT - 1.d0) /                         &
+            DTANH(freq(idx)%F(w)/(2.d0*temp))                           &
+            - Vbias * sinhVT
+       foo = foo / (h * (DCOSH(freq(idx)%F(w)/temp) - coshVT))
+       Pem = modePwr(ueph)%Pem(w) * foo
+
+!      Compute eletron-hole pre-factor.
+       Peh = modePwr(ueph)%Peh(w) * freq(idx)%F(w) / h
+
+!      Equilibrium distribution.
        bose = BoseEinstein (freq(idx)%F(w), temp)
 
+!      Compute phonon occupation.
        if (phonEqui) then
           phOccup(ueph)%P(ienergy,ispin,iv,w) =  bose
        else
-          phOccup(ueph)%P(ienergy,ispin,iv,w) =  bose +                 &
-               Pem(w) / (freq(idx)%F(w) * (Peh(w) + phonDamp))
+          phOccup(ueph)%P(ienergy,ispin,iv,w) =  bose + Pem /           &
+               (freq(idx)%F(w) * (Peh + phonDamp))
        endif
 
+!      Compute dissipated power.
        phPwr(ueph)%P(ienergy,ispin,iv,w) = freq(idx)%F(w) *             &
-            ((bose - phOccup(ueph)%P(ienergy,ispin,iv,w)) * Peh(w)      &
-            + Pem(w))
+            ((bose - phOccup(ueph)%P(ienergy,ispin,iv,w)) * Peh + Pem)
 
     enddo
 
@@ -616,9 +641,12 @@ CONTAINS
     do u = 1,nunitseph ! over units with e-ph
        deallocate (phPwr(u)%P)
        deallocate (phOccup(u)%P)
+       deallocate (modePwr(u)%Peh)
+       deallocate (modePwr(u)%Pem)
     enddo
     deallocate (phPwr)
     deallocate (phOccup)
+    deallocate (modePwr)
 
 
   end subroutine freepower
