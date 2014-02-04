@@ -164,7 +164,7 @@ CONTAINS
     end if
     call MPI_Barrier (MPI_Comm_World, MPIerror) ! Barrier for Master
                                                 ! and Slaves
-    write (*,'(a)') "Master: exiting"
+    write (*,'(a,/)') "Master: exiting"
     call MPI_Finalize (MPIerror)
 
 

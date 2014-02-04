@@ -232,15 +232,17 @@ CONTAINS
 
 !         Allocate memory.
           allocate (freq(idx)%F(nModes(idx)))
-          allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
-                                nspin,nModes(idx)))
-          allocate (aux(norbDyn(idx)))
 
 !         Reads the mode's frequencies (energies).
           read (iu,*) freq(idx)%F(1:nModes(idx))
           do l = 1,3*nDyn ! don't consider null modes
              if (freq(idx)%F(l) <= 0.D0) nModes(idx) = nModes(idx) - 1
           enddo
+
+!         Allocate memory.
+          allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
+                                nspin,nModes(idx)))
+          allocate (aux(norbDyn(idx)))
 
 !         Reads the electron-phonon coupling matrix.
           do l = 1,nModes(idx)
@@ -330,15 +332,17 @@ CONTAINS
 
 !            Allocates memory.
              allocate (freq(idx)%F(nModes(idx)))
-             allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),           &
-                                   nspin,nModes(idx)))
-             allocate (aux(norbDyn(idx)))
 
 !            Reads the mode's frequencies (energies).
              read (iu,*) freq(idx)%F(1:nModes(idx))
              do l = 1,3*nDyn ! don't consider null modes
                 if (freq(idx)%F(l) <= 0.D0) nModes(idx) = nModes(idx) - 1
              enddo
+
+!            Allocates memory.
+             allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),           &
+                                   nspin,nModes(idx)))
+             allocate (aux(norbDyn(idx)))
 
 !            Reads the electron-phonon coupling matrix.
              do l = 1,nModes(idx)
@@ -429,15 +433,17 @@ CONTAINS
 
 !         Allocates memory.
           allocate (freq(idx)%F(nModes(idx)))
-          allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
-                                nspin,nModes(idx)))
-          allocate (aux(norbDyn(idx)))
 
 !         Reads the mode's frequencies (energies).
           read (iu,*) freq(idx)%F(1:nModes(idx))
           do l = 1,3*nDyn ! don't consider null modes
              if (freq(idx)%F(l) <= 0.D0) nModes(idx) = nModes(idx) - 1
           enddo
+
+!         Allocates memory.
+          allocate (Meph(idx)%M(norbDyn(idx),norbDyn(idx),              &
+                                nspin,nModes(idx)))
+          allocate (aux(norbDyn(idx)))
 
 !         Reads the electron-phonon coupling matrix.
           do l = 1,nModes(idx)

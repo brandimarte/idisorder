@@ -160,7 +160,7 @@ CONTAINS
 !      Final time.
        call cpu_time (time_end)
 
-       write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
+       write (6,'(a,f12.4,a)') "Time of calculation was ",              &
             time_end - time_begin, " seconds"
        write (6,'(/,a,/)') "End of program I-Disorder"
     endif

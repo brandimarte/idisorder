@@ -2235,6 +2235,14 @@ CONTAINS
     Htot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
          Hunits(utype)%H(:,:,ispin)
 
+!   Write full Hamiltonian.
+    do i = 1,dimTot
+       do j = 1,dimTot-1
+          write (302,'(e17.8e3)', advance='no') DREAL(Htot(i,j))
+       enddo
+       write (302,'(e17.8e3)') DREAL(Htot(i,j))
+    enddo
+
 !   Green's function.
     Gtot = Stot - Htot
     Gtot(1:NL,1:NL) = Gtot(1:NL,1:NL) - Sigma_L
@@ -2580,6 +2588,14 @@ CONTAINS
          (Ei-unitshift(utype))*Sunits(utype)%S(:,:)
     Htot(idxAnt:idxAnt+dim-1,idxAnt:idxAnt+dim-1) =                     &
          Hunits(utype)%H(:,:,ispin)
+
+!   Write full Hamiltonian.
+    do i = 1,dimTot
+       do j = 1,dimTot-1
+          write (302,'(e17.8e3)', advance='no') DREAL(Htot(i,j))
+       enddo
+       write (302,'(e17.8e3)') DREAL(Htot(i,j))
+    enddo
 
 !   Green's function.
     Gtot = Stot - Htot

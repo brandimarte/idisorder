@@ -513,6 +513,14 @@ CONTAINS
                    Vbias = Vbias + dV
 
                 enddo
+
+                write (iuVxI, '(/)', advance='no')
+                write (iuExVxI, '(/)', advance='no')
+                write (iuExVxIel, '(/)', advance='no')
+                write (iuExVxIsy, '(/)', advance='no')
+                write (iuExVxIasy, '(/)', advance='no')
+                write (iuExVxItot, '(/)', advance='no')
+
              enddo
           enddo
 #ifdef MASTER_SLAVE
@@ -568,6 +576,14 @@ CONTAINS
                       Vbias = Vbias + dV
 
                    enddo
+
+                   write (iuVxI, '(/)', advance='no')
+                   write (iuExVxI, '(/)', advance='no')
+                   write (iuExVxIel, '(/)', advance='no')
+                   write (iuExVxIsy, '(/)', advance='no')
+                   write (iuExVxIasy, '(/)', advance='no')
+                   write (iuExVxItot, '(/)', advance='no')
+
                 enddo
              enddo
           endif
@@ -784,6 +800,13 @@ CONTAINS
                       Vbias = Vbias + dV
 
                    enddo
+
+                   write (iuVxPtot, '(/)', advance='no')
+                   write (iuExPtot, '(/)', advance='no')
+                   write (iuExVxPtot, '(/)', advance='no')
+                   write (iuVxP, '(/)', advance='no')
+                   write (iuExP, '(/)', advance='no')
+
                 enddo
              enddo
 #ifdef MASTER_SLAVE
@@ -838,6 +861,13 @@ CONTAINS
                          Vbias = Vbias + dV
 
                       enddo
+
+                      write (iuVxPtot, '(/)', advance='no')
+                      write (iuExPtot, '(/)', advance='no')
+                      write (iuExVxPtot, '(/)', advance='no')
+                      write (iuVxP, '(/)', advance='no')
+                      write (iuExP, '(/)', advance='no')
+
                    enddo
                 enddo
              endif
@@ -1071,6 +1101,14 @@ CONTAINS
                    Vbias = Vbias + dV
 
                 enddo
+
+                write (iuVxdI, '(/)', advance='no')
+                write (iuExVxdI, '(/)', advance='no')
+                write (iuExVxdIel, '(/)', advance='no')
+                write (iuExVxdIsy, '(/)', advance='no')
+                write (iuExVxdIasy, '(/)', advance='no')
+                write (iuExVxdItot, '(/)', advance='no')
+
              enddo
           enddo
 #ifdef MASTER_SLAVE
@@ -1123,6 +1161,14 @@ CONTAINS
                       Vbias = Vbias + dV
 
                    enddo
+
+                   write (iuVxdI, '(/)', advance='no')
+                   write (iuExVxdI, '(/)', advance='no')
+                   write (iuExVxdIel, '(/)', advance='no')
+                   write (iuExVxdIsy, '(/)', advance='no')
+                   write (iuExVxdIasy, '(/)', advance='no')
+                   write (iuExVxdItot, '(/)', advance='no')
+
                 enddo
              enddo
           endif
@@ -1363,6 +1409,14 @@ CONTAINS
                    Vbias = Vbias + dV
 
                 enddo
+
+                write (iuVxd2I, '(/)', advance='no')
+                write (iuExVxd2I, '(/)', advance='no')
+                write (iuExVxd2Iel, '(/)', advance='no')
+                write (iuExVxd2Isy, '(/)', advance='no')
+                write (iuExVxd2Iasy, '(/)', advance='no')
+                write (iuExVxd2Itot, '(/)', advance='no')
+
              enddo
           enddo
 #ifdef MASTER_SLAVE
@@ -1423,6 +1477,14 @@ CONTAINS
                       Vbias = Vbias + dV
 
                    enddo
+
+                   write (iuVxd2I, '(/)', advance='no')
+                   write (iuExVxd2I, '(/)', advance='no')
+                   write (iuExVxd2Iel, '(/)', advance='no')
+                   write (iuExVxd2Isy, '(/)', advance='no')
+                   write (iuExVxd2Iasy, '(/)', advance='no')
+                   write (iuExVxd2Itot, '(/)', advance='no')
+
                 enddo
              enddo
           endif

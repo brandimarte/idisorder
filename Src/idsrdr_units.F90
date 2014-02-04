@@ -532,7 +532,7 @@ CONTAINS
        enddo
        w = w + 1
     EndIf
-
+    
     ueph = 1
     do I = 1,ntypeunits
        Sunits(I)%S = 0.d0
@@ -558,13 +558,13 @@ CONTAINS
              w = w + 1
              ueph = ueph + 1
           else ! Dangling Bond - only in mind a 4x4 matrix here...
-             r = idxF(w) - 1
+             r = idxF(w)
              Hunits(I)%H(r-1,r,1) = TBcouplSDB
              Hunits(I)%H(r,r-1,1) = TBcouplSDB
              Hunits(I)%H(r,r,1) = TBenergSDB
              Hunits(I)%H(r,r+1,1) = TBcouplDB
              Hunits(I)%H(r+1,r,1) = TBcouplDB
-             do r = idxF(w),idxL(w)
+             do r = idxF(w)+1,idxL(w)
                 Hunits(I)%H(r,r,1) = TBenergDB
                 Hunits(I)%H(r,r+1,1) = 0.d0
                 Hunits(I)%H(r+1,r,1) = 0.d0
