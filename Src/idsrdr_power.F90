@@ -96,7 +96,7 @@ CONTAINS
 !
 !   Modules
 !
-    use idsrdr_ephcoupl, only: neph, nModes, ephIdx
+    use idsrdr_ephcoupl, only: nModes, ephIdx
     use idsrdr_units,    only: nunitseph, eph_type
     use idsrdr_options,  only: nspin, NIVP
     use idsrdr_engrid,   only: NTenerg_div
