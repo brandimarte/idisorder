@@ -108,6 +108,9 @@ CONTAINS
     integer :: group_World, group_Slave ! MPI groups
 #endif
 
+!   External routines
+    external :: clock_init, clock_start
+#include "timer_defs.h"
 
 !   Initialise MPI and set processor number.
 #ifdef MPI
@@ -117,6 +120,10 @@ CONTAINS
 #endif
 
     IOnode = (Node == 0)
+
+!   Start timing
+    call clock_init
+    call clock_start (CLOCK_ID_idisorder)
 
 !   Print version information.
     if (IOnode) then

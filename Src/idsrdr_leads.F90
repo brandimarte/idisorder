@@ -233,10 +233,10 @@ CONTAINS
           call TBreadleads
 
        Else
-          call STRpaste (directory, 'bulklft.DAT', file)
+          call STRpaste (directory, 'bulklft', file)
           call zhsunits (nspin, nspin, NL, nsc, 1, 0, 0, .true.,        &
                          1, temp, H0_L, H1_L, S0_L, S1_L, file)
-          call STRpaste (directory, 'bulkrgt.DAT', file)
+          call STRpaste (directory, 'bulkrgt', file)
           call zhsunits (nspin, nspin, NR, nsc, 1, 0, 0, .true.,        &
                          1, temp, H0_R, H1_R, S0_R, S1_R, file)
        EndIf

@@ -1,9 +1,14 @@
-#define CLOCK_START  0
-#define CLOCK_STOP   1
+#include "timer_defs.h"
 
+// For fortran:
+#define clock_init         clock_init_
+#define clock_start        clock_start_
+#define clock_stop         clock_stop_
+#define clock_print_last   clock_print_last_
+#define clock_print_all    clock_print_all_
 
-#define CLOCK_N_ROUTINES 3
-
-#define CLOCK_ID_idisorder     0
-#define CLOCK_ID_MatInversion  1
-#define CLOCK_ID_MatMult       2
+extern "C" void clock_init(void);
+extern "C" void clock_start(const int *Routine_id);
+extern "C" void clock_stop(const int *Routine_id);
+extern "C" void clock_print_last(const int *Routine_id);
+extern "C" void clock_print_all(void);

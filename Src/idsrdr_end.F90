@@ -109,6 +109,10 @@ CONTAINS
     include "mpif.h"
 #endif
 
+!   External routines
+    external :: clock_stop, clock_print_last, clock_print_all
+#include "timer_defs.h"
+
 !   Local variables.
     real(8) :: time_end
 #ifdef MPI
@@ -159,6 +163,10 @@ CONTAINS
 
 !      Final time.
        call cpu_time (time_end)
+       call clock_stop (CLOCK_ID_idisorder)
+       call clock_print_last (CLOCK_ID_MatMult)
+       call clock_print_last (CLOCK_ID_idisorder)
+       call clock_print_all
 
        write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
             time_end - time_begin, " seconds"
