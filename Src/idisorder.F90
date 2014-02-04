@@ -128,7 +128,11 @@ PROGRAM IDISORDER
         call powerTr (ispin)
 
 !       Calculate bias independent part of current.
+#ifdef DEBUG
         call currentTr (Ei(ienergy), ienergy, ispin)
+#else
+        call currentTr (ienergy, ispin)
+#endif
 
         Vbias = VInitial
 

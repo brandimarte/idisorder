@@ -170,7 +170,11 @@ CONTAINS
 !  integer ienergy              : Energy grid index                     !
 !  integer ispin                : Spin component index                  !
 !  *******************************************************************  !
+#ifdef DEBUG
   subroutine currentTr (Ei, ienergy, ispin)
+#else
+  subroutine currentTr (ienergy, ispin)
+#endif
 
 !
 !   Modules
@@ -180,7 +184,9 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ienergy, ispin
+#ifdef DEBUG
     real(8), intent(in) :: Ei
+#endif
 
 !   Local variables.
     real(8) :: Iel
