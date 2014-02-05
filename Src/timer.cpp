@@ -60,21 +60,21 @@ void clock_stop(const int *Routine_id)
 {
     struct timespec time;
     clock_gettime(CLOCK_MONOTONIC, &time);
-    const double t = (double)time.tv_sec + (double)time.tv_nsec*1e-9;
     const int i = *Routine_id;
+    const double t = (double)time.tv_sec + (double)time.tv_nsec*1e-9 - Timings[i].Last;
 
     Timings[i].Count++;
-    Timings[i].Last = t - Timings[i].Last;
+    Timings[i].Last = t;
     Timings[i].Total += t;
     if(t > Timings[i].Max) Timings[i].Max = t;
-    else if(t < Timings[i].Min) Timings[i].Min = t;
+    if(t < Timings[i].Min) Timings[i].Min = t;
 }
 
 
 
 void clock_print_last(const int *Routine_id)
 {
-    printf("Timing: %s - %16.3f s.\n", Timings[*Routine_id].Name, Timings[*Routine_id].Last);
+    printf("Timing: %s - %16.6f s.\n", Timings[*Routine_id].Name, Timings[*Routine_id].Last);
 }
 
 
@@ -82,36 +82,44 @@ void clock_print_last(const int *Routine_id)
 void clock_print_all(void)
 {
     printf("\nTimings (in seconds):\n");
-    printf("---------------------------------------------------------------------------------------------------\n");
-    printf(" Routine                          Count             Max.           Min.          Total      Average\n");
+    printf("----------------------------------------------------------------------------------------------------\n");
+    printf(" Routine                          Count            Max.           Min.          Total        Average\n");
+
     for(int i=0; i<CLOCK_N_ROUTINES; i++)
-        printf(" %-30s %6i  %14.3f %14.3f %14.3f %14.3f\n", Timings[i].Name, Timings[i].Count,
-                Timings[i].Max, Timings[i].Min, Timings[i].Total, Timings[i].Total/(double)Timings[i].Count);
-    printf("---------------------------------------------------------------------------------------------------\n\n");
+    {
+        if(Timings[i].Count != 0)
+            printf(" %-30s %8i %14.3g %14.3g %14.3g %14.3g\n", Timings[i].Name, Timings[i].Count,
+                    Timings[i].Max, Timings[i].Min, Timings[i].Total, Timings[i].Total/Timings[i].Count);
+        else
+            printf(" %-30s %8i           ---            ---            ---           ---\n", Timings[i].Name, Timings[i].Count);
+    }
+
+    printf("----------------------------------------------------------------------------------------------------\n\n");
+    fflush(stdout);
 }
 
 
 
 #ifdef MPI
-#include <mpi.h>
-void clock_gather(int *node, int *root, MPI_Comm *MyComm)
+void clock_gather(int *node, int *root, int *MyComm)
 {
-    for(int i=0; i<CLOCK_N_ROUTINES; i++)
+    // i=0 is already in the root node(=0)
+    for(int i=1; i<CLOCK_N_ROUTINES; i++)
     {
         int count=0;
-        MPI_Reduce(&Timings[i].Count, &count, 1, MPI_INT, MPI_SUM, *root, MyComm);
+        MPI_Reduce(&(Timings[i].Count), &count, 1, MPI_INT, MPI_SUM, *root, MPI_Comm_f2c(*MyComm));
         if(*node == *root) Timings[i].Count = count;
 
         double time=0.0;
-        MPI_Reduce(&Timings[i].Total, &time, 1, MPI_DOUBLE, MPI_SUM, *root, MyComm);
+        MPI_Reduce(&(Timings[i].Total), &time, 1, MPI_DOUBLE, MPI_SUM, *root, MPI_Comm_f2c(*MyComm));
         if(*node == *root) Timings[i].Total = time;
 
         time=0.0;
-        MPI_Reduce(&Timings[i].Max, &time, 1, MPI_DOUBLE, MPI_MAX, *root, MyComm);
+        MPI_Reduce(&(Timings[i].Max), &time, 1, MPI_DOUBLE, MPI_MAX, *root, MPI_Comm_f2c(*MyComm));
         if(*node == *root) Timings[i].Max = time;
 
         time=0.0;
-        MPI_Reduce(&Timings[i].Min, &time, 1, MPI_DOUBLE, MPI_MIN, *root, MyComm);
+        MPI_Reduce(&(Timings[i].Min), &time, 1, MPI_DOUBLE, MPI_MIN, *root, MPI_Comm_f2c(*MyComm));
         if(*node == *root) Timings[i].Min = time;
     }
 }

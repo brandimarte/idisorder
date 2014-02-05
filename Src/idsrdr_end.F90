@@ -85,9 +85,9 @@ CONTAINS
 !
 #ifdef MPI
 #ifdef MASTER_SLAVE
-    use parallel,        only: IOnode, MPI_Comm_MyWorld, Master
+    use parallel,        only: Node, IOnode, MPI_Comm_MyWorld, Master
 #else
-    use parallel,        only: IOnode, MPI_Comm_MyWorld
+    use parallel,        only: Node, IOnode, MPI_Comm_MyWorld
 #endif
 #else
     use parallel,        only: IOnode
@@ -107,6 +107,7 @@ CONTAINS
 
 #ifdef MPI
     include "mpif.h"
+    external :: clock_gather
 #endif
 
 !   External routines
@@ -142,6 +143,13 @@ CONTAINS
     call freeIO
 
     if (IOnode) write (6,'(a,/)') ' done!'
+
+    if (IOnode) call clock_stop (CLOCK_ID_idisorder)
+#ifdef MPI
+!   Gather timings.
+    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror) ! Not needed?
+    call clock_gather (Node, 0, MPI_Comm_MyWorld)
+#endif
  
 #ifdef MASTER_SLAVE
 !   Send the EXIT message to the master, causing him
@@ -163,9 +171,6 @@ CONTAINS
 
 !      Final time.
        call cpu_time (time_end)
-       call clock_stop (CLOCK_ID_idisorder)
-       call clock_print_last (CLOCK_ID_MatMult)
-       call clock_print_last (CLOCK_ID_idisorder)
        call clock_print_all
 
        write (6,'(/,a,f12.4,a)') "Time of calculation was ",            &
