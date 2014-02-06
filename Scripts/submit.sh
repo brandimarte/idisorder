@@ -23,7 +23,7 @@
 #  *******************************************************************  #
 #                               submit.sh                               #
 #  *******************************************************************  #
-#  Description: script for submit jobs on PBS clusters.                 #
+#  Description: script for job submition.                               #
 #                                                                       #
 #  Input:  ${1} :  mpi compiler (e.g. 'mpirun')                         #
 #          ${2} :  file mapping procs (e.g. '${PBS_NODEFILE}')          #
@@ -215,23 +215,23 @@ paste *_VxI.CUR | awk '{ for (i=1; i<=5; i++)                           \
     printf ("\n");}' > VxI.tot
 paste *_ExVxI.CUR | awk '{ for (i=1; i<=6; i++)                         \
     {a[i]=0; for (j=i; j<=NF; j+=6) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 6*a[i]/NF);}               \
+    { for (i=1; i<=6; i++) printf (" % .7E", 6*a[i]/NF);}               \
     printf ("\n");}' > ExVxI.tot
 paste *_ExVxIel.CUR | awk '{ for (i=1; i<=3; i++)                       \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxIel.tot
 paste *_ExVxIsy.CUR | awk '{ for (i=1; i<=3; i++)                       \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxIsy.tot
 paste *_ExVxIasy.CUR | awk '{ for (i=1; i<=3; i++)                      \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxIasy.tot
 paste *_ExVxItot.CUR | awk '{ for (i=1; i<=3; i++)                      \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxItot.tot
 
 paste *_VxdI.dIdV | awk '{ for (i=1; i<=5; i++)                         \
@@ -240,23 +240,23 @@ paste *_VxdI.dIdV | awk '{ for (i=1; i<=5; i++)                         \
     printf ("\n");}' > VxdI.tot
 paste *_ExVxdI.dIdV | awk '{ for (i=1; i<=6; i++)                       \
     {a[i]=0; for (j=i; j<=NF; j+=6) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 6*a[i]/NF);}               \
+    { for (i=1; i<=6; i++) printf (" % .7E", 6*a[i]/NF);}               \
     printf ("\n");}' > ExVxdI.tot
 paste *_ExVxdIel.dIdV | awk '{ for (i=1; i<=3; i++)                     \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxdIel.tot
 paste *_ExVxdIsy.dIdV | awk '{ for (i=1; i<=3; i++)                     \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxdIsy.tot
 paste *_ExVxdIasy.dIdV | awk '{ for (i=1; i<=3; i++)                    \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxdIasy.tot
 paste *_ExVxdItot.dIdV | awk '{ for (i=1; i<=3; i++)                    \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxdItot.tot
 
 paste *_Vxd2I.d2IdV2 | awk '{ for (i=1; i<=5; i++)                      \
@@ -265,23 +265,23 @@ paste *_Vxd2I.d2IdV2 | awk '{ for (i=1; i<=5; i++)                      \
     printf ("\n");}' > Vxd2I.tot
 paste *_ExVxd2I.d2IdV2 | awk '{ for (i=1; i<=6; i++)                    \
     {a[i]=0; for (j=i; j<=NF; j+=6) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 6*a[i]/NF);}               \
+    { for (i=1; i<=6; i++) printf (" % .7E", 6*a[i]/NF);}               \
     printf ("\n");}' > ExVxd2I.tot
 paste *_ExVxd2Iel.d2IdV2 | awk '{ for (i=1; i<=3; i++)                  \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxd2Iel.tot
 paste *_ExVxd2Isy.d2IdV2 | awk '{ for (i=1; i<=3; i++)                  \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxd2Isy.tot
 paste *_ExVxd2Iasy.d2IdV2 | awk '{ for (i=1; i<=3; i++)                 \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxd2Iasy.tot
 paste *_ExVxd2Itot.d2IdV2 | awk '{ for (i=1; i<=3; i++)                 \
     {a[i]=0; for (j=i; j<=NF; j+=3) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=5; i++) printf (" % .7E", 3*a[i]/NF);}               \
+    { for (i=1; i<=3; i++) printf (" % .7E", 3*a[i]/NF);}               \
     printf ("\n");}' > ExVxd2Itot.tot
 
 # Create histograms files.
