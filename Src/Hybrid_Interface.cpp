@@ -224,7 +224,8 @@ static inline cublasOperation_t char2cublas_op(char *char_op)
 {
     if      (*char_op == 'N' || *char_op == 'n') return(CUBLAS_OP_N);
     else if (*char_op == 'T' || *char_op == 't') return(CUBLAS_OP_T);
-    else if (*char_op == 'C' || *char_op == 'c') return(CUBLAS_OP_C);
+    else return(CUBLAS_OP_C);
+    // else if (*char_op == 'C' || *char_op == 'c') return(CUBLAS_OP_C);
 }
 #endif
 
@@ -307,8 +308,9 @@ void HI_zgemm(char *opA, char *opB, int *M, int *N, int *K,
 #ifdef MAGMA
 static inline cublasSideMode_t char2cublas_side(char *char_op)
 {
-	if      (*char_op == 'L' || *char_op == 'l') return(CUBLAS_SIDE_LEFT);
-    else if (*char_op == 'R' || *char_op == 'r') return(CUBLAS_SIDE_RIGHT);
+   if (*char_op == 'L' || *char_op == 'l') return(CUBLAS_SIDE_LEFT);
+   else return(CUBLAS_SIDE_RIGHT);
+   // else if (*char_op == 'R' || *char_op == 'r') return(CUBLAS_SIDE_RIGHT);
 }
 #endif
 
@@ -320,8 +322,9 @@ static inline cublasSideMode_t char2cublas_side(char *char_op)
 #ifdef MAGMA
 static inline cublasFillMode_t char2cublas_fill(char *char_op)
 {
-	if      (*char_op == 'L' || *char_op == 'l') return(CUBLAS_FILL_MODE_UPPER);
-    else if (*char_op == 'U' || *char_op == 'u') return(CUBLAS_FILL_MODE_LOWER);
+   if (*char_op == 'L' || *char_op == 'l') return(CUBLAS_FILL_MODE_UPPER);
+   else return(CUBLAS_FILL_MODE_LOWER);
+   // else if (*char_op == 'U' || *char_op == 'u') return(CUBLAS_FILL_MODE_LOWER);
 }
 #endif
 
