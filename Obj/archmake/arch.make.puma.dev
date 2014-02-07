@@ -176,14 +176,14 @@ FPPFLAGS_MPI = -DMPI -DMASTER_SLAVE
 FPPFLAGS_GPU = $(GPU_DEFS)
 
 # Debug (print tests).
-FPPFLAGS_DEBUG = -DDEBUG
+#FPPFLAGS_DEBUG = -DDEBUG
 
 # Other definitions might be needed to work around some glitch in the
 # compiler. For old versions of gfortran, add -DGFORTRAN.
 FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_DEBUG) $(FPPFLAGS_GPU)
 
 # All included flags.
-INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
+INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE) $(GPU_INCLUDE)
 
 # We put here all the neeeded libraries.
 # Sometimes the BLAS are included in LAPACK (or it could be
@@ -232,5 +232,5 @@ FFLAGS_DEBUG = -g -O0
 .f90.o:
 	$(FC) $(FFLAGS) -c $(INCFLAGS) $(FCFLAGS_free_f90) $<
 .cpp.o:
-	$(CXX) -c $(CXXFLAGS) $(FPPFLAGS_GPU) $(GPU_INCLUDE) $<
+	$(CXX) $(CXXFLAGS) -c $(INCFLAGS) $(FPPFLAGS) $<
 #

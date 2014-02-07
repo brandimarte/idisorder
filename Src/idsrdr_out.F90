@@ -157,7 +157,7 @@ CONTAINS
 
 !   Local variables.
     integer :: J, e, s, iuSpc, iuDos
-!!$    real(8), parameter :: pi = 3.14159265358979323846264338327950241D0
+    real(8), parameter :: pi = 3.14159265358979323846264338327950241D0
     real(8), dimension(:), allocatable :: buffEn
     real(8), dimension(:,:), allocatable :: buffSpc, buffDos
     character(len=10) :: suffix
@@ -227,19 +227,18 @@ CONTAINS
 #endif
              do e = 1,NTenerg_div
 
-!               OBS.: Multiply 'Ei' by '13.60569253D0'
-!               for writing in eV (from CODATA - 2012).
-                write (iuSpc, '(/,e17.8e3)', advance='no') Ei(e) !Ry
-                write (iuDos, '(/,e17.8e3)', advance='no') Ei(e) !Ry
+!               'Ei' in eV (from CODATA - 2012).
+                write (iuSpc, '(/,e17.8e3)', advance='no')              &
+                     Ei(e) * 13.60569253D0
+                write (iuDos, '(/,e17.8e3)', advance='no')              &
+                     Ei(e) * 13.60569253D0
 
                 do s = 1,nspin
-!                  OBS.: Divide 'spctrl' and 'dos' by
-!                  '(13.60569253D0 * pi' for writing in eV
-!                  (from CODATA - 2012).
+!                  'spctrl' and 'dos' in 1/eV (from CODATA - 2012).
                    write (iuSpc, '(e17.8e3)', advance='no')             &
-                        spctrl(e,s,J) !Ry
+                        spctrl(e,s,J) / (13.60569253D0 * pi)
                    write (iuDos, '(e17.8e3)', advance='no')             &
-                        dos(e,s,J) !Ry
+                        dos(e,s,J) / (13.60569253D0 * pi)
                 enddo
              enddo
 #ifdef MASTER_SLAVE
@@ -269,22 +268,19 @@ CONTAINS
              if (Node == 0) then
                 do e = 1,NTenerg_div
 
-!                  OBS.: Multiply 'Ei' by '13.60569253D0'
-!                  for writing in eV (from CODATA - 2012).
+!                  'Ei' in eV (from CODATA - 2012).
                    write (iuSpc, '(/,e17.8e3)', advance='no')           &
-                        buffEn(e) !Ry
+                        buffEn(e) * 13.60569253D0
                    write (iuDos, '(/,e17.8e3)', advance='no')           &
-                        buffEn(e) !Ry
+                        buffEn(e) * 13.60569253D0
 
                    do s = 1,nspin
 
-!                     OBS.: Divide 'spctrl' and 'dos' by
-!                     '(13.60569253D0 * pi' for writing in eV
-!                     (from CODATA - 2012).
+!                     'spctrl' and 'dos' in 1/eV (from CODATA - 2012).
                       write (iuSpc, '(e17.8e3)', advance='no')          &
-                           buffSpc(e,s) !Ry
+                           buffSpc(e,s) / (13.60569253D0 * pi)
                       write (iuDos, '(e17.8e3)', advance='no')          &
-                           buffDos(e,s) !Ry
+                           buffDos(e,s) / (13.60569253D0 * pi)
                    enddo
                 enddo
              endif
@@ -487,28 +483,31 @@ CONTAINS
 
                 do v = 1,NIVP
 
-!                  OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                  for writing in eV (from CODATA - 2012).
+!                  'Ei' and 'Vbias' in eV (from CODATA - 2012).
                    write (iuVxI, '(e17.8e3,e17.8e3,e17.8e3,'        //  &
-                        'e17.8e3,e17.8e3)') Vbias, allcurr(e,s,v)%el,   &
-                        allcurr(e,s,v)%isymm, allcurr(e,s,v)%iasymm,    &
-                        allcurr(e,s,v)%el + allcurr(e,s,v)%isymm +      &
-                        allcurr(e,s,v)%iasymm
-                   write (iuExVxI,                                      &
-                        '(e17.8e3,e17.8e3,e17.8e3,'                 //  &
-                        'e17.8e3,e17.8e3,e17.8e3)') Ei(e), Vbias,       &
+                        'e17.8e3,e17.8e3)') Vbias*13.60569253D0,        &
+                        allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
+                        allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el +      &
+                        allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
+                   write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'      //  &
+                        'e17.8e3,e17.8e3,e17.8e3)')                     &
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
                         allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
                         allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el        &
                         + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
                    write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')       &
-                        Ei(e), Vbias, allcurr(e,s,v)%el
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        allcurr(e,s,v)%el
                    write (iuExVxIsy, '(e17.8e3,e17.8e3,e17.8e3)')       &
-                        Ei(e), Vbias, allcurr(e,s,v)%isymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        allcurr(e,s,v)%isymm
                    write (iuExVxIasy, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e), Vbias, allcurr(e,s,v)%iasymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        allcurr(e,s,v)%iasymm
                    write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e), Vbias, allcurr(e,s,v)%el                 &
-                        + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        allcurr(e,s,v)%el + allcurr(e,s,v)%isymm +      &
+                        allcurr(e,s,v)%iasymm
 
                    Vbias = Vbias + dV
 
@@ -547,30 +546,32 @@ CONTAINS
 
                    do v = 1,NIVP
 
-!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                     for writing in eV (from CODATA - 2012).
+!                     'Ei' and 'Vbias' in eV (from CODATA - 2012).
                       write (iuVxI, '(e17.8e3,e17.8e3,e17.8e3,'     //  &
-                           'e17.8e3,e17.8e3)') Vbias,                   &
+                           'e17.8e3,e17.8e3)') Vbias*13.60569253D0,     &
                            buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
                            buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
                            + buffCurr(e,s,v)%isymm                      &
                            + buffCurr(e,s,v)%iasymm
-                      write (iuExVxI,                                   &
-                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'      //  &
-                           'e17.8e3,e17.8e3)') buffEn(e), Vbias,        &
+                      write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'   //  &
+                           'e17.8e3,e17.8e3,e17.8e3)')                  &
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
                            buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
                            buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
                            + buffCurr(e,s,v)%isymm                      &
                            + buffCurr(e,s,v)%iasymm
                       write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                           buffEn(e), Vbias, buffCurr(e,s,v)%el
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffCurr(e,s,v)%el
                       write (iuExVxIsy, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                           buffEn(e), Vbias, buffCurr(e,s,v)%isymm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffCurr(e,s,v)%isymm
                       write (iuExVxIasy, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e), Vbias, buffCurr(e,s,v)%iasymm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffCurr(e,s,v)%iasymm
                       write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e), Vbias, buffCurr(e,s,v)%el         &
-                           + buffCurr(e,s,v)%isymm                      &
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffCurr(e,s,v)%el + buffCurr(e,s,v)%isymm   &
                            + buffCurr(e,s,v)%iasymm
 
                       Vbias = Vbias + dV
@@ -778,23 +779,29 @@ CONTAINS
 
                    do v = 1,NIVP
 
-!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                     for writing in eV (from CODATA - 2012).
-                      write (iuVxPtot, '(e17.8e3,e17.8e3)') Vbias,      &
-                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
-                      write (iuExPtot, '(e17.8e3,e17.8e3)') Ei(e),      &
+!                     'phPwr' in eV/s and, 'Ei' and 'Vbias'
+!                     in eV (from CODATA - 2012).
+                      write (iuVxPtot, '(e17.8e3,e17.8e3)')             &
+                           Vbias*13.60569253D0,                         &
+                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))         &
+                           *13.60569253D0
+                      write (iuExPtot, '(e17.8e3,e17.8e3)')             &
+                           Ei(e)*13.60569253D0,      &
                            SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
                       write (iuExVxPtot, '(e17.8e3,e17.8e3,e17.8e3)')   &
                            Ei(e), Vbias,                                &
-                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
+                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))         &
+                           *13.60569253D0
 
-                      write (iuVxP, '(/,e17.8e3)', advance='no') Vbias
-                      write (iuExP, '(/,e17.8e3)', advance='no') Ei(e)
+                      write (iuVxP, '(/,e17.8e3)', advance='no')        &
+                           Vbias*13.60569253D0
+                      write (iuExP, '(/,e17.8e3)', advance='no')        &
+                           Ei(e)*13.60569253D0
                       do w = 1,nModes(idx)
                          write (iuVxP, '(e17.8e3)', advance='no')       &
-                              phPwr(u)%P(e,s,v,w)
+                              phPwr(u)%P(e,s,v,w)*13.60569253D0
                          write (iuExP, '(e17.8e3)', advance='no')       &
-                              phPwr(u)%P(e,s,v,w)
+                              phPwr(u)%P(e,s,v,w)*13.60569253D0
                       enddo
 
                       Vbias = Vbias + dV
@@ -837,25 +844,31 @@ CONTAINS
 
                       do v = 1,NIVP
 
-!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                     for writing in eV (from CODATA - 2012).
-                         write (iuVxPtot, '(e17.8e3,e17.8e3)') Vbias,   &
-                              SUM(buffPwr(e,s,v,1:nModes(idx)))
+!                        'phPwr' in eV/s and, 'Ei' and 'Vbias'
+!                        in eV (from CODATA - 2012).
+                         write (iuVxPtot, '(e17.8e3,e17.8e3)')          &
+                              Vbias*13.60569253D0,                      &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
+                              *13.60569253D0
                          write (iuExPtot, '(e17.8e3,e17.8e3)')          &
-                              buffEn(e),                                &
-                              SUM(buffPwr(e,s,v,1:nModes(idx)))
+                              buffEn(e)*13.60569253D0,                  &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
+                              *13.60569253D0
                          write (iuExVxPtot, '(e17.8e3,e17.8e3,e17.8e3)')&
-                              buffEn(e), Vbias,                         &
-                              SUM(buffPwr(e,s,v,1:nModes(idx)))
+                              buffEn(e)*13.60569253D0,                  &
+                              Vbias*13.60569253D0,                      &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
+                              *13.60569253D0
 
-                         write (iuVxP, '(/,e17.8e3)', advance='no') Vbias
+                         write (iuVxP, '(/,e17.8e3)', advance='no')     &
+                              Vbias*13.60569253D0
                          write (iuExP, '(/,e17.8e3)', advance='no')     &
-                              buffEn(e)
+                              buffEn(e)*13.60569253D0
                          do w = 1,nModes(idx)
                             write (iuVxP, '(e17.8e3)', advance='no')    &
-                                 buffPwr(e,s,v,w)
+                                 buffPwr(e,s,v,w)*13.60569253D0
                             write (iuExP, '(e17.8e3)', advance='no')    &
-                                 buffPwr(e,s,v,w)
+                                 buffPwr(e,s,v,w)*13.60569253D0
                          enddo
 
                          Vbias = Vbias + dV
@@ -1075,28 +1088,36 @@ CONTAINS
 
                 do v = 1,NIVP
 
-!                  OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                  for writing in eV (from CODATA - 2012).
+!                  'Ei' and 'Vbias' in eV, and 'dIdV'
+!                  in A/eV (from CODATA - 2012).
                    write (iuVxdI, '(e17.8e3,e17.8e3,e17.8e3,'       //  &
-                        'e17.8e3,e17.8e3)') Vbias, dIdV(e,s,v)%el,      &
-                        dIdV(e,s,v)%symm, dIdV(e,s,v)%asymm,            &
-                        dIdV(e,s,v)%el + dIdV(e,s,v)%symm               &
-                        + dIdV(e,s,v)%asymm
-                   write (iuExVxdI,                                     &
-                        '(e17.8e3,e17.8e3,e17.8e3,'                 //  &
-                        'e17.8e3,e17.8e3,e17.8e3)') Ei(e), Vbias,       &
-                        dIdV(e,s,v)%el, dIdV(e,s,v)%symm,               &
-                        dIdV(e,s,v)%asymm, dIdV(e,s,v)%el               &
-                        + dIdV(e,s,v)%symm + dIdV(e,s,v)%asymm
+                        'e17.8e3,e17.8e3)') Vbias*13.60569253D0,        &
+                        dIdV(e,s,v)%el/13.60569253D0,                   &
+                        dIdV(e,s,v)%symm/13.60569253D0,                 &
+                        dIdV(e,s,v)%asymm/13.60569253D0,                &
+                        (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
+                        + dIdV(e,s,v)%asymm)/13.60569253D0
+                   write (iuExVxdI, '(e17.8e3,e17.8e3,e17.8e3,'     //  &
+                        'e17.8e3,e17.8e3,e17.8e3)')                     &
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        dIdV(e,s,v)%el/13.60569253D0,                   &
+                        dIdV(e,s,v)%symm/13.60569253D0,                 &
+                        dIdV(e,s,v)%asymm/13.60569253D0,                &
+                        (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
+                        + dIdV(e,s,v)%asymm)/13.60569253D0
                    write (iuExVxdIel, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e), Vbias, dIdV(e,s,v)%el
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        dIdV(e,s,v)%el/13.60569253D0
                    write (iuExVxdIsy, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e), Vbias, dIdV(e,s,v)%symm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        dIdV(e,s,v)%symm/13.60569253D0
                    write (iuExVxdIasy, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e), Vbias, dIdV(e,s,v)%asymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        dIdV(e,s,v)%asymm/13.60569253D0
                    write (iuExVxdItot, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e), Vbias, dIdV(e,s,v)%el                    &
-                        + dIdV(e,s,v)%symm + dIdV(e,s,v)%asymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
+                        + dIdV(e,s,v)%asymm)/13.60569253D0
 
                    Vbias = Vbias + dV
 
@@ -1135,28 +1156,37 @@ CONTAINS
 
                    do v = 1,NIVP
 
-!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                     for writing in eV (from CODATA - 2012).
+!                     'Ei' and 'Vbias' in eV, and 'dIdV'
+!                     in A/eV (from CODATA - 2012).
                       write (iuVxdI, '(e17.8e3,e17.8e3,e17.8e3,'    //  &
-                           'e17.8e3,e17.8e3)') Vbias,                   &
-                           buffdIdV(e,s,v)%el, buffdIdV(e,s,v)%symm,    &
-                           buffdIdV(e,s,v)%asymm, buffdIdV(e,s,v)%el    &
-                           + buffdIdV(e,s,v)%symm + buffdIdV(e,s,v)%asymm
+                           'e17.8e3,e17.8e3)') Vbias*13.60569253D0,     &
+                           buffdIdV(e,s,v)%el/13.60569253D0,            &
+                           buffdIdV(e,s,v)%symm/13.60569253D0,          &
+                           buffdIdV(e,s,v)%asymm/13.60569253D0,         &
+                           (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
+                           + buffdIdV(e,s,v)%asymm)/13.60569253D0
                       write (iuExVxdI,                                  &
                            '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'     //   &
-                           'e17.8e3,e17.8e3)') buffEn(e), Vbias,        &
-                           buffdIdV(e,s,v)%el, buffdIdV(e,s,v)%symm,    &
-                           buffdIdV(e,s,v)%asymm, buffdIdV(e,s,v)%el    &
-                           + buffdIdV(e,s,v)%symm + buffdIdV(e,s,v)%asymm
+                           'e17.8e3,e17.8e3)') buffEn(e)*13.60569253D0, &
+                           Vbias*13.60569253D0,                         &
+                           buffdIdV(e,s,v)%el/13.60569253D0,            &
+                           buffdIdV(e,s,v)%symm/13.60569253D0,          &
+                           buffdIdV(e,s,v)%asymm/13.60569253D0,         &
+                           (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
+                           + buffdIdV(e,s,v)%asymm)/13.60569253D0
                       write (iuExVxdIel, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e), Vbias, buffdIdV(e,s,v)%el
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffdIdV(e,s,v)%el/13.60569253D0
                       write (iuExVxdIsy, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e), Vbias, buffdIdV(e,s,v)%symm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffdIdV(e,s,v)%symm/13.60569253D0
                       write (iuExVxdIasy, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e), Vbias, buffdIdV(e,s,v)%asymm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffdIdV(e,s,v)%asymm/13.60569253D0
                       write (iuExVxdItot, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e), Vbias, buffdIdV(e,s,v)%el         &
-                           + buffdIdV(e,s,v)%symm + buffdIdV(e,s,v)%asymm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
+                           + buffdIdV(e,s,v)%asymm)/13.60569253D0
 
                       Vbias = Vbias + dV
 
@@ -1275,6 +1305,7 @@ CONTAINS
                iuExVxd2Isy, iuExVxd2Iasy, iuExVxd2Itot
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
+    real(8), parameter :: Ry2 = 13.60569253D0*13.60569253D0
     TYPE(alldIdV), allocatable, dimension (:,:,:) :: buffd2IdV2
     character(len=19) :: suffix
     character(len=label_length+70) :: fVxd2I, fExVxd2I, fExVxd2Iel,     &
@@ -1383,28 +1414,32 @@ CONTAINS
 
                 do v = 1,NIVP
 
-!                  OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                  for writing in eV (from CODATA - 2012).
+!                  'Ei' and 'Vbias' in eV, and 'd2I/dV2'
+!                  in A/V^2 (from CODATA - 2012).
                    write (iuVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'      //  &
-                        'e17.8e3,e17.8e3)') Vbias, d2IdV2(e,s,v)%el,    &
-                        d2IdV2(e,s,v)%symm, d2IdV2(e,s,v)%asymm,        &
-                        d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm           &
-                        + d2IdV2(e,s,v)%asymm
-                   write (iuExVxd2I,                                    &
-                        '(e17.8e3,e17.8e3,e17.8e3,'                 //  &
-                        'e17.8e3,e17.8e3,e17.8e3)') Ei(e), Vbias,       &
-                        d2IdV2(e,s,v)%el, d2IdV2(e,s,v)%symm,           &
-                        d2IdV2(e,s,v)%asymm, d2IdV2(e,s,v)%el           &
-                        + d2IdV2(e,s,v)%symm + d2IdV2(e,s,v)%asymm
+                        'e17.8e3,e17.8e3)') Vbias*13.60569253D0,        &
+                        d2IdV2(e,s,v)%el/Ry2, d2IdV2(e,s,v)%symm/Ry2,   &
+                        d2IdV2(e,s,v)%asymm/Ry2, (d2IdV2(e,s,v)%el      &
+                        + d2IdV2(e,s,v)%symm + d2IdV2(e,s,v)%asymm)/Ry2
+                   write (iuExVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'    //  &
+                        'e17.8e3,e17.8e3,e17.8e3)') Ei(e)*13.60569253D0,&
+                        Vbias*13.60569253D0, d2IdV2(e,s,v)%el/Ry2,      &
+                        d2IdV2(e,s,v)%symm/Ry2, d2IdV2(e,s,v)%asymm/Ry2,&
+                        (d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm          &
+                        + d2IdV2(e,s,v)%asymm)/Ry2
                    write (iuExVxd2Iel, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e), Vbias, d2IdV2(e,s,v)%el
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        d2IdV2(e,s,v)%el/Ry2
                    write (iuExVxd2Isy, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e), Vbias, d2IdV2(e,s,v)%symm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        d2IdV2(e,s,v)%symm/Ry2
                    write (iuExVxd2Iasy, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                        Ei(e), Vbias, d2IdV2(e,s,v)%asymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        d2IdV2(e,s,v)%asymm/Ry2
                    write (iuExVxd2Itot, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                        Ei(e), Vbias, d2IdV2(e,s,v)%el                  &
-                        + d2IdV2(e,s,v)%symm + d2IdV2(e,s,v)%asymm
+                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
+                        (d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm          &
+                        + d2IdV2(e,s,v)%asymm)/Ry2
 
                    Vbias = Vbias + dV
 
@@ -1444,35 +1479,40 @@ CONTAINS
 
                    do v = 1,NIVP
 
-!                     OBS.: Multiply 'Ei' and 'Vbias' by '13.60569253D0'
-!                     for writing in eV (from CODATA - 2012).
+!                     'Ei' and 'Vbias' in eV, and 'd2I/dV2'
+!                     in A/V^2 (from CODATA - 2012).
                       write (iuVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'   //  &
-                           'e17.8e3,e17.8e3)') Vbias,                   &
-                           buffd2IdV2(e,s,v)%el,                        &
-                           buffd2IdV2(e,s,v)%symm,                      &
-                           buffd2IdV2(e,s,v)%asymm,                     &
-                           buffd2IdV2(e,s,v)%el                         &
+                           'e17.8e3,e17.8e3)') Vbias*13.60569253D0,     &
+                           buffd2IdV2(e,s,v)%el/Ry2,                    &
+                           buffd2IdV2(e,s,v)%symm/Ry2,                  &
+                           buffd2IdV2(e,s,v)%asymm/Ry2,                 &
+                           (buffd2IdV2(e,s,v)%el                        &
                            + buffd2IdV2(e,s,v)%symm                     &
-                           + buffd2IdV2(e,s,v)%asymm
+                           + buffd2IdV2(e,s,v)%asymm)/Ry2
                       write (iuExVxd2I,                                 &
                            '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'     //   &
-                           'e17.8e3,e17.8e3)') buffEn(e), Vbias,        &
-                           buffd2IdV2(e,s,v)%el,                        &
-                           buffd2IdV2(e,s,v)%symm,                      &
-                           buffd2IdV2(e,s,v)%asymm,                     &
-                           buffd2IdV2(e,s,v)%el                         &
+                           'e17.8e3,e17.8e3)') buffEn(e)*13.60569253D0, &
+                           Vbias*13.60569253D0,                         &
+                           buffd2IdV2(e,s,v)%el/Ry2,                    &
+                           buffd2IdV2(e,s,v)%symm/Ry2,                  &
+                           buffd2IdV2(e,s,v)%asymm/Ry2,                 &
+                           (buffd2IdV2(e,s,v)%el                        &
                            + buffd2IdV2(e,s,v)%symm                     &
-                           + buffd2IdV2(e,s,v)%asymm
+                           + buffd2IdV2(e,s,v)%asymm)/Ry2
                       write (iuExVxd2Iel, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e), Vbias, buffd2IdV2(e,s,v)%el
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffd2IdV2(e,s,v)%el/Ry2
                       write (iuExVxd2Isy, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e), Vbias, buffd2IdV2(e,s,v)%symm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffd2IdV2(e,s,v)%symm/Ry2
                       write (iuExVxd2Iasy, '(e17.8e3,e17.8e3,e17.8e3)') &
-                           buffEn(e), Vbias, buffd2IdV2(e,s,v)%asymm
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           buffd2IdV2(e,s,v)%asymm/Ry2
                       write (iuExVxd2Itot, '(e17.8e3,e17.8e3,e17.8e3)') &
-                           buffEn(e), Vbias, buffd2IdV2(e,s,v)%el       &
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
+                           (buffd2IdV2(e,s,v)%el                        &
                            + buffd2IdV2(e,s,v)%symm                     &
-                           + buffd2IdV2(e,s,v)%asymm
+                           + buffd2IdV2(e,s,v)%asymm)/Ry2
 
                       Vbias = Vbias + dV
 

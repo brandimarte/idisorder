@@ -284,6 +284,9 @@ CONTAINS
 !   Local variables.
     integer :: ueph, w, idx
     real(8) :: foo, Isy, Iasy
+#ifdef DEBUG
+    real(8) :: sy, asy
+#endif
 
 !   Compute elastic pre-factor.
     allcurr(ienergy,ispin,iv)%el = allcurr(ienergy,ispin,iv)%el *       &
@@ -291,6 +294,10 @@ CONTAINS
 
     Isy = 0.d0
     Iasy = 0.d0
+#ifdef DEBUG
+    sy = 0.d0
+    asy = 0.d0
+#endif
     do ueph = 1,nunitseph ! over unit with e-ph
 
        idx = ephIdx(eph_type(ueph))
@@ -309,9 +316,17 @@ CONTAINS
           Iasy = Iasy + asymmPre (Ei, freq(idx)%F(w), Vbias) *          &
                currAsy(ueph)%I(w)
 
+#ifdef DEBUG
+          sy = sy + foo
+          asy = asy + asymmPre (Ei, freq(idx)%F(w), Vbias)
+#endif
        enddo ! do w = 1,nModes(idx)
 
     enddo ! do ueph = 1,nunitseph
+
+#ifdef DEBUG
+    write (798,'(e17.8e3,e17.8e3,e17.8e3)') Vbias, sy, asy
+#endif
 
 !   Assign symmetric and asymmetric contribution.
     allcurr(ienergy,ispin,iv)%isymm = eoverh * Isy
