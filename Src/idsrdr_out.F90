@@ -315,14 +315,9 @@ CONTAINS
 !  *******************************************************************  !
 !                             writecurrent                              !
 !  *******************************************************************  !
-!  Description: writes calculated currents to output files as follows   !
+!  Description: writes calculated currents to output file as follows    !
 !                                                                       !
-!    - 'slabel_VxI.CUR' contains 'Vbias Iel Isymm Iasymm Itotal'        !
-!    - 'slabel_ExVxI.CUR' contains 'Ei Vbias Iel Isymm Iasymm Itotal'   !
-!    - 'slabel_ExVxIel.CUR' contains 'Ei Vbias Iel'                     !
-!    - 'slabel_ExVxIsymm.CUR' contains 'Ei Vbias Isymm'                 !
-!    - 'slabel_ExVxIasymm.CUR' contains 'Ei Vbias Iasymm'               !
-!    - 'slabel_ExVxItot.CUR' contains 'Ei Vbias Itotal'                 !
+!    - 'slabel_ExVxI.CUR' contains 'Ei Vbias Iel Isymm Iasymm Itot'     !
 !                                                                       !
 !  where 'Itot = Iel+Isymm+Iasymm'.                                     !
 !                                                                       !
@@ -374,14 +369,12 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: e, s, v, iuVxI, iuExVxI, iuExVxIel, iuExVxIsy,           &
-               iuExVxIasy, iuExVxItot
+    integer :: e, s, v, iuExVxI
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
     TYPE(calcCurr), allocatable, dimension (:,:,:) :: buffCurr
-    character(len=16) :: suffix
-    character(len=label_length+70) :: fVxI, fExVxI, fExVxIel,           &
-                                      fExVxIsy, fExVxIasy, fExVxItot
+    character(len=11) :: suffix
+    character(len=label_length+70) :: fExVxI
 #ifdef MPI
 #ifndef MASTER_SLAVE
     integer :: n
@@ -400,42 +393,13 @@ CONTAINS
        write (6, '(/,a)') 'Writing calculated currents to *.CUR files'
 
 !      Set file's names.
-       suffix = '_VxI.CUR'
-       call STRpaste (slabel, suffix, fVxI)
-       call STRpaste (directory, fVxI, fVxI)
        suffix = '_ExVxI.CUR'
        call STRpaste (slabel, suffix, fExVxI)
        call STRpaste (directory, fExVxI, fExVxI)
-       suffix = '_ExVxIel.CUR'
-       call STRpaste (slabel, suffix, fExVxIel)
-       call STRpaste (directory, fExVxIel, fExVxIel)
-       suffix = '_ExVxIsy.CUR'
-       call STRpaste (slabel, suffix, fExVxIsy)
-       call STRpaste (directory, fExVxIsy, fExVxIsy)
-       suffix = '_ExVxIasy.CUR'
-       call STRpaste (slabel, suffix, fExVxIasy)
-       call STRpaste (directory, fExVxIasy, fExVxIasy)
-       suffix = '_ExVxItot.CUR'
-       call STRpaste (slabel, suffix, fExVxItot)
-       call STRpaste (directory, fExVxItot, fExVxItot)
 
 !      Open them.
-       call IOassign (iuVxI)
-       open (iuVxI, FILE=fVxI, FORM='FORMATTED', STATUS='REPLACE')
        call IOassign (iuExVxI)
        open (iuExVxI, FILE=fExVxI, FORM='FORMATTED', STATUS='REPLACE')
-       call IOassign (iuExVxIel)
-       open (iuExVxIel, FILE=fExVxIel, FORM='FORMATTED',                &
-            STATUS='REPLACE')
-       call IOassign (iuExVxIsy)
-       open (iuExVxIsy, FILE=fExVxIsy, FORM='FORMATTED',            &
-            STATUS='REPLACE')
-       call IOassign (iuExVxIasy)
-       open (iuExVxIasy, FILE=fExVxIasy, FORM='FORMATTED',          &
-            STATUS='REPLACE')
-       call IOassign (iuExVxItot)
-       open (iuExVxItot, FILE=fExVxItot, FORM='FORMATTED',              &
-            STATUS='REPLACE')
 
 !      Allocate buffers arrays.
        allocate (buffEn(NTenerg_div))
@@ -484,41 +448,18 @@ CONTAINS
                 do v = 1,NIVP
 
 !                  'Ei' and 'Vbias' in eV (from CODATA - 2012).
-                   write (iuVxI, '(e17.8e3,e17.8e3,e17.8e3,'        //  &
-                        'e17.8e3,e17.8e3)') Vbias*13.60569253D0,        &
-                        allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
-                        allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el +      &
-                        allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
                    write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'      //  &
                         'e17.8e3,e17.8e3,e17.8e3)')                     &
                         Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
                         allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
                         allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el        &
                         + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
-                   write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')       &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        allcurr(e,s,v)%el
-                   write (iuExVxIsy, '(e17.8e3,e17.8e3,e17.8e3)')       &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        allcurr(e,s,v)%isymm
-                   write (iuExVxIasy, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        allcurr(e,s,v)%iasymm
-                   write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        allcurr(e,s,v)%el + allcurr(e,s,v)%isymm +      &
-                        allcurr(e,s,v)%iasymm
 
                    Vbias = Vbias + dV
 
                 enddo
 
-                write (iuVxI, '(/)', advance='no')
                 write (iuExVxI, '(/)', advance='no')
-                write (iuExVxIel, '(/)', advance='no')
-                write (iuExVxIsy, '(/)', advance='no')
-                write (iuExVxIasy, '(/)', advance='no')
-                write (iuExVxItot, '(/)', advance='no')
 
              enddo
           enddo
@@ -547,12 +488,6 @@ CONTAINS
                    do v = 1,NIVP
 
 !                     'Ei' and 'Vbias' in eV (from CODATA - 2012).
-                      write (iuVxI, '(e17.8e3,e17.8e3,e17.8e3,'     //  &
-                           'e17.8e3,e17.8e3)') Vbias*13.60569253D0,     &
-                           buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
-                           buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
-                           + buffCurr(e,s,v)%isymm                      &
-                           + buffCurr(e,s,v)%iasymm
                       write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'   //  &
                            'e17.8e3,e17.8e3,e17.8e3)')                  &
                            buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
@@ -560,30 +495,12 @@ CONTAINS
                            buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
                            + buffCurr(e,s,v)%isymm                      &
                            + buffCurr(e,s,v)%iasymm
-                      write (iuExVxIel, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffCurr(e,s,v)%el
-                      write (iuExVxIsy, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffCurr(e,s,v)%isymm
-                      write (iuExVxIasy, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffCurr(e,s,v)%iasymm
-                      write (iuExVxItot, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffCurr(e,s,v)%el + buffCurr(e,s,v)%isymm   &
-                           + buffCurr(e,s,v)%iasymm
 
                       Vbias = Vbias + dV
 
                    enddo
 
-                   write (iuVxI, '(/)', advance='no')
                    write (iuExVxI, '(/)', advance='no')
-                   write (iuExVxIel, '(/)', advance='no')
-                   write (iuExVxIsy, '(/)', advance='no')
-                   write (iuExVxIasy, '(/)', advance='no')
-                   write (iuExVxItot, '(/)', advance='no')
 
                 enddo
              enddo
@@ -595,12 +512,7 @@ CONTAINS
 !   Close files and free buffers memory.
     if (IOnode) then
 
-       call IOclose (iuVxI)
        call IOclose (iuExVxI)
-       call IOclose (iuExVxIel)
-       call IOclose (iuExVxIsy)
-       call IOclose (iuExVxIasy)
-       call IOclose (iuExVxItot)
 
        deallocate (buffEn)
        deallocate (buffCurr)
@@ -625,14 +537,9 @@ CONTAINS
 !  *******************************************************************  !
 !                              writepower                               !
 !  *******************************************************************  !
-!  Description: writes calculated dissipated powers to output files     !
-!  as follows                                                           !
+!  Description: writes calculated dissipated powers to output file as   !
 !                                                                       !
-!    - 'slabel_VxPtot.PWR' contains 'Vbias Power_tot'                   !
-!    - 'slabel_ExPtot.PWR' contains 'Ei Power_tot'                      !
-!    - 'slabel_ExVxPtot.PWR' contains 'Ei Vbias Power_tot'              !
-!    - 'slabel_VxP.PWR' contains 'Vbias Power_mode'                     !
-!    - 'slabel_EXP.PWR' contains 'Ei Power_mode'                        !
+!    - 'slabel_ExVxP.PWR' contains 'Ei Vbias Power_mode Power_tot'      !
 !                                                                       !
 !  where 'Power_tot = Sum_mode Power_mode'.                             !
 !                                                                       !
@@ -686,15 +593,12 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: e, s, v, u, w, idx,                                      &
-               iuVxPtot, iuExPtot, iuExVxPtot, iuVxP, iuExP
+    integer :: e, s, v, u, w, idx, iuExVxP
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
     real(8), dimension (:,:,:,:), allocatable :: buffPwr
-    character(len=8) :: suffix
-    character(len=18) :: prefix
-    character(len=label_length+70) :: fVxPtot, fExPtot, fExVxPtot,      &
-                                      fVxP, fExP
+    character(len=15) :: suffix
+    character(len=label_length+70) :: fExVxP
 
 #ifdef MPI
 #ifndef MASTER_SLAVE
@@ -716,36 +620,13 @@ CONTAINS
 !         Set file's names.
           write (suffix,'(i3)') u
           call STRconcat (suffix, '.PWR', suffix)
-          call STRpaste ('_VxPtot_', suffix, prefix)
-          call STRpaste (slabel, prefix, fVxPtot)
-          call STRpaste (directory, fVxPtot, fVxPtot)
-          call STRpaste ('_ExPtot_', suffix, prefix)
-          call STRpaste (slabel, prefix, fExPtot)
-          call STRpaste (directory, fExPtot, fExPtot)
-          call STRpaste ('_ExVxPtot_', suffix, prefix)
-          call STRpaste (slabel, prefix, fExVxPtot)
-          call STRpaste (directory, fExVxPtot, fExVxPtot)
-          call STRpaste ('_VxP_', suffix, prefix)
-          call STRpaste (slabel, prefix, fVxP)
-          call STRpaste (directory, fVxP, fVxP)
-          call STRpaste ('_ExP_', suffix, prefix)
-          call STRpaste (slabel, prefix, fExP)
-          call STRpaste (directory, fExP, fExP)
+          call STRpaste ('_ExVxP_', suffix, suffix)
+          call STRpaste (slabel, suffix, fExVxP)
+          call STRpaste (directory, fExVxP, fExVxP)
 
 !         Open them.
-          call IOassign (iuVxPtot)
-          open (iuVxPtot, FILE=fVxPtot, FORM='FORMATTED',               &
-               STATUS='REPLACE')
-          call IOassign (iuExPtot)
-          open (iuExPtot, FILE=fExPtot, FORM='FORMATTED',               &
-               STATUS='REPLACE')
-          call IOassign (iuExVxPtot)
-          open (iuExVxPtot, FILE=fExVxPtot, FORM='FORMATTED',           &
-               STATUS='REPLACE')
-          call IOassign (iuVxP)
-          open (iuVxP, FILE=fVxP, FORM='FORMATTED', STATUS='REPLACE')
-          call IOassign (iuExP)
-          open (iuExP, FILE=fExP, FORM='FORMATTED', STATUS='REPLACE')
+          call IOassign (iuExVxP)
+          open (iuExVxP, FILE=fExVxP, FORM='FORMATTED', STATUS='REPLACE')
 
 !         Allocate buffers arrays.
           allocate (buffEn(NTenerg_div))
@@ -781,38 +662,22 @@ CONTAINS
 
 !                     'phPwr' in eV/s and, 'Ei' and 'Vbias'
 !                     in eV (from CODATA - 2012).
-                      write (iuVxPtot, '(e17.8e3,e17.8e3)')             &
-                           Vbias*13.60569253D0,                         &
-                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))         &
-                           *13.60569253D0
-                      write (iuExPtot, '(e17.8e3,e17.8e3)')             &
-                           Ei(e)*13.60569253D0,      &
-                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))
-                      write (iuExVxPtot, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           Ei(e), Vbias,                                &
-                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))         &
-                           *13.60569253D0
-
-                      write (iuVxP, '(/,e17.8e3)', advance='no')        &
+                      write (iuExVxP, '(/,e17.8e3,e17.8e3)',            &
+                           advance='no') Ei(e)*13.60569253D0,           &
                            Vbias*13.60569253D0
-                      write (iuExP, '(/,e17.8e3)', advance='no')        &
-                           Ei(e)*13.60569253D0
                       do w = 1,nModes(idx)
-                         write (iuVxP, '(e17.8e3)', advance='no')       &
-                              phPwr(u)%P(e,s,v,w)*13.60569253D0
-                         write (iuExP, '(e17.8e3)', advance='no')       &
+                         write (iuExVxP, '(e17.8e3)', advance='no')     &
                               phPwr(u)%P(e,s,v,w)*13.60569253D0
                       enddo
+                      write (iuExVxP, '(e17.8e3)')                      &
+                           SUM(phPwr(u)%P(e,s,v,1:nModes(idx)))         &
+                           *13.60569253D0
 
                       Vbias = Vbias + dV
 
                    enddo
 
-                   write (iuVxPtot, '(/)', advance='no')
-                   write (iuExPtot, '(/)', advance='no')
-                   write (iuExVxPtot, '(/)', advance='no')
-                   write (iuVxP, '(/)', advance='no')
-                   write (iuExP, '(/)', advance='no')
+                   write (iuExVxP, '(/)', advance='no')
 
                 enddo
              enddo
@@ -846,40 +711,22 @@ CONTAINS
 
 !                        'phPwr' in eV/s and, 'Ei' and 'Vbias'
 !                        in eV (from CODATA - 2012).
-                         write (iuVxPtot, '(e17.8e3,e17.8e3)')          &
-                              Vbias*13.60569253D0,                      &
-                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
-                              *13.60569253D0
-                         write (iuExPtot, '(e17.8e3,e17.8e3)')          &
-                              buffEn(e)*13.60569253D0,                  &
-                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
-                              *13.60569253D0
-                         write (iuExVxPtot, '(e17.8e3,e17.8e3,e17.8e3)')&
-                              buffEn(e)*13.60569253D0,                  &
-                              Vbias*13.60569253D0,                      &
-                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
-                              *13.60569253D0
-
-                         write (iuVxP, '(/,e17.8e3)', advance='no')     &
-                              Vbias*13.60569253D0
-                         write (iuExP, '(/,e17.8e3)', advance='no')     &
+                         write (iuExVxP, '(/,e17.8e3,e17.8e3)',         &
+                              advance='no') Vbias*13.60569253D0,        &
                               buffEn(e)*13.60569253D0
                          do w = 1,nModes(idx)
-                            write (iuVxP, '(e17.8e3)', advance='no')    &
-                                 buffPwr(e,s,v,w)*13.60569253D0
-                            write (iuExP, '(e17.8e3)', advance='no')    &
+                            write (iuExVxP, '(e17.8e3)', advance='no')  &
                                  buffPwr(e,s,v,w)*13.60569253D0
                          enddo
+                         write (iuExVxP, '(e17.8e3)')                   &
+                              SUM(buffPwr(e,s,v,1:nModes(idx)))         &
+                              *13.60569253D0
 
                          Vbias = Vbias + dV
 
                       enddo
 
-                      write (iuVxPtot, '(/)', advance='no')
-                      write (iuExPtot, '(/)', advance='no')
-                      write (iuExVxPtot, '(/)', advance='no')
-                      write (iuVxP, '(/)', advance='no')
-                      write (iuExP, '(/)', advance='no')
+                      write (iuExVxP, '(/)', advance='no')
 
                    enddo
                 enddo
@@ -891,11 +738,7 @@ CONTAINS
 !      Close files and free buffers memory.
        if (IOnode) then
 
-          call IOclose (iuVxPtot)
-          call IOclose (iuExPtot)
-          call IOclose (iuExVxPtot)
-          call IOclose (iuVxP)
-          call IOclose (iuExP)
+          call IOclose (iuExVxP)
 
           deallocate (buffEn)
           deallocate (buffPwr)
@@ -917,16 +760,10 @@ CONTAINS
 !                               writedIdV                               !
 !  *******************************************************************  !
 !  Description: writes calculated differential conductances ('dI/dV')   !
-!  to output files as follows                                           !
+!  to output file as follows                                            !
 !                                                                       !
-!    - 'slabel_VxdI.dIdV' contains 'Vbias dIdVel dIdVsymm dIdVasymm     !
-!    dIdVtotal'                                                         !
 !    - 'slabel_ExVxdI.dIdV' contains 'Ei Vbias dIdVel dIdVsymm          !
-!    dIdVasymm dIdVtotal'                                               !
-!    - 'slabel_ExVxdIel.dIdV' contains 'Ei Vbias dIdVel'                !
-!    - 'slabel_ExVxdIsy.dIdV' contains 'Ei Vbias dIdVsymm'              !
-!    - 'slabel_ExVxdIasy.dIdV' contains 'Ei Vbias dIdVasymm'            !
-!    - 'slabel_ExVxdItot.dIdV' contains 'Ei Vbias dIdVtotal'            !
+!    dIdVasymm dIdVtot'                                                 !
 !                                                                       !
 !  where 'dIdVtot = dIdVel+dIdVsymm+dIdVasymm'.                         !
 !                                                                       !
@@ -978,14 +815,12 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: e, s, v, iuVxdI, iuExVxdI, iuExVxdIel, iuExVxdIsy,       &
-               iuExVxdIasy, iuExVxdItot
+    integer :: e, s, v, iuExVxdI
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
     TYPE(alldIdV), allocatable, dimension (:,:,:) :: buffdIdV
-    character(len=16) :: suffix
-    character(len=label_length+70) :: fVxdI, fExVxdI, fExVxdIel,        &
-                                      fExVxdIsy, fExVxdIasy, fExVxdItot
+    character(len=13) :: suffix
+    character(len=label_length+70) :: fExVxdI
 #ifdef MPI
 #ifndef MASTER_SLAVE
     integer :: n
@@ -1005,42 +840,13 @@ CONTAINS
             'conductance to *.dIdV files'
 
 !      Set file's names.
-       suffix = '_VxdI.dIdV'
-       call STRpaste (slabel, suffix, fVxdI)
-       call STRpaste (directory, fVxdI, fVxdI)
        suffix = '_ExVxdI.dIdV'
        call STRpaste (slabel, suffix, fExVxdI)
        call STRpaste (directory, fExVxdI, fExVxdI)
-       suffix = '_ExVxdIel.dIdV'
-       call STRpaste (slabel, suffix, fExVxdIel)
-       call STRpaste (directory, fExVxdIel, fExVxdIel)
-       suffix = '_ExVxdIsy.dIdV'
-       call STRpaste (slabel, suffix, fExVxdIsy)
-       call STRpaste (directory, fExVxdIsy, fExVxdIsy)
-       suffix = '_ExVxdIasy.dIdV'
-       call STRpaste (slabel, suffix, fExVxdIasy)
-       call STRpaste (directory, fExVxdIasy, fExVxdIasy)
-       suffix = '_ExVxdItot.dIdV'
-       call STRpaste (slabel, suffix, fExVxdItot)
-       call STRpaste (directory, fExVxdItot, fExVxdItot)
 
 !      Open them.
-       call IOassign (iuVxdI)
-       open (iuVxdI, FILE=fVxdI, FORM='FORMATTED', STATUS='REPLACE')
        call IOassign (iuExVxdI)
        open (iuExVxdI, FILE=fExVxdI, FORM='FORMATTED', STATUS='REPLACE')
-       call IOassign (iuExVxdIel)
-       open (iuExVxdIel, FILE=fExVxdIel, FORM='FORMATTED',              &
-            STATUS='REPLACE')
-       call IOassign (iuExVxdIsy)
-       open (iuExVxdIsy, FILE=fExVxdIsy, FORM='FORMATTED',              &
-            STATUS='REPLACE')
-       call IOassign (iuExVxdIasy)
-       open (iuExVxdIasy, FILE=fExVxdIasy, FORM='FORMATTED',            &
-            STATUS='REPLACE')
-       call IOassign (iuExVxdItot)
-       open (iuExVxdItot, FILE=fExVxdItot, FORM='FORMATTED',            &
-            STATUS='REPLACE')
 
 !      Allocate buffers arrays.
        allocate (buffEn(NTenerg_div))
@@ -1090,13 +896,6 @@ CONTAINS
 
 !                  'Ei' and 'Vbias' in eV, and 'dIdV'
 !                  in A/eV (from CODATA - 2012).
-                   write (iuVxdI, '(e17.8e3,e17.8e3,e17.8e3,'       //  &
-                        'e17.8e3,e17.8e3)') Vbias*13.60569253D0,        &
-                        dIdV(e,s,v)%el/13.60569253D0,                   &
-                        dIdV(e,s,v)%symm/13.60569253D0,                 &
-                        dIdV(e,s,v)%asymm/13.60569253D0,                &
-                        (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
-                        + dIdV(e,s,v)%asymm)/13.60569253D0
                    write (iuExVxdI, '(e17.8e3,e17.8e3,e17.8e3,'     //  &
                         'e17.8e3,e17.8e3,e17.8e3)')                     &
                         Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
@@ -1105,30 +904,12 @@ CONTAINS
                         dIdV(e,s,v)%asymm/13.60569253D0,                &
                         (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
                         + dIdV(e,s,v)%asymm)/13.60569253D0
-                   write (iuExVxdIel, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        dIdV(e,s,v)%el/13.60569253D0
-                   write (iuExVxdIsy, '(e17.8e3,e17.8e3,e17.8e3)')      &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        dIdV(e,s,v)%symm/13.60569253D0
-                   write (iuExVxdIasy, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        dIdV(e,s,v)%asymm/13.60569253D0
-                   write (iuExVxdItot, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
-                        + dIdV(e,s,v)%asymm)/13.60569253D0
 
                    Vbias = Vbias + dV
 
                 enddo
 
-                write (iuVxdI, '(/)', advance='no')
                 write (iuExVxdI, '(/)', advance='no')
-                write (iuExVxdIel, '(/)', advance='no')
-                write (iuExVxdIsy, '(/)', advance='no')
-                write (iuExVxdIasy, '(/)', advance='no')
-                write (iuExVxdItot, '(/)', advance='no')
 
              enddo
           enddo
@@ -1158,33 +939,12 @@ CONTAINS
 
 !                     'Ei' and 'Vbias' in eV, and 'dIdV'
 !                     in A/eV (from CODATA - 2012).
-                      write (iuVxdI, '(e17.8e3,e17.8e3,e17.8e3,'    //  &
-                           'e17.8e3,e17.8e3)') Vbias*13.60569253D0,     &
+                      write (iuExVxdI, '(e17.8e3,e17.8e3,e17.8e3,' //   &
+                           'e17.8e3,e17.8e3,e17.8e3)')                  &
+                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
                            buffdIdV(e,s,v)%el/13.60569253D0,            &
                            buffdIdV(e,s,v)%symm/13.60569253D0,          &
                            buffdIdV(e,s,v)%asymm/13.60569253D0,         &
-                           (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
-                           + buffdIdV(e,s,v)%asymm)/13.60569253D0
-                      write (iuExVxdI,                                  &
-                           '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'     //   &
-                           'e17.8e3,e17.8e3)') buffEn(e)*13.60569253D0, &
-                           Vbias*13.60569253D0,                         &
-                           buffdIdV(e,s,v)%el/13.60569253D0,            &
-                           buffdIdV(e,s,v)%symm/13.60569253D0,          &
-                           buffdIdV(e,s,v)%asymm/13.60569253D0,         &
-                           (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
-                           + buffdIdV(e,s,v)%asymm)/13.60569253D0
-                      write (iuExVxdIel, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffdIdV(e,s,v)%el/13.60569253D0
-                      write (iuExVxdIsy, '(e17.8e3,e17.8e3,e17.8e3)')   &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffdIdV(e,s,v)%symm/13.60569253D0
-                      write (iuExVxdIasy, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffdIdV(e,s,v)%asymm/13.60569253D0
-                      write (iuExVxdItot, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
                            (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
                            + buffdIdV(e,s,v)%asymm)/13.60569253D0
 
@@ -1192,12 +952,7 @@ CONTAINS
 
                    enddo
 
-                   write (iuVxdI, '(/)', advance='no')
                    write (iuExVxdI, '(/)', advance='no')
-                   write (iuExVxdIel, '(/)', advance='no')
-                   write (iuExVxdIsy, '(/)', advance='no')
-                   write (iuExVxdIasy, '(/)', advance='no')
-                   write (iuExVxdItot, '(/)', advance='no')
 
                 enddo
              enddo
@@ -1209,12 +964,7 @@ CONTAINS
 !   Close files and free buffers memory.
     if (IOnode) then
 
-       call IOclose (iuVxdI)
        call IOclose (iuExVxdI)
-       call IOclose (iuExVxdIel)
-       call IOclose (iuExVxdIsy)
-       call IOclose (iuExVxdIasy)
-       call IOclose (iuExVxdItot)
 
        deallocate (buffEn)
        deallocate (buffdIdV)
@@ -1240,16 +990,10 @@ CONTAINS
 !                              writed2IdV2                              !
 !  *******************************************************************  !
 !  Description: writes calculated derivative of the differential        !
-!  conductances ('d2I/dV2') to output files as follows                  !
+!  conductances ('d2I/dV2') to output file as follows                   !
 !                                                                       !
-!    - 'slabel_VxdI.d2IdV2' contains 'Vbias d2IdV2el d2IdV2symm         !
-!    d2IdV2asymm d2IdV2total'                                           !
 !    - 'slabel_ExVxdI.d2IdV2' contains 'Ei Vbias d2IdV2el d2IdV2symm    !
-!    d2IdV2asymm d2IdV2total'                                           !
-!    - 'slabel_ExVxdIel.d2IdV2' contains 'Ei Vbias d2IdV2el'            !
-!    - 'slabel_ExVxdIsy.d2IdV2' contains 'Ei Vbias d2IdV2symm'          !
-!    - 'slabel_ExVxdIasy.d2IdV2' contains 'Ei Vbias d2IdV2asymm'        !
-!    - 'slabel_ExVxdItot.d2IdV2' contains 'Ei Vbias d2IdV2total'        !
+!    d2IdV2asymm d2IdV2tot'                                             !
 !                                                                       !
 !  where 'd2IdV2tot = d2IdV2el+d2IdV2symm+d2IdV2asymm'.                 !
 !                                                                       !
@@ -1301,16 +1045,14 @@ CONTAINS
 #endif
 
 !   Local variables.
-    integer :: e, s, v, iuVxd2I, iuExVxd2I, iuExVxd2Iel,                &
-               iuExVxd2Isy, iuExVxd2Iasy, iuExVxd2Itot
+    integer :: e, s, v, iuExVxd2I
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
     real(8), parameter :: Ry2 = 13.60569253D0*13.60569253D0
     TYPE(alldIdV), allocatable, dimension (:,:,:) :: buffd2IdV2
-    character(len=19) :: suffix
-    character(len=label_length+70) :: fVxd2I, fExVxd2I, fExVxd2Iel,     &
-                                      fExVxd2Isy, fExVxd2Iasy,          &
-                                      fExVxd2Itot
+    character(len=16) :: suffix
+    character(len=label_length+70) :: fExVxd2I
+
 #ifdef MPI
 #ifndef MASTER_SLAVE
     integer :: n
@@ -1330,42 +1072,13 @@ CONTAINS
             'conductance to *.d2IdV2 files'
 
 !      Set file's names.
-       suffix = '_Vxd2I.d2IdV2'
-       call STRpaste (slabel, suffix, fVxd2I)
-       call STRpaste (directory, fVxd2I, fVxd2I)
        suffix = '_ExVxd2I.d2IdV2'
        call STRpaste (slabel, suffix, fExVxd2I)
        call STRpaste (directory, fExVxd2I, fExVxd2I)
-       suffix = '_ExVxd2Iel.d2IdV2'
-       call STRpaste (slabel, suffix, fExVxd2Iel)
-       call STRpaste (directory, fExVxd2Iel, fExVxd2Iel)
-       suffix = '_ExVxd2Isy.d2IdV2'
-       call STRpaste (slabel, suffix, fExVxd2Isy)
-       call STRpaste (directory, fExVxd2Isy, fExVxd2Isy)
-       suffix = '_ExVxd2Iasy.d2IdV2'
-       call STRpaste (slabel, suffix, fExVxd2Iasy)
-       call STRpaste (directory, fExVxd2Iasy, fExVxd2Iasy)
-       suffix = '_ExVxd2Itot.d2IdV2'
-       call STRpaste (slabel, suffix, fExVxd2Itot)
-       call STRpaste (directory, fExVxd2Itot, fExVxd2Itot)
 
 !      Open them.
-       call IOassign (iuVxd2I)
-       open (iuVxd2I, FILE=fVxd2I, FORM='FORMATTED', STATUS='REPLACE')
        call IOassign (iuExVxd2I)
        open (iuExVxd2I, FILE=fExVxd2I, FORM='FORMATTED',                &
-            STATUS='REPLACE')
-       call IOassign (iuExVxd2Iel)
-       open (iuExVxd2Iel, FILE=fExVxd2Iel, FORM='FORMATTED',            &
-            STATUS='REPLACE')
-       call IOassign (iuExVxd2Isy)
-       open (iuExVxd2Isy, FILE=fExVxd2Isy, FORM='FORMATTED',            &
-            STATUS='REPLACE')
-       call IOassign (iuExVxd2Iasy)
-       open (iuExVxd2Iasy, FILE=fExVxd2Iasy, FORM='FORMATTED',          &
-            STATUS='REPLACE')
-       call IOassign (iuExVxd2Itot)
-       open (iuExVxd2Itot, FILE=fExVxd2Itot, FORM='FORMATTED',          &
             STATUS='REPLACE')
 
 !      Allocate buffers arrays.
@@ -1416,28 +1129,10 @@ CONTAINS
 
 !                  'Ei' and 'Vbias' in eV, and 'd2I/dV2'
 !                  in A/V^2 (from CODATA - 2012).
-                   write (iuVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'      //  &
-                        'e17.8e3,e17.8e3)') Vbias*13.60569253D0,        &
-                        d2IdV2(e,s,v)%el/Ry2, d2IdV2(e,s,v)%symm/Ry2,   &
-                        d2IdV2(e,s,v)%asymm/Ry2, (d2IdV2(e,s,v)%el      &
-                        + d2IdV2(e,s,v)%symm + d2IdV2(e,s,v)%asymm)/Ry2
                    write (iuExVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'    //  &
                         'e17.8e3,e17.8e3,e17.8e3)') Ei(e)*13.60569253D0,&
                         Vbias*13.60569253D0, d2IdV2(e,s,v)%el/Ry2,      &
                         d2IdV2(e,s,v)%symm/Ry2, d2IdV2(e,s,v)%asymm/Ry2,&
-                        (d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm          &
-                        + d2IdV2(e,s,v)%asymm)/Ry2
-                   write (iuExVxd2Iel, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        d2IdV2(e,s,v)%el/Ry2
-                   write (iuExVxd2Isy, '(e17.8e3,e17.8e3,e17.8e3)')     &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        d2IdV2(e,s,v)%symm/Ry2
-                   write (iuExVxd2Iasy, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        d2IdV2(e,s,v)%asymm/Ry2
-                   write (iuExVxd2Itot, '(e17.8e3,e17.8e3,e17.8e3)')    &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
                         (d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm          &
                         + d2IdV2(e,s,v)%asymm)/Ry2
 
@@ -1445,12 +1140,7 @@ CONTAINS
 
                 enddo
 
-                write (iuVxd2I, '(/)', advance='no')
                 write (iuExVxd2I, '(/)', advance='no')
-                write (iuExVxd2Iel, '(/)', advance='no')
-                write (iuExVxd2Isy, '(/)', advance='no')
-                write (iuExVxd2Iasy, '(/)', advance='no')
-                write (iuExVxd2Itot, '(/)', advance='no')
 
              enddo
           enddo
@@ -1481,14 +1171,6 @@ CONTAINS
 
 !                     'Ei' and 'Vbias' in eV, and 'd2I/dV2'
 !                     in A/V^2 (from CODATA - 2012).
-                      write (iuVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'   //  &
-                           'e17.8e3,e17.8e3)') Vbias*13.60569253D0,     &
-                           buffd2IdV2(e,s,v)%el/Ry2,                    &
-                           buffd2IdV2(e,s,v)%symm/Ry2,                  &
-                           buffd2IdV2(e,s,v)%asymm/Ry2,                 &
-                           (buffd2IdV2(e,s,v)%el                        &
-                           + buffd2IdV2(e,s,v)%symm                     &
-                           + buffd2IdV2(e,s,v)%asymm)/Ry2
                       write (iuExVxd2I,                                 &
                            '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'     //   &
                            'e17.8e3,e17.8e3)') buffEn(e)*13.60569253D0, &
@@ -1499,31 +1181,12 @@ CONTAINS
                            (buffd2IdV2(e,s,v)%el                        &
                            + buffd2IdV2(e,s,v)%symm                     &
                            + buffd2IdV2(e,s,v)%asymm)/Ry2
-                      write (iuExVxd2Iel, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffd2IdV2(e,s,v)%el/Ry2
-                      write (iuExVxd2Isy, '(e17.8e3,e17.8e3,e17.8e3)')  &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffd2IdV2(e,s,v)%symm/Ry2
-                      write (iuExVxd2Iasy, '(e17.8e3,e17.8e3,e17.8e3)') &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffd2IdV2(e,s,v)%asymm/Ry2
-                      write (iuExVxd2Itot, '(e17.8e3,e17.8e3,e17.8e3)') &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           (buffd2IdV2(e,s,v)%el                        &
-                           + buffd2IdV2(e,s,v)%symm                     &
-                           + buffd2IdV2(e,s,v)%asymm)/Ry2
 
                       Vbias = Vbias + dV
 
                    enddo
 
-                   write (iuVxd2I, '(/)', advance='no')
                    write (iuExVxd2I, '(/)', advance='no')
-                   write (iuExVxd2Iel, '(/)', advance='no')
-                   write (iuExVxd2Isy, '(/)', advance='no')
-                   write (iuExVxd2Iasy, '(/)', advance='no')
-                   write (iuExVxd2Itot, '(/)', advance='no')
 
                 enddo
              enddo
@@ -1535,12 +1198,7 @@ CONTAINS
 !   Close files and free buffers memory.
     if (IOnode) then
 
-       call IOclose (iuVxd2I)
        call IOclose (iuExVxd2I)
-       call IOclose (iuExVxd2Iel)
-       call IOclose (iuExVxd2Isy)
-       call IOclose (iuExVxd2Iasy)
-       call IOclose (iuExVxd2Itot)
 
        deallocate (buffEn)
        deallocate (buffd2IdV2)

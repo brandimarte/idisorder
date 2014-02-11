@@ -23,10 +23,16 @@
 #  *******************************************************************  #
 #                              genHist.sh                               #
 #  *******************************************************************  #
-#  Description: for each calculated bias potential this script          #
-#  generates, from '*.CUR' output files, the files 'hist*el.dat',       #
-# 'hist*sym.dat', 'hist*asy.dat' and 'hist*tot.dat' containing the      #
-#  current for each bias (usefull for ploting histograms).              #
+#  Description: for each calculated energy and bias potential this      #
+#  script generates, from '*.CUR' ('*.dIdV' and '*.d2IdV2') output      #
+#  files, the files 'hist*el.dat', 'hist*sym.dat', 'hist*asy.dat' and   #
+#  'hist*tot.dat' containing the current ('dI/dV' and 'd2I/dV2') for    #
+#  each energy and bias (usefull for ploting histograms).               #
+#                                                                       #
+#  Input:  ${1} :  working directory (e.g. '${PBS_O_WORKDIR}')          #
+#          ${2} :  output file                                          #
+#                                                                       #
+#  Use:  $ ./analysis [working directory] [stdout from i-disorder run]  #
 #                                                                       #
 #  Written by Pedro Brandimarte, Feb 2014.                              #
 #  Instituto de Fisica                                                  #
@@ -36,17 +42,150 @@
 #  Original version:    February 2014                                   #
 #  *******************************************************************  #
 
-Vbias=`awk '{print $1}' *-1_VxI.CUR`
+# Prints the header.
+linh="************************************"
+echo ""
+echo "   ${linh}${linh}"
+echo ""
+echo "                   *  WELCOME TO I-DISORDER CODE v2014.01  *"
+echo ""
+echo -n "                         "
+date
+echo ""
+echo "      Written by Alexandre Reily Rocha (reilya@ift.unesp.br),"
+echo "                 Pedro Brandimarte (brandimarte@gmail.com) and"
+echo "                 Alberto Torres (alberto.trj@gmail.com)."
+echo ""
+echo "      Copyright (c), All Rights Reserved"
+echo ""
+echo "      This program is free software. You can redistribute it"     \
+    "and/or"
+echo "      modify it under the terms of the GNU General Public"        \
+    "License"
+echo "      (version 3 or later) as published by the Free Software"     \
+    "Foundation"
+echo "      <http://fsf.org/>. See the GNU General Public License for"  \
+    "details."
+echo ""
+echo "   ${linh}${linh}"
 
-for i in ${Vbias}
+# Checks if the number of arguments is correct.
+if [ ${#} != 2 ]
+then
+    echo -e "\nI-Disorder: ERROR: wrong number of arguments!\n"
+    echo -e "I-Disorder: Use: ./genHist [working directory]"            \
+	"[stdout from i-disorder run]\n"
+    exit -1
+fi
+
+# Time is running.
+echo -e ""
+echo -n "I-Disorder: Start of histograms generation on "
+date
+begin=$(date +%s%N) # initial time with nanoseconds accuracy (haha!)
+
+# Checks if the files and working folder exists and are accessible.
+echo -e ""
+echo -n "I-Disorder: Checking input... "
+if [ ! -r ${1} ]
+then
+    echo -e "\nI-Disorder: ERROR: the directory \"${1}\" doesn't"       \
+	"exist or is not accessible!\n"
+    exit -1
+elif [ ! -r ${2} ]
+then
+    echo -e "\nI-Disorder: ERROR: the file \"${2}\" doesn't exist or"   \
+	"is not accessible!\n"
+    exit -1
+fi
+echo -e "ok!\n"
+
+# Work directory.
+check=`echo "${1}" | sed 's:.*\(.$\):\1:'`
+if [ "${check}" == "/" ]
+then
+    Wdir=${1}
+else
+    Wdir=${1}/
+fi
+
+# System label.
+SysLabel=`grep -i "READOPT: SYSTEM LABEL" ${2} | awk '{print $5}'`
+if [ "${SysLabel}" == "" ]
+then
+    echo -e "ERROR: can't find 'readopt: System label' at '${2}'!\n"
+    exit -1
+else
+    echo -e "   System label = ${SysLabel}\n"
+fi
+
+# Number of energy points.
+Nenergy=`grep -i "NUMBER OF TRANSMISSION ENERGY" ${2} | awk '{print $8}'`
+if [ "${Nenergy}" == "" ]
+then
+    echo -e "ERROR: can't find 'Number of transmission energy points'"  \
+	"at '${2}'!\n"
+    exit -1
+else
+    echo -e "   Energy points = ${Nenergy}\n"
+fi
+
+# Number of bias points.
+Nbias=`grep -i "NUMBER OF BIAS POTENTIAL POINTS" ${2} | awk '{print $8}'`
+if [ "${Nbias}" == "" ]
+then
+    echo -e "ERROR: can't find 'NIVPoints' at '${2}'!\n"
+    exit -1
+else
+    echo -e "   Bias points = ${Nbias}\n"
+fi
+
+TotRows=$(( ${Nenergy} * ${Nbias} + ${Nenergy} ))
+NbiasP1=$(( ${Nbias} + 1 ))
+
+cd ${Wdir}/conductance
+mkdir histograms
+
+# Get energy values.
+for i in `seq 1 ${NbiasP1} ${TotRows}`
 do
-   > hist${i}el.dat
-   > hist${i}sym.dat
-   > hist${i}asy.dat
-   > hist${i}tot.dat
-   grep -- " ${i}" *.CUR | awk '{print $3}' >> hist${i}el.dat
-   grep -- " ${i}" *.CUR | awk '{print $4}' >> hist${i}sym.dat
-   grep -- " ${i}" *.CUR | awk '{print $5}' >> hist${i}asy.dat
-   grep -- " ${i}" *.CUR | awk '{print $6}' >> hist${i}tot.dat
+    En[${i}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxI.CUR |               \
+              awk '{print $1}'`
 done
 
+# Get bias values.
+for i in `seq 1 ${Nbias}`
+do
+    V[${i}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxI.CUR |                \
+             awk '{print $2}'`
+done
+
+
+for i in ${En[*]}
+do
+    for j in ${V[*]}
+    do
+	> histograms/E${i}_V${j}el.dat
+	> histograms/E${i}_V${j}sym.dat
+	> histograms/E${i}_V${j}asy.dat
+	> histograms/E${i}_V${j}tot.dat
+	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $4}'  \
+	    >> histograms/E${i}_V${j}el.dat
+	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $5}'  \
+	    >> histograms/E${i}_V${j}sym.dat
+	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $6}'  \
+	    >> histograms/E${i}_V${j}asy.dat
+	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $7}'  \
+	    >> histograms/E${i}_V${j}tot.dat
+    done
+done
+
+# Finishing.
+end=$(date +%s%N) # final time with nanoseconds accuracy
+echo -e ""
+echo -n "I-Disorder: End of histograms generation on "
+date
+tempo=`echo "scale = 10; (${end} - ${begin}) / 60000000000" | bc`
+echo -e "\nI-Disorder: Run time = ${tempo} min\n"
+
+exit 0

@@ -21,20 +21,18 @@
 #  distributed along with this program or at                            #
 #  <http://www.gnu.org/licenses/gpl.html>).                             #
 #  *******************************************************************  #
-#                               submit.sh                               #
+#                              genHist.sh                               #
 #  *******************************************************************  #
-#  Description: script for job submition.                               #
+#  Description: for each calculated energy and bias potential this      #
+#  script generates, from '*.CUR' ('*.dIdV' and '*.d2IdV2') output      #
+#  files, the files 'hist*el.dat', 'hist*sym.dat', 'hist*asy.dat' and   #
+#  'hist*tot.dat' containing the current ('dI/dV' and 'd2I/dV2') for    #
+#  each energy and bias (usefull for ploting histograms).               #
 #                                                                       #
-#  Input:  ${1} :  mpi compiler (e.g. 'mpirun')                         #
-#          ${2} :  file mapping procs (e.g. '${PBS_NODEFILE}')          #
-#          ${3} :  I-Disorder executable with path                      #
-#          ${4} :  working directory (e.g. '${PBS_O_WORKDIR}')          #
-#          ${5} :  number of runs (e.g. 500)                            #
-#          ${6} :  input file                                           #
+#  Input:  ${1} :  working directory (e.g. '${PBS_O_WORKDIR}')          #
+#          ${2} :  output file                                          #
 #                                                                       #
-#  Use:  $ ./submit.sh [mpi compiler] [file mapping procs] \            #
-#          [I-Disorder executable] [working directory] \                #
-#          [# of runs] [input file]                                     #
+#  Use:  $ ./analysis [working directory] [stdout from i-disorder run]  #
 #                                                                       #
 #  Written by Pedro Brandimarte, Feb 2014.                              #
 #  Instituto de Fisica                                                  #
@@ -72,125 +70,117 @@ echo ""
 echo "   ${linh}${linh}"
 
 # Checks if the number of arguments is correct.
-if [ ${#} != 6 ]
+if [ ${#} != 2 ]
 then
     echo -e "\nI-Disorder: ERROR: wrong number of arguments!\n"
-    echo -e "I-Disorder: Use: ./submit.sh [mpi compiler]"               \
-	"[file mapping procs] \ "
-    echo -e "                 [I-Disorder executable]"                  \
-	"[working directory] \ "
-    echo -e "                 [# of runs] [input file]\n"
+    echo -e "I-Disorder: Use: ./genHist [working directory]"            \
+	"[stdout from i-disorder run]\n"
     exit -1
 fi
 
 # Time is running.
 echo -e ""
-echo -n "I-Disorder: Start of runs on "
+echo -n "I-Disorder: Start of histograms generation on "
 date
 begin=$(date +%s%N) # initial time with nanoseconds accuracy (haha!)
 
 # Checks if the files and working folder exists and are accessible.
 echo -e ""
 echo -n "I-Disorder: Checking input... "
-check=`command -v ${1}`
-if [ "${check}" == "" ]
+if [ ! -r ${1} ]
 then
-    echo -e "\nI-Disorder: ERROR: the mpi compiler \"${1}\" doesn't"    \
+    echo -e "\nI-Disorder: ERROR: the directory \"${1}\" doesn't"       \
 	"exist or is not accessible!\n"
     exit -1
-fi
-if [ ! -r ${2} ]
+elif [ ! -r ${2} ]
 then
     echo -e "\nI-Disorder: ERROR: the file \"${2}\" doesn't exist or"   \
-	"is not accessible!\n"
-    exit -1
-elif [ ! -r ${3} ]
-then
-    check=`command -v ${3}`
-    if [ "${check}" == "" ]
-    then
-	echo -e "\nI-Disorder: ERROR: the file \"${3}\" doesn't exist"  \
-	    "or is not accessible!\n"
-	exit -1
-    fi
-elif [ ! -x ${3} ]
-then
-    echo -e "\nI-Disorder: ERROR: you don't have permission to"         \
-	"execute \"${3}\"!\n"
-    exit -1
-elif [ ! -r ${4} ]
-then
-    echo -e "\nI-Disorder: ERROR: the directory \"${4}\" doesn't"       \
-	"exist or is not accessible!\n"
-    exit -1
-elif [ ${5} -lt 1 ]
-then
-    echo -e "\nI-Disorder: ERROR: invalid number of runs \"${5}\"!\n"
-    exit -1
-elif [ ! -r ${6} ]
-then
-    echo -e "\nI-Disorder: ERROR: the file \"${6}\" doesn't exist or"   \
 	"is not accessible!\n"
     exit -1
 fi
 echo -e "ok!\n"
 
-# Number of cores.
-cores=$[ `cat ${2} | wc -l` ]
-
 # Work directory.
-check=`echo "${4}" | sed 's:.*\(.$\):\1:'`
+check=`echo "${1}" | sed 's:.*\(.$\):\1:'`
 if [ "${check}" == "/" ]
 then
-    Wdir=${4}
+    Wdir=${1}
 else
-    Wdir=${4}/
+    Wdir=${1}/
 fi
 
 # System label.
-SysLabel=`grep -i "SYSTEMLABEL" ${6} | awk '{print $2}'`
+SysLabel=`grep -i "READOPT: SYSTEM LABEL" ${2} | awk '{print $5}'`
 if [ "${SysLabel}" == "" ]
 then
-    echo -e "ERROR: can't find the 'SystemLabel' at input file!\n"
+    echo -e "ERROR: can't find 'readopt: System label' at '${2}'!\n"
     exit -1
+else
+    echo -e "   System label = ${SysLabel}\n"
 fi
 
-# Create output directories.
-if [ ! -r "${Wdir}/conductance" ]
+# Number of energy points.
+Nenergy=`grep -i "NUMBER OF TRANSMISSION ENERGY" ${2} | awk '{print $8}'`
+if [ "${Nenergy}" == "" ]
 then
-    mkdir ${Wdir}/conductance
+    echo -e "ERROR: can't find 'Number of transmission energy points'"  \
+	"at '${2}'!\n"
+    exit -1
+else
+    echo -e "   Energy points = ${Nenergy}\n"
 fi
-if [ ! -r "${Wdir}/power" ]
+
+# Number of bias points.
+Nbias=`grep -i "NUMBER OF BIAS POTENTIAL POINTS" ${2} | awk '{print $8}'`
+if [ "${Nbias}" == "" ]
 then
-    mkdir ${Wdir}/power
+    echo -e "ERROR: can't find 'NIVPoints' at '${2}'!\n"
+    exit -1
+else
+    echo -e "   Bias points = ${Nbias}\n"
 fi
-if [ ! -r "${Wdir}/spectral" ]
-then
-    mkdir ${Wdir}/spectral
-fi
 
-for i in `seq 1 ${5}`; do
+TotRows=$(( ${Nenergy} * ${Nbias} + ${Nenergy} ))
+NbiasP1=$(( 5 * (${Nbias} + 1) ))
 
-    sed "s/SystemLabel ${SysLabel}/SystemLabel ${SysLabel}-${i}/" ${6}  \
-	> ${6}_${i}.in
+cd ${Wdir}/conductance
+mkdir histograms
 
-    ${1} -n ${cores} -machinefile ${2} ${3} < ${6}_${i}.in              \
-	> output_${i}.out
-    wait
+# Get energy values.
+j=1
+for i in `seq 1 ${NbiasP1} ${TotRows}`
+do
+    En[${j}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxIsy.CUR |             \
+              awk '{print $1}'`
+    echo ${j} ${En[${j}]}
+    j=$(( ${j} + 1 ))
+done
 
-    mv *.CUR ${Wdir}/conductance/
-    mv *.dIdV ${Wdir}/conductance/
-    mv *.d2IdV2 ${Wdir}/conductance/
-    mv *.PWR ${Wdir}/power/
-    mv *.DOS ${Wdir}/spectral/
-    mv *.SPCTR ${Wdir}/spectral/
+# Get bias values.
+j=1
+for i in `seq 1 5 ${Nbias}`
+do
+    V[${j}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxIsy.CUR |              \
+             awk '{print $2}'`
+    echo ${j} ${V[${j}]}
+    j=$(( ${j} + 1 ))
+done
 
+# Build histograms files.
+for i in ${En[*]}
+do
+    for j in ${V[*]}
+    do
+	> histograms/E${i}_V${j}sy.dat
+	grep -- " ${i}[[:blank:]]*${j}" *ExVxIsy.CUR | awk              \
+	    '{print $4}' >> histograms/E${i}_V${j}sy.dat
+    done
 done
 
 # Finishing.
 end=$(date +%s%N) # final time with nanoseconds accuracy
 echo -e ""
-echo -n "I-Disorder: End of run on "
+echo -n "I-Disorder: End of histograms generation on "
 date
 tempo=`echo "scale = 10; (${end} - ${begin}) / 60000000000" | bc`
 echo -e "\nI-Disorder: Run time = ${tempo} min\n"
