@@ -3,9 +3,9 @@ fileTot='IETStot.tot'
 fileSy='IETSsy.tot'
 fileAsy='IETSasy.tot'
 labelCB='(d2I/dV2)/(dI/dV) (V^-1)'
-set cbrange [-1e-02:1e-02]
 set xrange [-0.2:0.2]
 set yrange [-0.2:0.2]
+set cbrange [-60:60]
 
 set terminal jpeg large size 2200, 2000 enhanced font "Arial,20"
 
@@ -52,6 +52,8 @@ unset ytics
 unset ylabel
 splot fileTot
 unset label
+
+set cbrange [-1000:1000]
 
 # [2,1]
 set tmargin at screen 0.50; set bmargin at screen 0.10

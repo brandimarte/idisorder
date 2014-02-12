@@ -36,6 +36,34 @@
 
 paste ExVxd2Iel.tot ExVxdIel.tot | awk '{if (NF > 0) { if ($6 == 0) printf (" % .7E  % .7E  % .7E\n", $1, $2, $3*1e+15); else printf (" % .7E  % .7E  % .7E\n", $1, $2, $3/$6);} else printf ("\n");}' > IETSel.tot
 paste ExVxd2Itot.tot ExVxdItot.tot | awk '{if (NF > 0) { if ($6 == 0) printf (" % .7E  % .7E  % .7E\n", $1, $2, $3*1e+15); else printf (" % .7E  % .7E  % .7E\n", $1, $2, $3/$6);} else printf ("\n");}' > IETStot.tot
-paste ExVxd2Isy.tot ExVxdIsy.tot | awk '{if (NF > 0) { if ($6 == 0) printf (" % .7E  % .7E  % .7E\n", $1, $2, $3*1e+15); else printf (" % .7E  % .7E  % .7E\n", $1, $2, $3/$6);} else printf ("\n");}' > IETSsy.tot
-paste ExVxd2Iasy.tot ExVxdIasy.tot | awk '{if (NF > 0) { if ($6 == 0) printf (" % .7E  % .7E  % .7E\n", $1, $2, $3*1e+15); else printf (" % .7E  % .7E  % .7E\n", $1, $2, $3/$6);} else printf ("\n");}' > IETSasy.tot
+paste ExVxd2Isy.tot ExVxdIsy.tot | awk '
+{if (NF > 0) {
+   if ($6 > -1e-15 && $6 < 1.e-15) {
+       if ($3 > -1e-15 && $3 < 1.e-15)
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, 1.0);
+       else
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, $3*1e+15);
+   } else {
+       if ($3 > -1e-15 && $3 < 1.e-15)
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, 0.0);
+       else
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, $3/$6);
+   }
+} else printf ("\n");
+}' > IETSsy.tot
+paste ExVxd2Iasy.tot ExVxdIasy.tot | awk '
+{if (NF > 0) {
+   if ($6 > -1e-15 && $6 < 1.e-15) {
+       if ($3 > -1e-15 && $3 < 1.e-15)
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, 1.0);
+       else
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, $3*1e+15);
+   } else {
+       if ($3 > -1e-15 && $3 < 1.e-15)
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, 0.0);
+       else
+           printf (" % .7E  % .7E  % .7E\n", $1, $2, $3/$6);
+   }
+} else printf ("\n");
+}' > IETSasy.tot
 

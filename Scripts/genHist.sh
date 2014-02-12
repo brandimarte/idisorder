@@ -141,42 +141,67 @@ else
 fi
 
 TotRows=$(( ${Nenergy} * ${Nbias} + ${Nenergy} ))
-NbiasP1=$(( ${Nbias} + 1 ))
+NbiasP1=$(( 5 * (${Nbias} + 1) ))
 
 cd ${Wdir}/conductance
 mkdir histograms
 
-# Get energy values.
+Ifiles=`ls *_ExVxI.CUR`
+dIfiles=`ls *_ExVxdI.dIdV`
+d2Ifiles=`ls *_ExVxd2I.d2IdV2`
+
 for i in `seq 1 ${NbiasP1} ${TotRows}`
 do
-    En[${i}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxI.CUR |               \
-              awk '{print $1}'`
-done
-
-# Get bias values.
-for i in `seq 1 ${Nbias}`
-do
-    V[${i}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxI.CUR |                \
-             awk '{print $2}'`
-done
-
-
-for i in ${En[*]}
-do
-    for j in ${V[*]}
+    for j in `seq 1 5 ${Nbias}`
     do
-	> histograms/E${i}_V${j}el.dat
-	> histograms/E${i}_V${j}sym.dat
-	> histograms/E${i}_V${j}asy.dat
-	> histograms/E${i}_V${j}tot.dat
-	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $4}'  \
-	    >> histograms/E${i}_V${j}el.dat
-	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $5}'  \
-	    >> histograms/E${i}_V${j}sym.dat
-	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $6}'  \
-	    >> histograms/E${i}_V${j}asy.dat
-	grep -- " ${i}[[:blank:]]*${j}" *ExVxI.CUR | awk '{print $7}'  \
-	    >> histograms/E${i}_V${j}tot.dat
+        # Row number.
+	row=$(( ${i} + ${j} - 1 ))
+
+        # Get energy value.
+	E=`sed -n "${row},${row}p" ${SysLabel}_ExVxI.CUR |              \
+              awk '{print $1}'`
+
+        # Get bias value.
+	V=`sed -n "${row},${row}p" ${SysLabel}_ExVxI.CUR |              \
+              awk '{print $2}'`
+
+	echo ${E} ${V}
+
+        # Copy current values.
+	for k in ${Ifiles}
+	do
+	    sed -n "${row},${row}p" ${k} | awk                          \
+		-v el="histograms/E${E}_V${V}Iel.dat"                   \
+		-v sy="histograms/E${E}_V${V}Isy.dat"                   \
+		-v asy="histograms/E${E}_V${V}Iasy.dat"                 \
+		-v tot="histograms/E${E}_V${V}Itot.dat"                 \
+		'{print $3 >> el; print $4 >> sy;
+                  print $5 >> asy; print $6 >> tot;}'
+	done
+
+        # Copy dI/dV values.
+	for k in ${dIfiles}
+	do
+	    sed -n "${row},${row}p" ${k} | awk                          \
+		-v el="histograms/E${E}_V${V}dIel.dat"                  \
+		-v sy="histograms/E${E}_V${V}dIsy.dat"                  \
+		-v asy="histograms/E${E}_V${V}dIasy.dat"                \
+		-v tot="histograms/E${E}_V${V}dItot.dat"                \
+		'{print $3 >> el; print $4 >> sy;
+                  print $5 >> asy; print $6 >> tot;}'
+	done
+
+        # Copy d2I/dV2 values.
+	for k in ${d2Ifiles}
+	do
+	    sed -n "${row},${row}p" ${k} | awk                          \
+		-v el="histograms/E${E}_V${V}d2Iel.dat"                 \
+		-v sy="histograms/E${E}_V${V}d2Isy.dat"                 \
+		-v asy="histograms/E${E}_V${V}d2Iasy.dat"               \
+		-v tot="histograms/E${E}_V${V}d2Itot.dat"               \
+		'{print $3 >> el; print $4 >> sy;
+                  print $5 >> asy; print $6 >> tot;}'
+	done
     done
 done
 

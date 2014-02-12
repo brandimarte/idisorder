@@ -146,34 +146,36 @@ NbiasP1=$(( 5 * (${Nbias} + 1) ))
 cd ${Wdir}/conductance
 mkdir histograms
 
-# Get energy values.
-j=1
+d2Ifiles=`ls *_ExVxd2I.d2IdV2`
+
 for i in `seq 1 ${NbiasP1} ${TotRows}`
 do
-    En[${j}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxIasy.CUR |            \
-              awk '{print $1}'`
-    echo ${j} ${En[${j}]}
-    j=$(( ${j} + 1 ))
-done
-
-# Get bias values.
-j=1
-for i in `seq 1 5 ${Nbias}`
-do
-    V[${j}]=`sed -n "${i},${i}p" ${SysLabel}_ExVxIasy.CUR |             \
-             awk '{print $2}'`
-    echo ${j} ${V[${j}]}
-    j=$(( ${j} + 1 ))
-done
-
-# Build histograms files.
-for i in ${En[*]}
-do
-    for j in ${V[*]}
+    for j in `seq 1 5 ${Nbias}`
     do
-	> histograms/E${i}_V${j}asy.dat
-	grep -- " ${i}[[:blank:]]*${j}" *ExVxIasy.CUR | awk             \
-	    '{print $4}' >> histograms/E${i}_V${j}asy.dat
+        # Row number.
+	row=$(( ${i} + ${j} - 1 ))
+
+        # Get energy value.
+	E=`sed -n "${row},${row}p" ${SysLabel}_ExVxI.CUR |              \
+              awk '{print $1}'`
+
+        # Get bias value.
+	V=`sed -n "${row},${row}p" ${SysLabel}_ExVxI.CUR |              \
+              awk '{print $2}'`
+
+	echo ${E} ${V}
+
+        # Copy d2I/dV2 values.
+	for k in ${d2Ifiles}
+	do
+	    sed -n "${row},${row}p" ${k} | awk                          \
+		-v el="histograms/E${E}_V${V}d2Iel.dat"                 \
+		-v sy="histograms/E${E}_V${V}d2Isy.dat"                 \
+		-v asy="histograms/E${E}_V${V}d2Iasy.dat"               \
+		-v tot="histograms/E${E}_V${V}d2Itot.dat"               \
+		'{print $3 >> el; print $4 >> sy;
+                  print $5 >> asy; print $6 >> tot;}'
+	done
     done
 done
 
