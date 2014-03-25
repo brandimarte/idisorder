@@ -3,9 +3,9 @@ fileTot='IETStot.tot'
 fileSy='IETSsy.tot'
 fileAsy='IETSasy.tot'
 labelCB='(d2I/dV2)/(dI/dV) (V^-1)'
-set xrange [-0.2:0.2]
-set yrange [-0.2:0.2]
-set cbrange [-60:60]
+set xrange [-2.98:2.98]
+set yrange [-2.98:2.98]
+set cbrange [-4:4]
 
 set terminal jpeg large size 2200, 2000 enhanced font "Arial,20"
 
@@ -24,10 +24,6 @@ set multiplot layout 2, 2
 set key autotitle column nobox samplen 1 noenhanced
 unset title
 
-#set xrange [-0.2:0.2]
-#set yrange [-0.2:0.2]
-#set cbrange [-5e-04:5e-04]
-
 set pm3d map
 set palette color negative
 
@@ -38,7 +34,7 @@ set label "elastico" at graph 0.42, graph 1.02 font "Arial Black,25"
 unset cblabel
 unset colorbox
 set ytics nomirror font "Arial,20" offset 0,0
-set ylabel "V (Ry)" offset 0,0 font "Arial,25"
+set ylabel "V (eV)" offset 0,0 font "Arial,25"
 splot fileEl
 unset label
 
@@ -53,7 +49,7 @@ unset ylabel
 splot fileTot
 unset label
 
-set cbrange [-1000:1000]
+set cbrange [-40:40]
 
 # [2,1]
 set tmargin at screen 0.50; set bmargin at screen 0.10
@@ -61,10 +57,10 @@ set lmargin at screen 0.08; set rmargin at screen 0.46
 set label "inel simetrico" at graph 0.36, graph 1.02 font "Arial Black,25"
 unset cblabel
 unset colorbox
-set xlabel "E_F (Ry)" font "Arial,25"
+set xlabel "E_F (eV)" font "Arial,25"
 set xtics nomirror font "Arial,20" offset 0,0
 set ytics nomirror font "Arial,20" offset 0,0
-set ylabel "V (Ry)" offset 0,0 font "Arial,25"
+set ylabel "V (eV)" offset 0,0 font "Arial,25"
 splot fileSy
 unset label
 
@@ -72,11 +68,11 @@ unset label
 set tmargin at screen 0.50; set bmargin at screen 0.10
 set lmargin at screen 0.48; set rmargin at screen 0.86
 set label "inel assimetrico" at graph 0.35, graph 1.02 font "Arial Black,25"
-set cblabel labelCB offset 0,0 font "Arial,25"
+set cblabel labelCB offset 3.5,0 font "Arial,25"
 set colorbox
 unset ytics
 unset ylabel
-set xlabel "E_F (Ry)" font "Arial,25"
+set xlabel "E_F (eV)" font "Arial,25"
 splot fileAsy
 
 unset multiplot

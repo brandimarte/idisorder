@@ -21,13 +21,20 @@
 #  distributed along with this program or at                            #
 #  <http://www.gnu.org/licenses/gpl.html>).                             #
 #  *******************************************************************  #
-#                              analysis.sh                              #
+#                            submitGPUcnpd.sh                            #
 #  *******************************************************************  #
-#  Description: script for organizing output data for analysis.         #
+#  Description: script for job submition.                               #
 #                                                                       #
-#  Input:  ${1} :  working directory (e.g. '${PBS_O_WORKDIR}')          #
+#  Input:  ${1} :  mpi compiler (e.g. 'mpirun')                         #
+#          ${2} :  Number of procs (e.g. '8')                           #
+#          ${3} :  I-Disorder executable with path                      #
+#          ${4} :  working directory (e.g. '${PBS_O_WORKDIR}')          #
+#          ${5} :  number of runs (e.g. 500)                            #
+#          ${6} :  input file                                           #
 #                                                                       #
-#  Use:  $ ./analysis [working directory]                               #
+#  Use:  $ ./submit.sh [mpi compiler] [# of procs] \                    #
+#          [I-Disorder executable] [working directory] \                #
+#          [# of runs] [input file]                                     #
 #                                                                       #
 #  Written by Pedro Brandimarte, Feb 2014.                              #
 #  Instituto de Fisica                                                  #
@@ -65,77 +72,120 @@ echo ""
 echo "   ${linh}${linh}"
 
 # Checks if the number of arguments is correct.
-if [ ${#} != 1 ]
+if [ ${#} != 6 ]
 then
     echo -e "\nI-Disorder: ERROR: wrong number of arguments!\n"
-    echo -e "I-Disorder: Use: ./analysis.sh [working directory]\n"
+    echo -e "I-Disorder: Use: ./submit.sh [mpi compiler]"               \
+	"[# of procs] \ "
+    echo -e "                 [I-Disorder executable]"                  \
+	"[working directory] \ "
+    echo -e "                 [# of runs] [input file]\n"
     exit -1
 fi
 
 # Time is running.
 echo -e ""
-echo -n "I-Disorder: Start of analysis on "
+echo -n "I-Disorder: Start of runs on "
 date
 begin=$(date +%s%N) # initial time with nanoseconds accuracy (haha!)
 
+# Checks if the files and working folder exists and are accessible.
+echo -e ""
+echo -n "I-Disorder: Checking input... "
+check=`command -v ${1}`
+if [ "${check}" == "" ]
+then
+    echo -e "\nI-Disorder: ERROR: the mpi compiler \"${1}\" doesn't"    \
+	"exist or is not accessible!\n"
+    exit -1
+fi
+if [ ${2} -lt 1 ]
+then
+    echo -e "\nI-Disorder: ERROR: invalid number of procs \"${2}\"!\n"
+    exit -1
+elif [ ! -r ${3} ]
+then
+    check=`command -v ${3}`
+    if [ "${check}" == "" ]
+    then
+	echo -e "\nI-Disorder: ERROR: the file \"${3}\" doesn't exist"  \
+	    "or is not accessible!\n"
+	exit -1
+    fi
+elif [ ! -x ${3} ]
+then
+    echo -e "\nI-Disorder: ERROR: you don't have permission to"         \
+	"execute \"${3}\"!\n"
+    exit -1
+elif [ ! -r ${4} ]
+then
+    echo -e "\nI-Disorder: ERROR: the directory \"${4}\" doesn't"       \
+	"exist or is not accessible!\n"
+    exit -1
+elif [ ${5} -lt 1 ]
+then
+    echo -e "\nI-Disorder: ERROR: invalid number of runs \"${5}\"!\n"
+    exit -1
+elif [ ! -r ${6} ]
+then
+    echo -e "\nI-Disorder: ERROR: the file \"${6}\" doesn't exist or"   \
+	"is not accessible!\n"
+    exit -1
+fi
+echo -e "ok!\n"
+
 # Work directory.
-check=`echo "${1}" | sed 's:.*\(.$\):\1:'`
+check=`echo "${4}" | sed 's:.*\(.$\):\1:'`
 if [ "${check}" == "/" ]
 then
-    Wdir=${1}
+    Wdir=${4}
 else
-    Wdir=${1}/
+    Wdir=${4}/
 fi
 
-# Compute the averages.
-cd ${Wdir}/conductance
+# System label.
+SysLabel=`grep -i "SYSTEMLABEL" ${6} | awk '{print $2}'`
+if [ "${SysLabel}" == "" ]
+then
+    echo -e "ERROR: can't find the 'SystemLabel' at input file!\n"
+    exit -1
+fi
 
-paste *_ExVxI.CUR | awk '{ for (i=1; i<=6; i++)                         \
-    {a[i]=0; for (j=i; j<=NF; j+=6) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=6; i++) printf (" % .7E", 6*a[i]/NF);}               \
-    printf ("\n");}' > ExVxI.tot
+# Create output directories.
+if [ ! -r "${Wdir}/conductance" ]
+then
+    mkdir ${Wdir}/conductance
+fi
+if [ ! -r "${Wdir}/power" ]
+then
+    mkdir ${Wdir}/power
+fi
+if [ ! -r "${Wdir}/spectral" ]
+then
+    mkdir ${Wdir}/spectral
+fi
 
-paste *_ExVxdI.dIdV | awk '{ for (i=1; i<=6; i++)                       \
-    {a[i]=0; for (j=i; j<=NF; j+=6) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=6; i++) printf (" % .7E", 6*a[i]/NF);}               \
-    printf ("\n");}' > ExVxdI.tot
+for i in `seq 1 ${5}`; do
 
-paste *_ExVxd2I.d2IdV2 | awk '{ for (i=1; i<=6; i++)                    \
-    {a[i]=0; for (j=i; j<=NF; j+=6) a[i]+=$j;} if (NF > 0)              \
-    { for (i=1; i<=6; i++) printf (" % .7E", 6*a[i]/NF);}               \
-    printf ("\n");}' > ExVxd2I.tot
+    sed "s/SystemLabel ${SysLabel}/SystemLabel ${SysLabel}-${i}/" ${6}  \
+	> ${6}_${i}.in
 
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $3);     \
-      else {printf ("\n");}}' ExVxI.tot > ExVxIel.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $4);     \
-      else {printf ("\n");}}' ExVxI.tot > ExVxIsy.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $5);     \
-      else {printf ("\n");}}' ExVxI.tot > ExVxIasy.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $6);     \
-      else {printf ("\n");}}' ExVxI.tot > ExVxItot.tot
+    ${1} -np ${2} ${3} < ${6}_${i}.in > output_${i}.out
+    wait
 
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $3);     \
-      else {printf ("\n");}}' ExVxdI.tot > ExVxdIel.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $4);     \
-      else {printf ("\n");}}' ExVxdI.tot > ExVxdIsy.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $5);     \
-      else {printf ("\n");}}' ExVxdI.tot > ExVxdIasy.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $6);     \
-      else {printf ("\n");}}' ExVxdI.tot > ExVxdItot.tot
+    mv *.CUR ${Wdir}/conductance/
+    mv *.dIdV ${Wdir}/conductance/
+    mv *.d2IdV2 ${Wdir}/conductance/
+    mv *.PWR ${Wdir}/power/
+    mv *.DOS ${Wdir}/spectral/
+    mv *.SPCTR ${Wdir}/spectral/
 
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $3);     \
-      else {printf ("\n");}}' ExVxd2I.tot > ExVxd2Iel.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $4);     \
-      else {printf ("\n");}}' ExVxd2I.tot > ExVxd2Isy.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $5);     \
-      else {printf ("\n");}}' ExVxd2I.tot > ExVxd2Iasy.tot
-awk '{if (NF > 0) printf ("  % .7E  % .7E  % .7E  \n", $1, $2, $6);     \
-      else {printf ("\n");}}' ExVxd2I.tot > ExVxd2Itot.tot
+done
 
 # Finishing.
 end=$(date +%s%N) # final time with nanoseconds accuracy
 echo -e ""
-echo -n "I-Disorder: End of analysis on "
+echo -n "I-Disorder: End of run on "
 date
 tempo=`echo "scale = 10; (${end} - ${begin}) / 60000000000" | bc`
 echo -e "\nI-Disorder: Run time = ${tempo} min\n"
