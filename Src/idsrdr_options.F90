@@ -58,7 +58,7 @@ MODULE idsrdr_options
   integer :: nAsymmPts    ! Number of energy grid points
                           ! for asymmetric term integral
   integer :: ProcsPerGPU  ! Number of processes running per GPU
-
+  integer :: SigmaMethod  ! Method for calculating the lead self-energy
   integer, parameter :: label_length = 60 ! Length of system label
 
   real(8) :: avgdist      ! Average defect distance
@@ -79,6 +79,9 @@ MODULE idsrdr_options
   real(8) :: TBcouplDB    ! Tight-binding dangling bond coupling
   real(8) :: phonDamp     ! Phenomenological damping parameter
                           ! (~ inverse of phonon's lifetime)
+  real(8) :: imDelta      ! Small imaginary part
+  real(8) :: deltaEn      ! energy step size (defined at 'idsrdr_engrid')
+
 
   character(len=60) :: directory ! Working directory
   character(len=label_length), save :: slabel ! System Label
@@ -104,6 +107,7 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode              : True if it is the I/O node             !
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
+!  integer MPI_Comm_MyWorld    : MPI communicator                       !
 !  ***************************** OUTPUT ******************************  !
 !  logical readunitstf       : Read 'UnitIndex' block?                  !
 !  logical tightbinding      : Tight-binding calculation?               !
@@ -117,8 +121,9 @@ CONTAINS
 !  integer NIVP              : Number of bias potential points          !
 !  integer nAsymmPts         : Number of energy grid points             !
 !                              for asymmetric term integral             !
-!  integer label_length      : Length of system label                   !
 !  integer ProcsPerGPU       : Number of processes running per GPU      !
+!  integer SigmaMethod       : Method for calculating self-energy       !
+!  integer label_length      : Length of system label                   !
 !  real*8 avgdist            : Average defect distance                  !
 !  real*8 TEnergI            : Initial transmission energy              !
 !  real*8 TEnergF            : Final transmission energy                !
@@ -139,6 +144,7 @@ CONTAINS
 !  real*8 TBcouplDB          : Tight-binding dangling bond coupling     !
 !  real*8 phonDamp           : Phenomenological damping parameter       !
 !                              (~ inverse of phonon's lifetime)         !
+!  real*8 imDelta            : Small imaginary part                     !
 !  character(60) directory   : Working directory                        !
 !  character(label_length) slabel : System Label (for output files)     !
 !  *******************************************************************  !
@@ -275,6 +281,22 @@ CONTAINS
                '     =', TEnergF, ' Ry'
        endif
 
+!      Method for calculating the lead self-energy.
+       SigmaMethod = fdf_integer ('SigmaMethod', 0)
+       write(6,4)                                                       &
+            'readopt: Lead self-energy method                       =', &
+            SigmaMethod
+
+       if (SigmaMethod == 1) then
+
+!         Small imaginary part.
+          imDelta  = fdf_double ('DeltaImag', 1.d-4)
+          write(6,9)                                                    &
+               'readopt: Small imaginary part                     ' //  &
+               '     =', imDelta
+
+       endif
+
 !      Number of energy grid points for asymmetric term integral.
        nAsymmPts = fdf_integer('AsymmGridPts', 1000)
        write (6,4)                                                      &
@@ -408,8 +430,12 @@ CONTAINS
                     MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (TEnergF, 1, MPI_Double_Precision, 0,                &
                     MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (directory, 60, MPI_Character, 0,                    &
+    call MPI_Bcast (SigmaMethod, 1, MPI_Integer, 0,                     &
                     MPI_Comm_MyWorld, MPIerror)
+    if (SigmaMethod == 1) then
+       call MPI_Bcast (imDelta, 1, MPI_Double_Precision, 0,             &
+                       MPI_Comm_MyWorld, MPIerror)
+    endif
     call MPI_Bcast (nAsymmPts, 1, MPI_Integer, 0,                       &
                     MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (readunitstf, 1, MPI_Logical, 0,                     &
@@ -442,9 +468,11 @@ CONTAINS
        call MPI_Bcast (phonDamp, 1, MPI_Double_Precision, 0,            &
                        MPI_Comm_MyWorld, MPIerror)
     endif
+    call MPI_Bcast (writeondisk, 1, MPI_Logical, 0,                     &
+                    MPI_Comm_MyWorld, MPIerror)
     call MPI_Bcast (ProcsPerGPU, 1, MPI_Integer, 0,                     &
                     MPI_Comm_MyWorld, MPIerror)
-    call MPI_Bcast (writeondisk, 1, MPI_Logical, 0,                     &
+    call MPI_Bcast (directory, 60, MPI_Character, 0,                    &
                     MPI_Comm_MyWorld, MPIerror)
 !   It is not necessary to broadcast 'nunits' here.
 #endif
@@ -459,7 +487,8 @@ CONTAINS
 1   format(a,6x,l1)
 2   format(a,a)
 4   format(a,i7)
-6   format(a,f12.4,a)
+6   format(a,f14.8,a)
+9   format(a,f14.8)
 
 
   end subroutine readopt

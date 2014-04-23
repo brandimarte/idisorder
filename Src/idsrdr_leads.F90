@@ -102,6 +102,7 @@ CONTAINS
 !  Original version:    October 2013                                    !
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode               : True if it is the I/O node            !
+!  integer MPI_Comm_MyWorld     : MPI communicator                      !
 !  integer nspin                : Number of spin components             !
 !  real*8 temp                  : Electronic temperature                !
 !  character(60) directory      : Working directory                     !
@@ -688,7 +689,7 @@ CONTAINS
     allocate (foo23(N2,N2-number))
     allocate (foo32(N2-number,N2), aux32(N2-number,N2))
 
-    IF (info == 0) THEN
+    IF (INFO == 0) THEN
        If (side == 'L') Then
           if (side_rank == 'N') then
 
@@ -797,7 +798,7 @@ CONTAINS
 
 !               ('Gr_square = Gr_1 * Gr_1')
                 call HI_zgemm ('N', 'N', N3, N3, N3, (1.d0,0.d0),       &
-                               Gr_1, N3, Gr_1,N3, (0.d0,0.d0),          &
+                               Gr_1, N3, Gr_1, N3, (0.d0,0.d0),         &
                                Gr_square, N3)
 
                 Gr_1 = Gr_1 - smear*Gr_square
@@ -956,15 +957,15 @@ CONTAINS
 
        RETURN
 
-    ENDIF ! IF (info == 0)
+    ENDIF ! IF (INFO == 0)
 
 !   Free memory.
     deallocate (T1_aux, H1_aux, H1_dag_aux, h0corr)
     deallocate (Gr)
     deallocate (Gr_1)
-    deallocate (foo23)
-    deallocate (foo32, aux32)
     deallocate (T1, T1_dag)
+    deallocate (foo32, aux32)
+    deallocate (foo23)
 
 
   end subroutine selfenergy
@@ -985,6 +986,8 @@ CONTAINS
 !  ***************************** HISTORY *****************************  !
 !  Original version:    June 2003                                       !
 !  *********************** INPUT FROM MODULES ************************  !
+!  logical IOnode             : True if it is the I/O node              !
+!  integer MPI_Comm_MyWorld   : MPI communicator                        !
 !  real*8 imDelta             : Small imaginary part                    !
 !  ****************************** INPUT ******************************  !
 !  character(len=1) SIDE      : 'L' (left) or 'R' (right) depending on  !
@@ -1007,7 +1010,17 @@ CONTAINS
 !
 !   Modules
 !
+#ifdef MPI
+    use parallel,        only: IOnode, MPI_Comm_MyWorld
+#else
+    use parallel,        only: IOnode
+#endif
     use idsrdr_options,  only: imDelta
+    use fdf
+
+#ifdef MPI
+    include "mpif.h"
+#endif
 
 !   Input variables.
     integer, intent(in) :: N2
@@ -1019,38 +1032,155 @@ CONTAINS
     character(len=1), intent(in) :: SIDE
 
 !   Local variables.
-    integer :: i, neig
-    real(8) :: maxkappa, dsigma
-    complex(8) :: Ei0
+    integer :: j, neig
+    real(8) :: dsigma, maxsigma, dsigmar, dgammam
+    real(8), parameter :: pi = 3.1415926535897932384626433832795028841D0
+    complex(8) :: Ei0, tracegs0, tracegsm1, alpha
     complex(8), parameter :: zi = (0.D0,1.D0) ! complex i
     complex(8), allocatable, dimension (:) :: zeig
-    complex(8), allocatable, dimension (:,:) :: k0, k1, km1
+    complex(8), allocatable, dimension (:,:) :: k0, k1, km1, k1o, k1ob, &
+                                                Gr_2, Gr_2t, Aux,       &
+                                                rho0, rhom1
+    logical, save :: pdosgs, skipright
+    logical, save :: firstcall = .true.
+    external :: HI_zgeInvert, HI_zgemm
+#ifdef MPI
+    integer :: MPIerror ! Return error code in MPI routines
+#endif
 
-
-!   Allocate matrices and arrays.
-    allocate (k0(N2,N2), k1(N2,N2), km1(N2,N2))
-    allocate (zeig(2*N2))
 
 !   Initialize variables.
-    maxkappa = 1.d0
     Ei0 = Ei
+    if (firstcall) then
+
+       firstcall = .false.
+
+       if (IOnode) then
+          pdosgs = fdf_boolean ('Sigma.PDOS', .false.)
+          skipright = fdf_boolean ('Sigma.SkipRight', .false.)
+       endif
+
+#ifdef MPI
+       call MPI_Bcast (pdosgs, 1, MPI_Logical, 0,                       &
+                       MPI_Comm_MyWorld, MPIerror)
+       call MPI_Bcast (skipright, 1, MPI_logical, 0,                    &
+                       MPI_Comm_MyWorld, MPIerror)
+#endif
+    endif
+
+!   Allocate matrices and arrays.
+    allocate (k0(N2,N2), k1(N2,N2), km1(N2,N2), k1o(N2,N2),             &
+              k1ob(N2,N2), Gr_2(N2,N2), Gr_2t(N2,N2),                   &
+              rho0(N2,N2), rhom1(N2,N2))
+    allocate (zeig(2*N2))
 
 !   Check energy step size.
-    if (deltaene > 1.d-4) deltaene = 1.d-4
+    if (deltaene > 10d-4) deltaene = 1.d-4 ! shouldn't it be:
+                                           ! if (deltaene > 1.d-4) ?
 
-    do i = 1,100
+!   Set energy and hamiltonians.
+    Ei0 = Ei0 + zi * imDelta
+    k0 = H0 - Ei0*S0
+    k1 = H1 - Ei0*S1
+    km1 = DCONJG(TRANSPOSE(H1)) - Ei0 * DCONJG(TRANSPOSE(S1))
 
-!      Set energy and hamiltonians.
-       Ei0 = Ei0 + zi * imDelta
-       k0 = H0 - Ei0*S0
-       k1 = H1 - Ei0*S1
-       km1 = DCONJG(TRANSPOSE(H1)) - Ei0*DCONJG(TRANSPOSE(S1))
+    if (skipright .and. SIDE == 'R' ) then
 
-!      
-       call kofewrap (SIDE, 'S', k0, k1, km1, N2,                       &
-                      zeig, neig, Ei0, dsigma, nrchan)
+!      Free memory.
+       deallocate (k0, k1, km1)
+       deallocate (zeig)
 
-    enddo
+       RETURN
+
+    endif
+
+!   Compute lead self-energy.
+    call kofewrap (SIDE, 'S', k0, k1, km1, N2,                          &
+                   zeig, neig, Ei0, dsigma, nrchan)
+
+    if (pdosgs .and. SIDE == 'L') then
+
+!      Allocate matrices and arrays.
+       allocate (k1o(N2,N2), k1ob(N2,N2), Gr_2(N2,N2), Gr_2t(N2,N2),    &
+                 rho0(N2,N2), rhom1(N2,N2), Aux(N2,N2))
+
+       k1o = H0 - Ei0 * S0
+       k1 = H1 - Ei0 * S1
+       km1 = DCONJG(TRANSPOSE(H1)) - Ei0 * DCONJG(TRANSPOSE(S1))
+
+       dgammam = MAXVAL(ABS(DREAL(k0-DCONJG(TRANSPOSE(k0)))))
+       dgammam = 0D0
+       do j = 1,n2
+          dgammam = dgammam + DREAL(k0(j,j))
+       enddo
+
+       k1o = - k1o - k0
+       call HI_zgeInvert (k1o, n2)
+       Gr_2 = k1o
+
+!      ('k1ob = km1 * Gr_2')
+       call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),                &
+                      km1, N2, Gr_2, N2, (0.d0,0.d0), k1ob, N2)
+
+!      ('k1o = k1ob * k1')
+       call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),                &
+                      k1ob, N2, k1, N2, (0.d0,0.d0), k1o, N2)
+
+       k1ob = k0 - k1o
+       dsigma = MAXVAL(ABS(k1ob))
+       maxsigma = MAXVAL(ABS(k0))
+       dsigmar = dsigma / maxsigma
+
+       Gr_2t = DCONJG(TRANSPOSE(Gr_2))
+       rho0 = (0.5d0 * zi / pi) * (Gr_2 - Gr_2t)
+
+!    **('rhom1 = (0.5*zi/pi) * (Gr_2t*k1^dagger*Gr_2 - Gr_2*km1*Gr_2)')**
+
+!      ('Aux = - (0.5*zi/pi) * Gr_2 * km1')
+       alpha = - 0.5d0 * zi / pi
+       call HI_zgemm ('N', 'N', N2, N2, N2, alpha,                      &
+                      Gr_2, N2, km1, N2, (0.d0,0.d0), Aux, N2)
+
+!      ('rhom1 = Aux * Gr_2')
+       call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),                &
+                      Aux, N2, Gr_2, N2, (0.d0,0.d0), rhom1, N2)
+
+!      ('Aux = (0.5*zi/pi) * Gr_2t * k1^dagger')
+       alpha = 0.5d0 * zi / pi
+       call HI_zgemm ('N', 'C', N2, N2, N2, alpha,                      &
+                      Gr_2t, N2, k1, N2, (0.d0,0.d0), Aux, N2)
+
+!      ('rhom1 = Aux * Gr_2 + rhom1')
+       call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),                &
+                      Aux, N2, Gr_2, N2, (1.d0,0.d0), rhom1, N2)
+
+!      ('rho0 = rho0 * S0')
+       Aux = rho0
+       call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),                &
+                      Aux, N2, S0, N2, (0.d0,0.d0), rho0, N2)
+
+!      ('rhom1 = rhom1 * S1')
+       Aux = rhom1
+       call HI_zgemm ('N', 'N', N2, N2, N2, (1.d0,0.d0),                &
+                      Aux, N2, S1, N2, (0.d0,0.d0), rhom1, N2)
+
+       tracegs0 = 0.d0
+       do j = 1,n2
+          tracegs0 = tracegs0 + rho0(j,j)
+       enddo
+       tracegsm1 = 0.d0
+       do j=1,n2
+          tracegsm1 = tracegsm1 + rhom1(j,j)
+       enddo
+       write (12347,'(a," ",e," ",9(e," "))') "trrss = ", DREAL(Ei0),   &
+            DREAL(tracegs0), DREAL(tracegs0+tracegsm1),                 &
+            DREAL(tracegsm1), DIMAG(tracegsm1), dsigma, dsigmar,        &
+            maxsigma, DIMAG(Ei0), dgammam
+
+!      Free memory.
+       deallocate (k1o, k1ob, Gr_2, Gr_2t, rho0, rhom1, Aux)
+
+    endif ! if (pdosgs .and. SIDE == 'L')
 
     Sigma = k0
 
@@ -1078,6 +1208,7 @@ CONTAINS
 !  *********************** INPUT FROM MODULES ************************  !
 !  logical IOnode                : True if it is the I/O node           !
 !  integer Node                  : Actual node (MPI_Comm_rank)          !
+!  integer MPI_Comm_MyWorld      : MPI communicator                     !
 !  ****************************** INPUT ******************************  !
 !  character(len=1) SIDE         : 'L' (left) or 'R' (right) depending  !
 !                                  on the self-energy calculated        !
@@ -1359,8 +1490,6 @@ CONTAINS
           k0 = k0input
 !!$          k0 = 0.5d0 * (k0 + DCONJG(TRANSPOSE(k0)))
           k1o = k1
-!!$          call ZGETRF (n, n, k1o, n, IPIV, INFO)
-!!$          call ZGETRI (n, k1o, n, IPIV, worki, n*n, INFO)
           call HI_zgeInvert (k1o, n)
 
        endif
@@ -1379,6 +1508,8 @@ CONTAINS
 
        usehinv1 = .false.
 
+       m2s = 0.d0
+
 !      ('Aux = - k1o * k0')
        call HI_zgemm ('N', 'N', n, n, n, (-1.d0,0.d0),                  &
                       k1o, n, k0, n, (0.d0,0.d0), Aux, n)
@@ -1388,7 +1519,7 @@ CONTAINS
        call HI_zgemm ('N', 'N', n, n, n, (-1.d0,0.d0),                  &
                       k1o, n, km1, n, (0.d0,0.d0), Aux, n)
        m2s(1:n,n+1:2*n) = Aux
-       m2s(1+n:2*n,1:2*n) = 0.d0
+
        do i = 1,n
           m2s(n+i,i) = 1.d0
        enddo
@@ -1791,8 +1922,6 @@ CONTAINS
        call HI_zgemm ('N', 'N', n, n, n, (1.d0,0.d0),                   &
                       km1, n, Aux, n, (0.d0,0.d0), k1o, n)
 
-!!$       call ZGETRF (n, n, k1o, n, IPIV, INFO)
-!!$       call ZGETRI (n, k1o, n, IPIV, worki, n*n, INFO)
        call HI_zgeInvert (k1o, n)
 
 !!$       tracegs = 0.d0
@@ -1832,14 +1961,14 @@ CONTAINS
 
 !         ('sigma = km1 * al')
           call HI_zgemm ('N', 'N', n, n, n, (1.d0,0.d0),                &
-                      km1, n, al, n, (0.d0,0.d0), sigma, n)
+                         km1, n, al, n, (0.d0,0.d0), sigma, n)
 !!$          sigma = matmul(DCONJG(TRANSPOSE(k1input)),al)
 
        else
 
 !         ('sigma = km1 * ar')
           call HI_zgemm ('N', 'N', n, n, n, (1.d0,0.d0),                &
-                      km1, n, ar, n, (0.d0,0.d0), sigma, n)
+                         km1, n, ar, n, (0.d0,0.d0), sigma, n)
 !!$          sigma = matmul(DCONJG(TRANSPOSE(k1input)),ar)
 
        endif
@@ -2744,7 +2873,7 @@ CONTAINS
 !  *******************************************************************  !
 !                             geigenvalues2                             !
 !  *******************************************************************  !
-!  Description: call lapack 'zggev' for computing the eigenvalues and   !
+!  Description: call lapack 'zgeevx' for computing the eigenvalues and  !
 !  left and right eigenvectors of a general matrix, with preliminary    !
 !  matrix balancing, and computes reciprocal condition numbers for the  !
 !  eigenvalues and right eigenvectors.                                  !
@@ -2792,7 +2921,7 @@ CONTAINS
     matbuf = mat
     call zgeevx ('P', 'N', 'V', 'N', N, matbuf, N, zv,                  &
                  vlg, N, vrg, N, ilo, ihi, scaleev, abnrm,              &
-                 rconde, rcondv, work, 4*n , rwork, info)
+                 rconde, rcondv, work, 4*n, rwork, info)
 
 !   Free memory.
     deallocate (scaleev, rconde, rcondv)

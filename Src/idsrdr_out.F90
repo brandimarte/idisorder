@@ -47,13 +47,20 @@ MODULE idsrdr_out
   use idsrdr_string,   only: 
   use idsrdr_power,    only: 
   use idsrdr_conduct,  only: 
+  use idsrdr_leads,    only: 
  
   implicit none
 
   PUBLIC  :: output
   PRIVATE :: writespectral, writecurrent, writepower,                   &
-             writedIdV, writed2IdV2
+             writedIdV, writed2IdV2, eoverh
 
+! Constants. (physical constants from CODATA 2013)
+!!$  real(8), parameter :: e   = 1.602176565D-19 ! C
+!!$  real(8), parameter :: h   = 4.135667516D-15 ! eV*s
+!!$  real(8), parameter :: Rhc = 13.60569253D0 ! eV
+  real(8), parameter :: eoverh = 1.602176565D-4 * 13.60569253D0 /       &
+                                 4.135667516D0 ! C/(Ry*s)
 
 CONTAINS
 
@@ -139,7 +146,7 @@ CONTAINS
 !
 !   Modules
 !
-#ifdef MASTER_SLAVE
+#ifdef MPI
     use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
 #else
     use parallel,        only: IOnode, Node, Nodes
@@ -150,6 +157,7 @@ CONTAINS
     use idsrdr_spectral, only: spctrl, dos
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRconcat, STRpaste
+    use idsrdr_leads,    only: EfLead
 
 #ifdef MPI
     include "mpif.h"
@@ -229,9 +237,9 @@ CONTAINS
 
 !               'Ei' in eV (from CODATA - 2012).
                 write (iuSpc, '(/,e17.8e3)', advance='no')              &
-                     Ei(e) * 13.60569253D0
+                     (Ei(e) - EfLead) * 13.60569253D0
                 write (iuDos, '(/,e17.8e3)', advance='no')              &
-                     Ei(e) * 13.60569253D0
+                     (Ei(e) - EfLead) * 13.60569253D0
 
                 do s = 1,nspin
 !                  'spctrl' and 'dos' in 1/eV (from CODATA - 2012).
@@ -246,33 +254,33 @@ CONTAINS
 #elif defined MPI
           elseif (Node == n) then
              call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
-                            0, 1, MPI_Comm_world, MPIerror)
+                            0, 1, MPI_Comm_MyWorld, MPIerror)
              call MPI_Send (spctrl(1,1,J), NTenerg_div*nspin,           &
                             MPI_Double_Precision, 0, 2,                 &
-                            MPI_Comm_world, MPIerror)
+                            MPI_Comm_MyWorld, MPIerror)
              call MPI_Send (dos(1,1,J), NTenerg_div*nspin,              &
                             MPI_Double_Precision, 0, 3,                 &
-                            MPI_Comm_world, MPIerror)
+                            MPI_Comm_MyWorld, MPIerror)
           elseif (Node == 0) then
              call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,  &
-                            n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+                            n, 1, MPI_Comm_MyWorld, MPIstatus, MPIerror)
              call MPI_Recv (buffSpc, NTenerg_div*nspin,                 &
                             MPI_Double_Precision, n, 2,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
+                            MPI_Comm_MyWorld, MPIstatus, MPIerror)
              call MPI_Recv (buffDos, NTenerg_div*nspin,                 &
                             MPI_Double_Precision, n, 3,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
+                            MPI_Comm_MyWorld, MPIstatus, MPIerror)
           endif
           if (n /= 0) then
-             call MPI_Barrier (MPI_Comm_world, MPIerror)
+             call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
              if (Node == 0) then
                 do e = 1,NTenerg_div
 
 !                  'Ei' in eV (from CODATA - 2012).
                    write (iuSpc, '(/,e17.8e3)', advance='no')           &
-                        buffEn(e) * 13.60569253D0
+                        (buffEn(e) - EfLead) * 13.60569253D0
                    write (iuDos, '(/,e17.8e3)', advance='no')           &
-                        buffEn(e) * 13.60569253D0
+                        (buffEn(e) - EfLead) * 13.60569253D0
 
                    do s = 1,nspin
 
@@ -348,7 +356,7 @@ CONTAINS
 !
 !   Modules
 !
-#ifdef MASTER_SLAVE
+#ifdef MPI
     use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
 #else
     use parallel,        only: IOnode, Node, Nodes
@@ -363,6 +371,7 @@ CONTAINS
 #endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
+    use idsrdr_leads,    only: EfLead
 
 #ifdef MPI
     include "mpif.h"
@@ -447,13 +456,15 @@ CONTAINS
 
                 do v = 1,NIVP
 
-!                  'Ei' and 'Vbias' in eV (from CODATA - 2012).
+!                  'Ei' and 'Vbias' in eV and 'I' in A (CODATA-2012).
                    write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'      //  &
                         'e17.8e3,e17.8e3,e17.8e3)')                     &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        allcurr(e,s,v)%el, allcurr(e,s,v)%isymm,        &
-                        allcurr(e,s,v)%iasymm, allcurr(e,s,v)%el        &
-                        + allcurr(e,s,v)%isymm + allcurr(e,s,v)%iasymm
+                        (Ei(e) - EfLead)*13.60569253D0,                 &
+                        Vbias*13.60569253D0, allcurr(e,s,v)%el*eoverh,  &
+                        allcurr(e,s,v)%isymm*eoverh,                    &
+                        allcurr(e,s,v)%iasymm*eoverh,                   &
+                        (allcurr(e,s,v)%el + allcurr(e,s,v)%isymm       &
+                        + allcurr(e,s,v)%iasymm)*eoverh
 
                    Vbias = Vbias + dV
 
@@ -468,17 +479,17 @@ CONTAINS
 #elif defined MPI
        elseif (Node == n) then
           call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,         &
-                         0, 1, MPI_Comm_world, MPIerror)
+                         0, 1, MPI_Comm_MyWorld, MPIerror)
           call MPI_Send (allcurr(1,1,1), NTenerg_div*nspin*NIVP,        &
-                         MPIcalcCurr, 0, 2, MPI_Comm_world, MPIerror)
+                         MPIcalcCurr, 0, 2, MPI_Comm_MyWorld, MPIerror)
        elseif (Node == 0) then
           call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,     &
-                         n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+                         n, 1, MPI_Comm_MyWorld, MPIstatus, MPIerror)
           call MPI_Recv (buffCurr, NTenerg_div*nspin*NIVP, MPIcalcCurr, &
-                         n, 2, MPI_Comm_world, MPIstatus, MPIerror)
+                         n, 2, MPI_Comm_MyWorld, MPIstatus, MPIerror)
        endif
        if (n /= 0) then
-          call MPI_Barrier (MPI_Comm_world, MPIerror)
+          call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
           if (Node == 0) then
              do e = 1,NTenerg_div
                 do s = 1,nspin
@@ -487,14 +498,16 @@ CONTAINS
 
                    do v = 1,NIVP
 
-!                     'Ei' and 'Vbias' in eV (from CODATA - 2012).
+!                     'Ei' and 'Vbias' in eV and 'I' in A (CODATA-2012).
                       write (iuExVxI, '(e17.8e3,e17.8e3,e17.8e3,'   //  &
                            'e17.8e3,e17.8e3,e17.8e3)')                  &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffCurr(e,s,v)%el, buffCurr(e,s,v)%isymm,   &
-                           buffCurr(e,s,v)%iasymm, buffCurr(e,s,v)%el   &
-                           + buffCurr(e,s,v)%isymm                      &
-                           + buffCurr(e,s,v)%iasymm
+                           (buffEn(e) - EfLead)*13.60569253D0,          &
+                           Vbias*13.60569253D0,                         &
+                           buffCurr(e,s,v)%el*eoverh,                   &
+                           buffCurr(e,s,v)%isymm*eoverh,                &
+                           buffCurr(e,s,v)%iasymm*eoverh,               &
+                           (buffCurr(e,s,v)%el + buffCurr(e,s,v)%isymm  &
+                           + buffCurr(e,s,v)%iasymm)*eoverh
 
                       Vbias = Vbias + dV
 
@@ -574,7 +587,7 @@ CONTAINS
 !
 !   Modules
 !
-#ifdef MASTER_SLAVE
+#ifdef MPI
     use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
 #else
     use parallel,        only: IOnode, Node, Nodes
@@ -587,6 +600,7 @@ CONTAINS
     use idsrdr_power,    only: phPwr
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRconcat, STRpaste
+    use idsrdr_leads,    only: EfLead
 
 #ifdef MPI
     include "mpif.h"
@@ -663,7 +677,7 @@ CONTAINS
 !                     'phPwr' in eV/s and, 'Ei' and 'Vbias'
 !                     in eV (from CODATA - 2012).
                       write (iuExVxP, '(/,e17.8e3,e17.8e3)',            &
-                           advance='no') Ei(e)*13.60569253D0,           &
+                           advance='no') (Ei(e)-EfLead)*13.60569253D0,  &
                            Vbias*13.60569253D0
                       do w = 1,nModes(idx)
                          write (iuExVxP, '(e17.8e3)', advance='no')     &
@@ -686,21 +700,21 @@ CONTAINS
 #elif defined MPI
           elseif (Node == n) then
              call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,      &
-                            0, 1, MPI_Comm_world, MPIerror)
+                            0, 1, MPI_Comm_MyWorld, MPIerror)
              call MPI_Send (phPwr(u)%P(1,1,1,1),                        &
                             NTenerg_div*nspin*NIVP*nModes(idx),         &
                             MPI_Double_Precision, 0, 2,                 &
-                            MPI_Comm_world, MPIerror)
+                            MPI_Comm_MyWorld, MPIerror)
           elseif (Node == 0) then
              call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,  &
-                            n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+                            n, 1, MPI_Comm_MyWorld, MPIstatus, MPIerror)
              call MPI_Recv (buffPwr,                                    &
                             NTenerg_div*nspin*NIVP*nModes(idx),         &
                             MPI_Double_Precision, n, 2,                 &
-                            MPI_Comm_world, MPIstatus, MPIerror)
+                            MPI_Comm_MyWorld, MPIstatus, MPIerror)
           endif
           if (n /= 0) then
-             call MPI_Barrier (MPI_Comm_world, MPIerror)
+             call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
              if (Node == 0) then
                 do e = 1,NTenerg_div
                    do s = 1,nspin
@@ -713,7 +727,7 @@ CONTAINS
 !                        in eV (from CODATA - 2012).
                          write (iuExVxP, '(/,e17.8e3,e17.8e3)',         &
                               advance='no') Vbias*13.60569253D0,        &
-                              buffEn(e)*13.60569253D0
+                              (buffEn(e)-EfLead)*13.60569253D0
                          do w = 1,nModes(idx)
                             write (iuExVxP, '(e17.8e3)', advance='no')  &
                                  buffPwr(e,s,v,w)*13.60569253D0
@@ -794,7 +808,7 @@ CONTAINS
 !
 !   Modules
 !
-#ifdef MASTER_SLAVE
+#ifdef MPI
     use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
 #else
     use parallel,        only: IOnode, Node, Nodes
@@ -809,6 +823,7 @@ CONTAINS
 #endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
+    use idsrdr_leads,    only: EfLead
 
 #ifdef MPI
     include "mpif.h"
@@ -895,15 +910,14 @@ CONTAINS
                 do v = 1,NIVP
 
 !                  'Ei' and 'Vbias' in eV, and 'dIdV'
-!                  in A/eV (from CODATA - 2012).
+!                  in G_0 units (from CODATA - 2012).
                    write (iuExVxdI, '(e17.8e3,e17.8e3,e17.8e3,'     //  &
                         'e17.8e3,e17.8e3,e17.8e3)')                     &
-                        Ei(e)*13.60569253D0, Vbias*13.60569253D0,       &
-                        dIdV(e,s,v)%el/13.60569253D0,                   &
-                        dIdV(e,s,v)%symm/13.60569253D0,                 &
-                        dIdV(e,s,v)%asymm/13.60569253D0,                &
-                        (dIdV(e,s,v)%el + dIdV(e,s,v)%symm              &
-                        + dIdV(e,s,v)%asymm)/13.60569253D0
+                        (Ei(e)-EfLead)*13.60569253D0,                   &
+                        Vbias*13.60569253D0, dIdV(e,s,v)%el,            &
+                        dIdV(e,s,v)%symm, dIdV(e,s,v)%asymm,            &
+                        dIdV(e,s,v)%el + dIdV(e,s,v)%symm               &
+                        + dIdV(e,s,v)%asymm
 
                    Vbias = Vbias + dV
 
@@ -918,17 +932,17 @@ CONTAINS
 #elif defined MPI
        elseif (Node == n) then
           call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,         &
-                         0, 1, MPI_Comm_world, MPIerror)
+                         0, 1, MPI_Comm_MyWorld, MPIerror)
           call MPI_Send (dIdV(1,1,1), NTenerg_div*nspin*NIVP,           &
-                         MPIalldIdV, 0, 2, MPI_Comm_world, MPIerror)
+                         MPIalldIdV, 0, 2, MPI_Comm_MyWorld, MPIerror)
        elseif (Node == 0) then
           call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,     &
-                         n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+                         n, 1, MPI_Comm_MyWorld, MPIstatus, MPIerror)
           call MPI_Recv (buffdIdV, NTenerg_div*nspin*NIVP, MPIalldIdV,  &
-                         n, 2, MPI_Comm_world, MPIstatus, MPIerror)
+                         n, 2, MPI_Comm_MyWorld, MPIstatus, MPIerror)
        endif
        if (n /= 0) then
-          call MPI_Barrier (MPI_Comm_world, MPIerror)
+          call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
           if (Node == 0) then
              do e = 1,NTenerg_div
                 do s = 1,nspin
@@ -938,15 +952,14 @@ CONTAINS
                    do v = 1,NIVP
 
 !                     'Ei' and 'Vbias' in eV, and 'dIdV'
-!                     in A/eV (from CODATA - 2012).
+!                     in G_0 units (from CODATA - 2012).
                       write (iuExVxdI, '(e17.8e3,e17.8e3,e17.8e3,' //   &
                            'e17.8e3,e17.8e3,e17.8e3)')                  &
-                           buffEn(e)*13.60569253D0, Vbias*13.60569253D0,&
-                           buffdIdV(e,s,v)%el/13.60569253D0,            &
-                           buffdIdV(e,s,v)%symm/13.60569253D0,          &
-                           buffdIdV(e,s,v)%asymm/13.60569253D0,         &
-                           (buffdIdV(e,s,v)%el + buffdIdV(e,s,v)%symm   &
-                           + buffdIdV(e,s,v)%asymm)/13.60569253D0
+                           (buffEn(e)-EfLead)*13.60569253D0,            &
+                           Vbias*13.60569253D0, buffdIdV(e,s,v)%el,     &
+                           buffdIdV(e,s,v)%symm, buffdIdV(e,s,v)%asymm, &
+                           buffdIdV(e,s,v)%el +  buffdIdV(e,s,v)%symm   &
+                           + buffdIdV(e,s,v)%asymm
 
                       Vbias = Vbias + dV
 
@@ -1024,7 +1037,7 @@ CONTAINS
 !
 !   Modules
 !
-#ifdef MASTER_SLAVE
+#ifdef MPI
     use parallel,        only: IOnode, Node, Nodes, MPI_Comm_MyWorld
 #else
     use parallel,        only: IOnode, Node, Nodes
@@ -1039,6 +1052,7 @@ CONTAINS
 #endif
     use idsrdr_io,       only: IOassign, IOclose
     use idsrdr_string,   only: STRpaste
+    use idsrdr_leads,    only: EfLead
 
 #ifdef MPI
     include "mpif.h"
@@ -1048,7 +1062,6 @@ CONTAINS
     integer :: e, s, v, iuExVxd2I
     real(8) :: Vbias
     real(8), dimension(:), allocatable :: buffEn
-    real(8), parameter :: Ry2 = 13.60569253D0*13.60569253D0
     TYPE(alldIdV), allocatable, dimension (:,:,:) :: buffd2IdV2
     character(len=16) :: suffix
     character(len=label_length+70) :: fExVxd2I
@@ -1127,13 +1140,14 @@ CONTAINS
                 do v = 1,NIVP
 
 !                  'Ei' and 'Vbias' in eV, and 'd2I/dV2'
-!                  in A/V^2 (from CODATA - 2012).
+!                  in G_0/V units (from CODATA - 2012).
                    write (iuExVxd2I, '(e17.8e3,e17.8e3,e17.8e3,'    //  &
-                        'e17.8e3,e17.8e3,e17.8e3)') Ei(e)*13.60569253D0,&
-                        Vbias*13.60569253D0, d2IdV2(e,s,v)%el/Ry2,      &
-                        d2IdV2(e,s,v)%symm/Ry2, d2IdV2(e,s,v)%asymm/Ry2,&
-                        (d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm          &
-                        + d2IdV2(e,s,v)%asymm)/Ry2
+                        'e17.8e3,e17.8e3,e17.8e3)')                     &
+                        (Ei(e)-EfLead)*13.60569253D0,                   &
+                        Vbias*13.60569253D0, d2IdV2(e,s,v)%el,          &
+                        d2IdV2(e,s,v)%symm, d2IdV2(e,s,v)%asymm,        &
+                        d2IdV2(e,s,v)%el + d2IdV2(e,s,v)%symm           &
+                        + d2IdV2(e,s,v)%asymm
 
                    Vbias = Vbias + dV
 
@@ -1148,18 +1162,18 @@ CONTAINS
 #elif defined MPI
        elseif (Node == n) then
           call MPI_Send (Ei, NTenerg_div, MPI_Double_Precision,         &
-                         0, 1, MPI_Comm_world, MPIerror)
+                         0, 1, MPI_Comm_MyWorld, MPIerror)
           call MPI_Send (d2IdV2(1,1,1), NTenerg_div*nspin*NIVP,         &
-                         MPIalld2IdV2, 0, 2, MPI_Comm_world, MPIerror)
+                         MPIalld2IdV2, 0, 2, MPI_Comm_MyWorld, MPIerror)
        elseif (Node == 0) then
           call MPI_Recv (buffEn, NTenerg_div, MPI_Double_Precision,     &
-                         n, 1, MPI_Comm_world, MPIstatus, MPIerror)
+                         n, 1, MPI_Comm_MyWorld, MPIstatus, MPIerror)
           call MPI_Recv (buffd2IdV2, NTenerg_div*nspin*NIVP,            &
-                         MPIalld2IdV2, n, 2, MPI_Comm_world,            &
+                         MPIalld2IdV2, n, 2, MPI_Comm_MyWorld,          &
                          MPIstatus, MPIerror)
        endif
        if (n /= 0) then
-          call MPI_Barrier (MPI_Comm_world, MPIerror)
+          call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
           if (Node == 0) then
              do e = 1,NTenerg_div
                 do s = 1,nspin
@@ -1169,17 +1183,17 @@ CONTAINS
                    do v = 1,NIVP
 
 !                     'Ei' and 'Vbias' in eV, and 'd2I/dV2'
-!                     in A/V^2 (from CODATA - 2012).
+!                     in G_0/V units (from CODATA - 2012).
                       write (iuExVxd2I,                                 &
                            '(e17.8e3,e17.8e3,e17.8e3,e17.8e3,'     //   &
-                           'e17.8e3,e17.8e3)') buffEn(e)*13.60569253D0, &
-                           Vbias*13.60569253D0,                         &
-                           buffd2IdV2(e,s,v)%el/Ry2,                    &
-                           buffd2IdV2(e,s,v)%symm/Ry2,                  &
-                           buffd2IdV2(e,s,v)%asymm/Ry2,                 &
-                           (buffd2IdV2(e,s,v)%el                        &
+                           'e17.8e3,e17.8e3)')                          &
+                           (buffEn(e)-EfLead)*13.60569253D0,            &
+                           Vbias*13.60569253D0, buffd2IdV2(e,s,v)%el,   &
+                           buffd2IdV2(e,s,v)%symm,                      &
+                           buffd2IdV2(e,s,v)%asymm,                     &
+                           buffd2IdV2(e,s,v)%el                         &
                            + buffd2IdV2(e,s,v)%symm                     &
-                           + buffd2IdV2(e,s,v)%asymm)/Ry2
+                           + buffd2IdV2(e,s,v)%asymm
 
                       Vbias = Vbias + dV
 

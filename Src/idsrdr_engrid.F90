@@ -161,6 +161,7 @@ CONTAINS
 !   Modules
 !
     use parallel,        only: Node
+    use idsrdr_options,  only: deltaEn
 
 !   Input variables.
     integer, intent(in) :: NTenerg, NTenerg_div
@@ -169,21 +170,20 @@ CONTAINS
 
 !   Local variables.
     integer :: i
-    real(8) :: dE
 
 !   Initializations.  
     Ei = 0.d0
-    dE = (TenergF - TenergI) / DBLE(NTenerg)
+    deltaEn = (TenergF - TenergI) / DBLE(NTenerg)
 
 #if defined MPI && !defined MASTER_SLAVE
 !   Only MPI
     do i = 1, NTenerg_div
 !      Energ = initial + node shift          + point shift
-       Ei(i) = TenergI + Node*NTenerg_div*dE + (i-1)*dE
+       Ei(i) = TenergI + Node*NTenerg_div*deltaEn + (i-1)*deltaEn
 #else
 !   MASTER_SLAVE and serial fall here
     do i = 1, NTenerg
-       Ei(i) = TenergI + (i-1)*dE
+       Ei(i) = TenergI + (i-1)*deltaEn
 #endif
     end do
 
