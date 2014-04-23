@@ -87,7 +87,7 @@ $(FDF):
 	(cd fdf ; $(MAKE) "VPATH=$(VPATH)/fdf" module)
 
 # Routines using fdf calls.
-idsrdr_init.o idsrdr_options.o idsrdr_units.o : $(FDF)
+idsrdr_init.o idsrdr_options.o idsrdr_units.o idsrdr_leads.o : $(FDF)
 
 #  *******************************************************************  #
 

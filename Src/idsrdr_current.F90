@@ -54,7 +54,7 @@ MODULE idsrdr_current
              freecurr, sumCalcCurr
   PRIVATE :: elastic, transmission, inelSymm, inelSymmDisk, asymmPre,   &
              inelAsymm, inelAsymmDisk, testInelSymm, testInelAsymm,     &
-             modeCurr, currSy, currAsy, kbTol, eoverh
+             modeCurr, currSy, currAsy, kbTol
 
 ! Type for storing calculated currents.
   TYPE calcCurr
@@ -78,12 +78,6 @@ MODULE idsrdr_current
 
   real(8), parameter :: kbTol = 18.d0 ! tolerance value for temperature
 
-! Constants. (physical constants from CODATA 2013)
-!!$  real(8), parameter :: e   = 1.602176565D-19 ! C
-!!$  real(8), parameter :: h   = 4.135667516D-15 ! eV*s
-!!$  real(8), parameter :: Rhc = 13.60569253D0 ! eV
-  real(8), parameter :: eoverh = 1.602176565D-4 * 13.60569253D0 /       &
-                                 4.135667516D0
 
 CONTAINS
 
@@ -289,8 +283,7 @@ CONTAINS
 #endif
 
 !   Compute elastic pre-factor.
-    allcurr(ienergy,ispin,iv)%el = allcurr(ienergy,ispin,iv)%el *       &
-         eoverh * Vbias
+    allcurr(ienergy,ispin,iv)%el = allcurr(ienergy,ispin,iv)%el * Vbias
 
     Isy = 0.d0
     Iasy = 0.d0
@@ -312,6 +305,13 @@ CONTAINS
                * BoseEinstein (freq(idx)%F(w) + Vbias, temp)
           Isy = Isy + foo * currSy(ueph)%I(w)
 
+! TEMP BEGIN
+!!$          write (1618,'(e17.8e3,e17.8e3,e17.8e3)') Vbias,            &
+!!$               currSy(ueph)%I(w), foo
+!!$          write (0339,'(e17.8e3,e17.8e3,e17.8e3)') Vbias,            &
+!!$              currAsy(ueph)%I(w), asymmPre (Ei, freq(idx)%F(w), Vbias)
+! TEMP END
+
 !         Compute asymmetric pre-factor.
           Iasy = Iasy + asymmPre (Ei, freq(idx)%F(w), Vbias) *          &
                currAsy(ueph)%I(w)
@@ -329,8 +329,8 @@ CONTAINS
 #endif
 
 !   Assign symmetric and asymmetric contribution.
-    allcurr(ienergy,ispin,iv)%isymm = eoverh * Isy
-    allcurr(ienergy,ispin,iv)%iasymm = eoverh * Iasy
+    allcurr(ienergy,ispin,iv)%isymm = Isy
+    allcurr(ienergy,ispin,iv)%iasymm = Iasy
 
 
 
