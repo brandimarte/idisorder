@@ -76,6 +76,7 @@ extern "C" void zsytri_(char* uplo, int *N, doubleComplex *A, int *LDA, int *ipi
 # define HI_Finalize         hi_finalize_
 # define HI_GetGPUcount      hi_getgpucount_
 # define HI_PrintInfo        hi_printinfo_
+# define HI_Info             hi_info_
 
 # define HI_zgemm            hi_zgemm_
 # define HI_zsymm            hi_zsymm_
@@ -92,6 +93,7 @@ extern "C" void HI_Init(int *Proc_id, int *ProcsPerGPU);
 extern "C" void HI_Finalize(void);
 extern "C" void HI_GetGPUcount(int *Ngpus);
 extern "C" void HI_PrintInfo(int *Proc_id, int *ProcsPerGPU);
+extern "C" void HI_Info(int *Proc_id, int *ProcsPerGPU, int *fmyGPU, int *fGPUcount, int *fVirtualGPUcount, int *fIuseGPU);
 
 #ifdef MAGMA
 static inline cublasOperation_t char2cublas_op  (char *char_op);
@@ -185,7 +187,7 @@ void HI_PrintInfo(int *Proc_id, int *ProcsPerGPU)
         fflush(stdout);
     }
 
-	if(IuseGPU)
+    if(IuseGPU)
         printf("Process nr. %i using GPU nr. %i of %i(%i)\n", *Proc_id, myGPU, GPUcount, VirtualGPUcount);
     else
         printf("Process nr. %i using CPU.\n", *Proc_id);
@@ -193,6 +195,32 @@ void HI_PrintInfo(int *Proc_id, int *ProcsPerGPU)
     fflush(stdout);
 }
 
+//-------------------------------------------------------------------
+// Print and returns information about the GPUs and wich processes
+// will use them.
+//
+void HI_Info (int *Proc_id, int *ProcsPerGPU, int *fmyGPU, int *fGPUcount, int *fVirtualGPUcount, int *fIuseGPU)
+{
+    if(*Proc_id == 0)
+    {
+        printf("procInfo: Using %i processes per GPU\n", *ProcsPerGPU);
+#ifdef MAGMA
+        printf("procInfo: Magma info:\n\n");
+        magma_print_devices();
+        printf("\n");
+#endif
+        fflush(stdout);
+    }
+
+    *fmyGPU = myGPU;
+    *fGPUcount = GPUcount;
+    *fVirtualGPUcount = VirtualGPUcount;
+    if(IuseGPU)
+       *fIuseGPU = 1;
+    else
+       *fIuseGPU = 0;
+
+}
 
 //-----------------------------------------
 // Finalizes the environment

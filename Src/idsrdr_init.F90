@@ -46,7 +46,7 @@ MODULE idsrdr_init
   implicit none
 
   PUBLIC  :: init, nsc, time_begin
-  PRIVATE :: header, initread
+  PRIVATE :: header, initread, procInfo
 
 ! Program working variables.
   integer :: nsc(2)
@@ -73,8 +73,9 @@ CONTAINS
 !  integer Node                : Actual node (MPI_Comm_rank)            !
 !  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
 !  logical IOnode              : True if it is the I/O node             !
+!  integer ProcsPerGPU         : Number of processes running per GPU    !
 !  ***************************** OUTPUT ******************************  !
-!  real*8 time_begin              : Initial processor time in seconds   !
+!  real*8 time_begin           : Initial processor time in seconds      !
 !  integer nsc(2)              : Number of unit cells along parallel    !
 !                                directions                             !
 !  *******************************************************************  !
@@ -179,9 +180,7 @@ CONTAINS
 !   Initialise CPU-GPU interface.
     call HI_Init (Node, ProcsPerGPU) ! Try to read module vars
                                      ! directly from C?
-    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
-    call HI_PrintInfo (Node, ProcsPerGPU)
-    call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
+    call procInfo (ProcsPerGPU)
 
 !   Number of unit cells along parallel directions.
     nsc = 1
@@ -191,6 +190,103 @@ CONTAINS
 
 
   end subroutine init
+
+
+!  *******************************************************************  !
+!                               procInfo                                !
+!  *******************************************************************  !
+!  Description: initialize the reading of the data for I-Disorder.      !
+!                                                                       !
+!  Written by Pedro Brandimarte, May 2014.                              !
+!  Instituto de Fisica                                                  !
+!  Universidade de Sao Paulo                                            !
+!  e-mail: brandimarte@gmail.com                                        !
+!  ***************************** HISTORY *****************************  !
+!  Original version:    May 2014                                        !
+!  ****************************** INPUT ******************************  !
+!  integer ProcsPerGPU         : Number of processes running per GPU    !
+!  *********************** INPUT FROM MODULES ************************  !
+!  integer Node                : Actual node (MPI_Comm_rank)            !
+!  integer Nodes               : Total number of nodes (MPI_Comm_size)  !
+!  logical IOnode              : True if it is the I/O node             !
+!  *******************************************************************  !
+  subroutine procInfo (ProcsPerGPU)
+
+!
+! Modules
+!
+#ifdef MPI
+    use parallel,        only: Node, Nodes, IOnode, MPI_Comm_MyWorld
+#else
+    use parallel,        only: Node, Nodes, IOnode
+#endif
+
+#ifdef MPI
+    include "mpif.h"
+#endif
+
+!   Input variables.
+    integer, intent(in) :: ProcsPerGPU
+
+!   Local variables.
+    integer :: myGPU, buffMyGPU, IuseGPU, buffIuseGPU,                  &
+               GPUcount, VirtualGPUcount 
+#ifdef MPI
+    integer :: n, MPIerror
+    integer, dimension(MPI_Status_Size) :: MPIstatus
+#endif
+
+    if (IOnode) write (6,'(/,30(1h*),a,30(1h*))') ' Work distribution '
+
+!   Get GPU-CPU info.
+    call HI_Info (Node, ProcsPerGPU, myGPU, GPUcount,                   &
+                  VirtualGPUcount, IuseGPU)
+
+#ifdef MPI
+    do n = 0,Nodes-1
+       if (Node == n .and. IOnode) then
+#endif
+          if (IuseGPU == 1) then
+             write (6,'(a,i3,a,i3,a,i3,a,i3,a)')                        &
+                  'procInfo: Process nr. ', Node, ' using GPU nr. ',    &
+                  myGPU, ' of ', GPUcount, '(', VirtualGPUcount, ').'
+          else
+             write (6,'(a,i3,a)') 'procInfo: Process nr. ', Node,       &
+                  ' using CPU.'
+          endif
+#ifdef MPI
+       elseif (Node == n) then
+          call MPI_Send (myGPU, 1, MPI_Integer, 0, 1,                   &
+                         MPI_Comm_MyWorld, MPIerror)
+          call MPI_Send (IuseGPU, 1, MPI_Integer, 0, 2,                 &
+                         MPI_Comm_MyWorld, MPIerror)
+       elseif (Node == 0) then
+          call MPI_Recv (buffMyGPU, 1, MPI_Integer, n, 1,               &
+                         MPI_Comm_MyWorld, MPIstatus, MPIerror)
+          call MPI_Recv (buffIuseGPU, 1, MPI_Integer, n, 2,             &
+                         MPI_Comm_MyWorld, MPIstatus, MPIerror)
+       endif
+       if (n /= 0) then
+          call MPI_Barrier (MPI_Comm_MyWorld, MPIerror)
+          if (Node == 0) then
+             if (buffIuseGPU == 1) then
+                write (6,'(a,i3,a,i3,a,i3,a,i3,a)')                     &
+                     'procInfo: Process nr. ', n, ' using GPU nr. ',    &
+                     buffmyGPU, ' of ', GPUcount, '(',                  &
+                     VirtualGPUcount, ').'
+             else
+                write (6,'(a,i3,a)') 'procInfo: Process nr. ', n,       &
+                     ' using CPU.'
+             endif
+          endif
+       endif
+    enddo ! n = 0,Nodes-1
+#endif
+
+    if (IOnode) write (6,'(2a)') 'procInfo: ', repeat('*', 69)
+
+
+  end subroutine procInfo
 
 
 !  *******************************************************************  !

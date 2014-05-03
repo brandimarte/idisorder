@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = x86_64-intel-mkl
+IDISORDER_ARCH = x86_64-openmpi-mkl
 
 # Executable name.
 EXEC = i-disorder.optim
@@ -45,7 +45,7 @@ EXEC = i-disorder.optim
 # a good idea to add options here, except when they are essential for
 # a proper operation. For example, here we request 64 bits and a special
 # sub-compiler.
-FC = mpiifort
+FC = /home/pedro/local/lib/openmpi-1.6.5/bin/mpif90
 
 # CXX is typically the name of your c++ compiler. It is not always
 # a good idea to add options here, except when they are essential for
@@ -118,7 +118,7 @@ MKL              = /opt/intel/composer_xe_2011_sp1.6.233/mkl
 INTEL_LIBS       = $(MKL)/lib/intel64/libmkl_intel_lp64.a \
                    $(MKL)/lib/intel64/libmkl_sequential.a \
                    $(MKL)/lib/intel64/libmkl_core.a \
-                   $(MKL)/lib/intel64/libmkl_blacs_intelmpi_lp64.a \
+                   $(MKL)/lib/intel64/libmkl_blacs_openmpi_lp64.a \
                    $(MKL)/lib/intel64/libmkl_scalapack_lp64.a
 #                   $(MKL)/lib/intel64/libmkl_blas95_lp64.a \
 #                   $(MKLROOT)/lib/intel64/libmkl_lapack95_lp64.a
@@ -141,7 +141,7 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
 # might need something like -Lsomepath/ -lmpi ...
-MPI_LIBS = -L/opt/intel/impi/4.0.3.008/intel64/lib -lmpi
+MPI_LIBS = -L/home/pedro/local/lib/openmpi-1.6.5/lib -lmpi
 
 # Even if you have an optimized system library (such as ESSL), you might
 # not have all of LAPACK. In particular, the divide_and_conquer routines
@@ -158,7 +158,7 @@ COMP_LIBS =
 # implementation. If your compiler vendor offers an alternative, you may
 # change to it here.
 #MPI_INTERFACE = libmpi_f90.a
-MPI_INCLUDE = -I/opt/intel/impi/4.0.3.008/intel64/include
+MPI_INCLUDE = -I/home/pedro/local/lib/openmpi-1.6.5/include
 
 # Preprocessor definitions or flags.
 # Here we use FPPFLAGS (as 'configure' calls them), but historically

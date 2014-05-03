@@ -21,7 +21,7 @@
 #  distributed along with this program or at                            #
 #  <http://www.gnu.org/licenses/gpl.html>).                             #
 #  *******************************************************************  #
-#                            submitGPUcnpd.sh                           #
+#                       submitGPUcnpdMachFile.sh                        #
 #  *******************************************************************  #
 #  Description: script for job submition.                               #
 #                                                                       #
@@ -31,10 +31,11 @@
 #          ${4} :  working directory (e.g. '${PBS_O_WORKDIR}')          #
 #          ${5} :  number of runs (e.g. 500)                            #
 #          ${6} :  input file                                           #
+#          ${7} :  machine file                                         #
 #                                                                       #
-#  Use:  $ ./submitGPUcnpd.sh [mpi compiler] [# of procs] \             #
+#  Use:  $ ./submitGPUcnpdMachFile.sh [mpi compiler] [# of procs] \     #
 #          [I-Disorder executable] [working directory] \                #
-#          [# of runs] [input file]                                     #
+#          [# of runs] [input file] [machine file]                      #
 #                                                                       #
 #  Written by Pedro Brandimarte, Feb 2014.                              #
 #  Instituto de Fisica                                                  #
@@ -72,14 +73,14 @@ echo ""
 echo "   ${linh}${linh}"
 
 # Checks if the number of arguments is correct.
-if [ ${#} != 6 ]
+if [ ${#} != 7 ]
 then
     echo -e "\nI-Disorder: ERROR: wrong number of arguments!\n"
-    echo -e "I-Disorder: Use: ./submitGPUcnpd.sh [mpi compiler]"        \
-	"[# of procs] \ "
+    echo -e "I-Disorder: Use: ./submitGPUcnpdMachFile.sh"               \
+	"[mpi compiler] [# of procs] \ "
     echo -e "                 [I-Disorder executable]"                  \
 	"[working directory] \ "
-    echo -e "                 [# of runs] [input file]\n"
+    echo -e "                 [# of runs] [input file] [machine file]\n"
     exit -1
 fi
 
@@ -131,6 +132,11 @@ then
     echo -e "\nI-Disorder: ERROR: the file \"${6}\" doesn't exist or"   \
 	"is not accessible!\n"
     exit -1
+elif [ ! -r ${7} ]
+then
+    echo -e "\nI-Disorder: ERROR: the file \"${7}\" doesn't exist or"   \
+	"is not accessible!\n"
+    exit -1
 fi
 echo -e "ok!\n"
 
@@ -170,7 +176,7 @@ for i in `seq 1 ${5}`; do
     sed "s/SystemLabel ${SysLabel}/SystemLabel ${SysLabel}-${i}/" ${6}  \
 	> ${6}_${i}.in
 
-    ${1} -np ${2} ${3} < ${6}_${i}.in > output_${i}.out
+    ${1} -np ${2} -machinefile ${7} ${3} < ${6}_${i}.in > output_${i}.out
     wait
 
     mv *.CUR ${Wdir}/conductance/

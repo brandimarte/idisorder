@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = x86_64-unknown-linux
+IDISORDER_ARCH = x86_64-openmpi-mkl
 
 # Executable name.
 EXEC = i-disorder.dev
