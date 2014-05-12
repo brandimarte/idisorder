@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = x86_64-openmpi-mkl
+IDISORDER_ARCH = x86_64-openmpi-cuda5.5-mkl
 
 # Executable name.
 EXEC = i-disorder.optim

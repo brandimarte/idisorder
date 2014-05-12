@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = x86_64-macbook
+IDISORDER_ARCH = x86_64-mac-openmpi-cuda5.5-mkl
 
 # Executable name.
 EXEC = i-disorder.dev
