@@ -350,9 +350,9 @@ static inline cublasSideMode_t char2cublas_side(char *char_op)
 #ifdef MAGMA
 static inline cublasFillMode_t char2cublas_fill(char *char_op)
 {
-   if (*char_op == 'L' || *char_op == 'l') return(CUBLAS_FILL_MODE_UPPER);
+   if (*char_op == 'U' || *char_op == 'u') return(CUBLAS_FILL_MODE_UPPER);
    else return(CUBLAS_FILL_MODE_LOWER);
-   // else if (*char_op == 'U' || *char_op == 'u') return(CUBLAS_FILL_MODE_LOWER);
+   // else if (*char_op == 'L' || *char_op == 'l') return(CUBLAS_FILL_MODE_LOWER);
 }
 #endif
 

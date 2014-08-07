@@ -188,10 +188,11 @@ CONTAINS
             NDefects
 
 !      Average defect distance.
-       avgdist = fdf_physical ('AvgDefectDist', 50.0d0, 'Ang')
-       write (6,6)                                                      &
-            'readopt: Average defect distance                       =', &
-            avgdist, ' Ang'
+       avgdist = 10.0d0
+!!$       avgdist = fdf_physical ('AvgDefectDist', 50.0d0, 'Ang')
+!!$       write (6,6)                                                      &
+!!$            'readopt: Average defect distance                       =', &
+!!$            avgdist, ' Ang'
 
 !      Number of spin components.
        spinpol = fdf_boolean ('SpinPolarized', .false.)
@@ -218,7 +219,7 @@ CONTAINS
 
 !      Total number of units.
        nunits = 0
-       nunits = fdf_integer ('NumberUnits', 0)
+       nunits = fdf_integer ('NumberUnits', 1)
        if (readunitstf) then
           if (nunits == 0) then
 #ifdef MPI
@@ -233,7 +234,7 @@ CONTAINS
        endif
 
 !      Electronic temperature.
-       temp = fdf_physical ('ElectronicTemperature', 300.0d0, 'Ry')
+       temp = fdf_physical ('ElectronicTemperature', 300.0d0, 'K')
        write (6,6)                                                      &
             'readopt: Electronic temperature                        =', &
             temp, ' Ry'
@@ -245,13 +246,13 @@ CONTAINS
             NIVP
 
 !      Initial value of the bias potential.
-       VInitial = fdf_physical ('VInitial', 0.0d0, 'Ry')
+       VInitial = fdf_physical ('VInitial', 0.0d0, 'eV')
        write(6,6)                                                       &
             'readopt: Initial value of the bias potential           =', &
             VInitial, ' Ry'
 
 !      Final value of the bias potential.
-       VFinal = fdf_physical ('VFinal', 0.1d0, 'Ry')
+       VFinal = fdf_physical ('VFinal', 0.1d0, 'eV')
        write(6,6)                                                       &
             'readopt: Final value of the bias potential             =', &
             VFinal, ' Ry'
@@ -259,9 +260,6 @@ CONTAINS
 !      Number of transmission energy points.
        NTenerg = fdf_integer ('NumberTransmPoints', 100)
        if (NTenerg == 0) NTenerg = 1
-       do while (MOD(NTenerg,Nodes) /= 0)
-          NTenerg = NTenerg + 1
-       enddo
        write (6,4)                                                      &
             'readopt: Number of transmission energy points          =', &
             NTenerg
@@ -269,13 +267,13 @@ CONTAINS
        if (NTenerg > 0) then
 
 !         Initial transmission energy.
-          TEnergI = fdf_physical ('TransmInitial', -1.d0, 'Ry')
+          TEnergI = fdf_physical ('TransmInitial', -1.d0, 'eV')
           write (6,6)                                                   &
                'readopt: Initial transmission energy              ' //  &
                '     =', TEnergI, ' Ry'
 
 !         Final transmission energy.
-          TEnergF = fdf_physical ('TransmFinal', 1.d0, 'Ry')
+          TEnergF = fdf_physical ('TransmFinal', 1.d0, 'eV')
           write (6,6)                                                   &
                'readopt: Final transmission energy                ' //  &
                '     =', TEnergF, ' Ry'
@@ -312,7 +310,7 @@ CONTAINS
        if (.not. phonEqui) then
 !         Phenomenological damping parameter
 !         (related to the inverse of phonon's lifetime).
-          phonDamp = fdf_physical ('PhononDamping', 0.05d0, 'Ry')
+          phonDamp = fdf_physical ('PhononDamping', 0.05d0, 'eV')
           write (6,6)                                                   &
                'readopt: Phenomenological phonon damping parameter' //  &
                '     =', phonDamp, ' Ry'
