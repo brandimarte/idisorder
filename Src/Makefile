@@ -21,7 +21,7 @@
 #  *******************************************************************  #
 #                               Makefile                                #
 #  *******************************************************************  #
-#  Description: makefile to build 'I-Disorder code.                     #
+#  Description: makefile to build I-Disorder code.                      #
 #                                                                       #
 #  Written by Pedro Brandimarte, Sep 2013.                              #
 #  Instituto de Fisica                                                  #
@@ -100,7 +100,7 @@ $(MKLDFT):
 	@chmod u+w $(VPATH)/MKLDFT/*
 	(cd MKLDFT ; $(MAKE) "VPATH=$(VPATH)/MKLDFT" module)
 
-# Routines using fdf calls.
+# Routines using mkl_dfti calls.
 idsrdr_hilbert.o : $(MKLDFT)
 
 

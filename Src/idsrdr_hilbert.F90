@@ -201,7 +201,7 @@ CONTAINS
        aux(i) = ker(i) * aux(i)
     enddo
 
-!   Compute the forward FFT.
+!   Compute the backward FFT.
     MKLstatus = DftiComputeBackward (MKLdesc, aux)
 
 !   Free memory.

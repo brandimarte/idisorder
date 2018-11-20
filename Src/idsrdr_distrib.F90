@@ -64,7 +64,7 @@ CONTAINS
 !   Input variables.
     real(8), intent(in) :: mu, kT, E
 
-    if ((E - mu) / kT > 55.d0) then
+    if ((E - mu) / kT > 50.d0) then
        FermiDirac = 0.d0
     else
        FermiDirac = 1.d0 / (DEXP((E - mu) / kT) + 1.d0)
@@ -96,12 +96,12 @@ CONTAINS
 !   Input variables.
     real(8), intent(in) :: freq, kT
 
-    if (freq/kT > 55.d0) then
+    if (freq/kT > 50.d0) then
        BoseEinstein = 0.d0
-    elseif (freq/kT < -55.d0) then
+    elseif (freq/kT < -50.d0) then
        BoseEinstein = -1.d0
-    elseif (freq/kT < 1.d-25 .and. freq/kT > -1.d-25) then
-       BoseEinstein = 1.d25
+    elseif (freq/kT < 1.d-20 .and. freq/kT > -1.d-20) then
+       BoseEinstein = 1.d20
     else
        BoseEinstein = 1.d0 / (DEXP(freq/kT) - 1.d0)
     endif
