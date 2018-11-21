@@ -1,7 +1,7 @@
 #  *******************************************************************  #
 #  I-Disorder Fortran Code                                              #
 #                                                                       #
-#  Written by Alexandre Reily Rocha and Pedro Brandimarte, 2007-2013    #
+#  Written by Pedro Brandimarte and Alexandre Reily Rocha, 2007-2013    #
 #                                                                       #
 #  Copyright (c), All Rights Reserved                                   #
 #                                                                       #

@@ -1,9 +1,9 @@
 !  *******************************************************************  !
 !  I-Disorder Fortran Code 2007-2014                                    !
 !                                                                       !
-!  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              !
-!             Pedro Brandimarte (brandimarte@gmail.com) and             !
-!             Alberto Torres (alberto.trj@gmail.com).                   !
+!  Written by Pedro Brandimarte (brandimarte@gmail.com),                !
+!             Alberto Torres (alberto.trj@gmail.com) and                !
+!             Alexandre Reily Rocha (reilya@ift.unesp.br).              !
 !                                                                       !
 !  Copyright (c), All Rights Reserved                                   !
 !                                                                       !
@@ -418,12 +418,12 @@ CONTAINS
          '                            ',                                &
          values(1), '.', values(2), '.', values(3), ' , ',              &
          values(5), ':', values(6), ':', values(7)
-    write (6,'(/,a)') '      Written by Alexandre Reily Rocha '      // &
-         '(reilya@ift.unesp.br),'
-    write (6,'(a)') '                 Pedro Brandimarte '            // &
-         '(brandimarte@gmail.com) and'
+    write (6,'(/,a)') '      Written by Pedro Brandimarte '          // &
+         '(brandimarte@gmail.com),'
     write (6,'(a)') '                 Alberto Torres '               // &
-         '(alberto.trj@gmail.com).'
+         '(alberto.trj@gmail.com) and'
+    write (6,'(a)') '                 Alexandre Reily Rocha '        // &
+         '(reilya@ift.unesp.br).'
     write (6,'(/,a)') '      Copyright (c), All Rights Reserved'
     write (6,'(/,a)') '      This program is free software. '        // &
          'You can redistribute it and/or'

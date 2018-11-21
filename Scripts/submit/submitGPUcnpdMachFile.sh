@@ -3,9 +3,9 @@
 #  *******************************************************************  #
 #  I-Disorder Fortran Code 2007-2014                                    #
 #                                                                       #
-#  Written by Alexandre Reily Rocha (reilya@ift.unesp.br),              #
-#             Pedro Brandimarte (brandimarte@gmail.com) and             #
-#             Alberto Torres (alberto.trj@gmail.com).                   #
+#  Written by Pedro Brandimarte (brandimarte@gmail.com),                #
+#             Alberto Torres (alberto.trj@gmail.com) and                #
+#             Alexandre Reily Rocha (reilya@ift.unesp.br).              #
 #                                                                       #
 #  Copyright (c), All Rights Reserved                                   #
 #                                                                       #
@@ -55,9 +55,9 @@ echo ""
 echo -n "                         "
 date
 echo ""
-echo "      Written by Alexandre Reily Rocha (reilya@ift.unesp.br),"
-echo "                 Pedro Brandimarte (brandimarte@gmail.com) and"
-echo "                 Alberto Torres (alberto.trj@gmail.com)."
+echo "      Written by Pedro Brandimarte (brandimarte@gmail.com),"
+echo "                 Alberto Torres (alberto.trj@gmail.com) and"
+echo "                 Alexandre Reily Rocha (reilya@ift.unesp.br)."
 echo ""
 echo "      Copyright (c), All Rights Reserved"
 echo ""

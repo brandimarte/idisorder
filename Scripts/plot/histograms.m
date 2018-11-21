@@ -1,9 +1,9 @@
 (* ******************************************************************* *)
 (* I-Disorder Fortran Code 2007-2014                                   *)
 (*                                                                     *)
-(* Written by Alexandre Reily Rocha (reilya@ift.unesp.br),             *)
-(*            Pedro Brandimarte (brandimarte@gmail.com) and            *)
-(*            Alberto Torres (alberto.trj@gmail.com).                  *)
+(* Written by Pedro Brandimarte (brandimarte@gmail.com),               *)
+(*            Alberto Torres (alberto.trj@gmail.com) and               *)
+(*            Alexandre Reily Rocha (reilya@ift.unesp.br).             *)
 (*                                                                     *)
 (* Copyright (c), All Rights Reserved                                  *)
 (*                                                                     *)
@@ -38,7 +38,7 @@
 (* ******************************************************************* *)
 
 (* Working directory (containing the '.dat' files). *) 
-(* SetDirectory["/Users/pedro/teste/disorder/DefeitoSimples05/histo"] *)
+(* SetDirectory["../../teste/disorder/SimpleDefect05/histo"] *)
 
 files = FileNames["*el.dat"]
 For [i = 1, i < Length[files], i = i + 5, 
