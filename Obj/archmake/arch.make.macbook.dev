@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = x86_64-macbook
+IDISORDER_ARCH = x86_64-mac-openmpi-mkl-cuda
 
 # Executable name.
 EXEC = i-disorder.dev
@@ -51,6 +51,7 @@ FC = mpif90
 # a good idea to add options here, except when they are essential for
 # a proper operation. For example, here we request 64 bits and a special
 # sub-compiler.
+#CXX = gcc
 CXX = icpc
 
 # The FC_SERIAL symbol is useful in at least two cases:
@@ -63,9 +64,10 @@ CXX = icpc
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O2 -xHost -traceback -C -fpe0 -heap-arrays 1024 \
+FFLAGS = -O2 -xHost -traceback -CB -fpe0 -heap-arrays 1024 \
          -warn unused,truncated_source,uncalled,declarations,usage
 CXXFLAGS = -O2 -xHost -traceback -C -Wall
+#CXXFLAGS = -O2 -Wall
 
 # C++ standard.
 CXX_LIBS = -lstdc++ 
@@ -93,7 +95,7 @@ SYS = bsd
 #DEFS_PREFIX = -WF,
 
 # Used only at the linking stage. For example, you might neeed "-static".
-LDFLAGS = -static-intel -static-libgcc
+LDFLAGS = -static-intel
 
 # Extra flags for library creation by the 'ar' command
 # Note that the 'ar' command can itself be specified by
@@ -114,7 +116,7 @@ FPPFLAGS_free_F90 =
 # We can make things a bit easier by grouping symbols, and maybe
 # using the -L flag to define search directories (see examples
 # in 'siesta-3.1/Src/Sys' directory).
-MKL              = /opt/intel/composer_xe_2013.5.198/mkl
+MKL              = /opt/intel/composer_xe_2015.0.077/mkl
 INTEL_LIBS       = $(MKL)/lib/libmkl_intel_lp64.a \
                    $(MKL)/lib/libmkl_sequential.a \
                    $(MKL)/lib/libmkl_core.a
@@ -128,14 +130,14 @@ MKLDFT_INTERFACE = libmkl_dfti.a
 # If you want to use GPUs, define the following.
 # MAGMA, CUDA and CUBLAS libraries:
 # This is truly the most installation-dependent part, really.
-CUDA_DIR    = /usr/local/cuda
-MAGMA_DIR   = /Users/pedro/src/magma-1.4.1
-MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
-GPU_LIBS    = $(MAGMA_LIB) $(CUDA_DIR)/lib/libcudart.5.5.dylib \
-              $(CUDA_DIR)/lib/libcuda.dylib \
-              $(CUDA_DIR)/lib/libcublas.5.5.dylib -lstdc++
-GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
-GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
+#CUDA_DIR    = /usr/local/cuda
+#MAGMA_DIR   = /Users/pedro/src/magma-1.5.0
+#MAGMA_LIB   = $(MAGMA_DIR)/lib/libmagma.a
+#GPU_LIBS    = $(MAGMA_LIB) $(CUDA_DIR)/lib/libcudart.6.0.dylib \
+#              $(CUDA_DIR)/lib/libcuda.dylib \
+#              $(CUDA_DIR)/lib/libcublas.6.0.dylib -lstdc++
+#GPU_INCLUDE = -I$(CUDA_DIR)/include -I$(MAGMA_DIR)/include
+#GPU_DEFS    = -DFORTRAN -DMAGMA -DHAVE_CUBLAS
 
 # If you are using a "wrapper compiler" such as
 # mpif90, MPI_LIBS can be left empty. If not, you
@@ -169,7 +171,8 @@ MPI_INCLUDE = -I/opt/local/include
 # MPI is self-explanatory. Remove the flag -DMASTER_SLAVE if
 # you intends to run in serial mode (for Master-Slave scheme
 # it is mandatory at least 2 nodes).
-FPPFLAGS_MPI = -DMPI -DMASTER_SLAVE -DMACH
+FPPFLAGS_MPI = -DMPI -DMACH
+#FPPFLAGS_MPI = -DMPI -DMASTER_SLAVE -DMACH
 
 # Uncomment to use GPUs with the MAGMA library
 FPPFLAGS_GPU = $(GPU_DEFS)

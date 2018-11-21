@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = intel-mkl
+IDISORDER_ARCH = x86_64-intelmpi-mkl
 
 # Executable name.
 EXEC = i-disorder.optim
@@ -63,9 +63,9 @@ CXX = icpc
 FC_SERIAL = ifort
 
 # Here we should put mainly optimization flags.
-FFLAGS = -O3 -xSSE4.1 -ip -mp1 \
+FFLAGS = -O2 -xSSE4.1 -ip -mp1 \
          -warn unused,truncated_source,uncalled,declarations,usage
-CXXFLAGS = -O3 -xHost -ip -mp1
+CXXFLAGS = -O2 -xHost -ip -mp1
 
 # C++ standard.
 CXX_LIBS = -lstdc++ 

@@ -142,7 +142,7 @@ PROGRAM IDISORDER
            call power (ienergy, ispin, iv, Vbias)
 
 !          Calculate the current.
-           call current (Ei(ienergy), ienergy, ispin, iv, Vbias)
+           call current (ienergy, ispin, iv, Vbias)
 
            Vbias = Vbias + dV
 

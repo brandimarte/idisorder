@@ -21,7 +21,7 @@
 #  *******************************************************************  #
 #                               Makefile                                #
 #  *******************************************************************  #
-#  Description: makefile to build 'I-Disorder code.                     #
+#  Description: makefile to build I-Disorder code.                      #
 #                                                                       #
 #  Written by Pedro Brandimarte, Sep 2013.                              #
 #  Instituto de Fisica                                                  #
@@ -70,7 +70,8 @@ OBJS= parallel.o master-slave.o
 else
 OBJS= parallel.o
 endif
-OBJS +=	timer.o Hybrid_Interface.o idsrdr_string.o idsrdr_io.o          \
+#OBJS +=	timer.o Hybrid_Interface.o idsrdr_string.o idsrdr_io.o
+OBJS +=	Hybrid_Interface.o idsrdr_string.o idsrdr_io.o                  \
 	gensvd.o rank.o ranksvd.o zhsl.o zhsunits.o hsl.o hsunits.o     \
 	identify.o diagonal_alex.o decimate_leads.o leads_complex.o     \
 	idsrdr_random.o idsrdr_check.o idsrdr_recipes.o                 \
@@ -99,7 +100,7 @@ $(MKLDFT):
 	@chmod u+w $(VPATH)/MKLDFT/*
 	(cd MKLDFT ; $(MAKE) "VPATH=$(VPATH)/MKLDFT" module)
 
-# Routines using fdf calls.
+# Routines using mkl_dfti calls.
 idsrdr_hilbert.o : $(MKLDFT)
 
 

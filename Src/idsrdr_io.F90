@@ -19,7 +19,7 @@
 !  distributed along with this program or at                            !
 !  <http://www.gnu.org/licenses/gpl.html>).                             !
 !  *******************************************************************  !
-!                        MODULE idsrdr_iostream                         !
+!                           MODULE idsrdr_io                            !
 !  *******************************************************************  !
 !  Description: controlled opening/closing of files.                    !
 !                                                                       !

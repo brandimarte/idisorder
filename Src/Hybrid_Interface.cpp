@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include "timer.h"
+// #include "timer.h"
 
 #ifdef MAGMA
 # include <cuda.h>
@@ -51,12 +51,12 @@ typedef complex doubleComplex;
 
 
 // Constants to call clock* functions (which take args. by reference)
-static const int Clock_id_MatInversion     = CLOCK_ID_MatInversion;
-static const int Clock_id_MatMult          = CLOCK_ID_MatMult;
-#ifdef MAGMA
-static const int Clock_id_MatInversion_GPU = CLOCK_ID_gpuMatInversion;
-static const int Clock_id_MatMult_GPU      = CLOCK_ID_gpuMatMult;
-#endif
+// static const int Clock_id_MatInversion     = CLOCK_ID_MatInversion;
+// static const int Clock_id_MatMult          = CLOCK_ID_MatMult;
+// #ifdef MAGMA
+// static const int Clock_id_MatInversion_GPU = CLOCK_ID_gpuMatInversion;
+// static const int Clock_id_MatMult_GPU      = CLOCK_ID_gpuMatMult;
+// #endif
 
 
 //----------------------------------------------------------------
@@ -273,7 +273,7 @@ void HI_zgemm(char *opA, char *opB, int *M, int *N, int *K,
 #ifdef MAGMA
     if(IuseGPU && *N>100) // Use GPU
     {
-        clock_start(&Clock_id_MatMult_GPU);
+        // clock_start(&Clock_id_MatMult_GPU);
 
         const size_t size = sizeof(cuDoubleComplex);
 
@@ -317,14 +317,14 @@ void HI_zgemm(char *opA, char *opB, int *M, int *N, int *K,
         cudaFree(dB);
         cudaFree(dC);
 
-        clock_stop(&Clock_id_MatMult_GPU);
+        // clock_stop(&Clock_id_MatMult_GPU);
     }
     else // Use CPU
 #endif
     {
-        clock_start(&Clock_id_MatMult);
+        // clock_start(&Clock_id_MatMult);
         zgemm_(opA, opB, M, N, K, alpha, A, LDA, B, LDB, beta, C, LDC);
-        clock_stop(&Clock_id_MatMult);
+        // clock_stop(&Clock_id_MatMult);
     }
 }
 
@@ -372,7 +372,7 @@ void HI_zsymm(char *side, char *uplo, int *M, int *N,
 #ifdef MAGMA
     if(IuseGPU && *N>100) // Use GPU
     {
-        clock_start(&Clock_id_MatMult_GPU);
+        // clock_start(&Clock_id_MatMult_GPU);
 
         const size_t size = sizeof(cuDoubleComplex);
 
@@ -413,14 +413,14 @@ void HI_zsymm(char *side, char *uplo, int *M, int *N,
         cudaFree(dB);
         cudaFree(dC);
 
-        clock_stop(&Clock_id_MatMult_GPU);
+        // clock_stop(&Clock_id_MatMult_GPU);
     }
     else // Use CPU
 #endif
     {
-        clock_start(&Clock_id_MatMult);
+        // clock_start(&Clock_id_MatMult);
         zsymm_(side, uplo, M, N, alpha, A, LDA, B, LDB, beta, C, LDC);
-        clock_stop(&Clock_id_MatMult);
+        // clock_stop(&Clock_id_MatMult);
     }
 }
 
@@ -440,7 +440,7 @@ void HI_zhemm(char *side, char *uplo, int *M, int *N,
 #ifdef MAGMA
     if(IuseGPU  && *N>100) // Use GPU
     {
-        clock_start(&Clock_id_MatMult_GPU);
+        // clock_start(&Clock_id_MatMult_GPU);
 
         const size_t size = sizeof(cuDoubleComplex);
 
@@ -481,14 +481,14 @@ void HI_zhemm(char *side, char *uplo, int *M, int *N,
         cudaFree(dB);
         cudaFree(dC);
 
-        clock_stop(&Clock_id_MatMult_GPU);
+        // clock_stop(&Clock_id_MatMult_GPU);
     }
     else // Use CPU
 #endif
     {
-        clock_start(&Clock_id_MatMult);
+        // clock_start(&Clock_id_MatMult);
         zhemm_(side, uplo, M, N, alpha, A, LDA, B, LDB, beta, C, LDC);
-        clock_stop(&Clock_id_MatMult);
+        // clock_stop(&Clock_id_MatMult);
     }
 }
 
@@ -508,7 +508,7 @@ void HI_zgeInvert(doubleComplex *A, int *N)
 #ifdef MAGMA
     if(IuseGPU  && *N>100)
     {
-        clock_start(&Clock_id_MatInversion_GPU);
+        // clock_start(&Clock_id_MatInversion_GPU);
 
         const int lddA=((n+15)/16)*16;  // Make lddA multiple of 32 (faster)
         cuDoubleComplex *dA, *dWork;
@@ -528,12 +528,12 @@ void HI_zgeInvert(doubleComplex *A, int *N)
         cudaFree((void*)dA);   
         cudaFree((void*)dWork);
 
-        clock_stop(&Clock_id_MatInversion_GPU);
+        // clock_stop(&Clock_id_MatInversion_GPU);
     }
     else
 #endif
     {
-        clock_start(&Clock_id_MatInversion);
+        // clock_start(&Clock_id_MatInversion);
 
         doubleComplex *Work = (doubleComplex*)malloc(lwork*sizeof(doubleComplex));
 
@@ -542,7 +542,7 @@ void HI_zgeInvert(doubleComplex *A, int *N)
 
         free(Work);
 
-        clock_stop(&Clock_id_MatInversion);
+        // clock_stop(&Clock_id_MatInversion);
     }
     free(ipiv);
 }
@@ -584,7 +584,7 @@ void HI_zsyInvert(char *uplo, doubleComplex *A, int *N)
 #ifdef MAGMA
     if(IuseGPU && *N>100)
     {
-        clock_start(&Clock_id_MatInversion_GPU);
+        // clock_start(&Clock_id_MatInversion_GPU);
 
         const int lddA=((n+31)/32)*32;  // Make lddA multiple of 32 (faster)
         cuDoubleComplex *dA, *dWork;
@@ -612,12 +612,12 @@ void HI_zsyInvert(char *uplo, doubleComplex *A, int *N)
         cudaFree((void*)dA);   
         cudaFree((void*)dWork);
 
-        clock_stop(&Clock_id_MatInversion_GPU);
+        // clock_stop(&Clock_id_MatInversion_GPU);
     }
     else
 #endif
     {
-        clock_start(&Clock_id_MatInversion);
+        // clock_start(&Clock_id_MatInversion);
 
         doubleComplex *Work = (doubleComplex*)malloc(lwork*sizeof(doubleComplex));
 
@@ -628,7 +628,7 @@ void HI_zsyInvert(char *uplo, doubleComplex *A, int *N)
 
         free(Work);
 
-        clock_stop(&Clock_id_MatInversion);
+        // clock_stop(&Clock_id_MatInversion);
     }
     free(ipiv);
 }

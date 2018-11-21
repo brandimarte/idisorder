@@ -30,7 +30,7 @@
 
 # This string will be copied to the executable,
 # so it pays to use something meaningful.
-IDISORDER_ARCH = intel-mkl
+IDISORDER_ARCH = x86_64-intelmpi-mkl
 
 # Executable name.
 EXEC = i-disorder.dev
@@ -183,7 +183,7 @@ FPPFLAGS_GPU = $(GPU_DEFS)
 FPPFLAGS = $(FPPFLAGS_MPI) $(FPPFLAGS_DEBUG) $(FPPFLAGS_GPU)
 
 # All included flags.
-INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE) $(GPU_INCLUDE)
+INCFLAGS = $(MPI_INCLUDE) $(MKL_INCLUDE)
 
 # We put here all the neeeded libraries.
 # Sometimes the BLAS are included in LAPACK (or it could be

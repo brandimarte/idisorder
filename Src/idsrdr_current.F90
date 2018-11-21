@@ -254,13 +254,12 @@ CONTAINS
 !  TYPE(phonon) phOccup(nunitseph)%P(NTenerg_div,nspin,NIVP,nModes)     !
 !                                     : [real] Phonon occupation        !
 !  ****************************** INPUT ******************************  !
-!  real*8 Ei                    : Energy grid point                     !
 !  integer ienergy              : Energy grid index                     !
 !  integer ispin                : Spin component index                  !
 !  integer iv                   : Bias potential index                  !
 !  real*8 Vbias                 : Bias potential value                  !
 !  *******************************************************************  !
-  subroutine current (Ei, ienergy, ispin, iv, Vbias)
+  subroutine current (ienergy, ispin, iv, Vbias)
 
 !
 !   Modules
@@ -273,7 +272,7 @@ CONTAINS
 
 !   Input variables.
     integer, intent(in) :: ienergy, ispin, iv
-    real(8), intent(in) :: Ei, Vbias
+    real(8), intent(in) :: Vbias
 
 !   Local variables.
     integer :: ueph, w, idx
@@ -306,19 +305,23 @@ CONTAINS
           Isy = Isy + foo * currSy(ueph)%I(w)
 
 ! TEMP BEGIN
-!!$          write (1618,'(e17.8e3,e17.8e3,e17.8e3)') Vbias,            &
-!!$               currSy(ueph)%I(w), foo
-!!$          write (0339,'(e17.8e3,e17.8e3,e17.8e3)') Vbias,            &
-!!$              currAsy(ueph)%I(w), asymmPre (Ei, freq(idx)%F(w), Vbias)
+!!$          write (1618,'(e17.8e3,e17.8e3,e17.8e3)')                   &
+!!$               Vbias*13.60569253D0, currSy(ueph)%I(w), foo
+!!$          write (1339,'(e17.8e3,e17.8e3,e17.8e3)')                   &
+!!$               Vbias*13.60569253D0, currAsy(ueph)%I(w),              &
+!!$               asymmPre (freq(idx)%F(w), Vbias)
+!!$          write (669,'(e17.8e3,e17.8e3)') Vbias*13.60569253D0, foo
+!!$          write (666,'(e17.8e3,e17.8e3)') Vbias*13.60569253D0,       &
+!!$              asymmPre (freq(idx)%F(w), Vbias)
 ! TEMP END
 
 !         Compute asymmetric pre-factor.
-          Iasy = Iasy + asymmPre (Ei, freq(idx)%F(w), Vbias) *          &
+          Iasy = Iasy + asymmPre (freq(idx)%F(w), Vbias) *              &
                currAsy(ueph)%I(w)
 
 #ifdef DEBUG
           sy = sy + foo
-          asy = asy + asymmPre (Ei, freq(idx)%F(w), Vbias)
+          asy = asy + asymmPre (freq(idx)%F(w), Vbias)
 #endif
        enddo ! do w = 1,nModes(idx)
 
@@ -872,11 +875,10 @@ CONTAINS
 !                                for asymmetric term integral           !
 !  real*8 temp                 : Electronic temperature                 !
 !  ****************************** INPUT ******************************  !
-!  real*8 Ei                           : Energy grid point              !
 !  real*8 freq                         : Vibrational mode frequency     !
 !  real*8 Vbias                        : Bias potential                 !
 !  *******************************************************************  !
-  real(8) function asymmPre (Ei, freq, VBias)
+  real(8) function asymmPre (freq, VBias)
 
 !
 !   Modules
@@ -885,10 +887,9 @@ CONTAINS
     use idsrdr_recipes,  only: RECPSsimpson
     use idsrdr_distrib,  only: FermiDirac
     use idsrdr_hilbert,  only: hilbert
-    use idsrdr_leads,    only: EfLead
 
 !   Input variables.
-    real(8), intent(in) :: Ei, freq, Vbias
+    real(8), intent(in) :: freq, Vbias
 
 !   Local variables.
     integer :: k
@@ -899,11 +900,11 @@ CONTAINS
 
 !   Set lower and upper limit of energy integration.
     if (Vbias >= 0.d0) then
-       enI = Ei - 2.d0*freq - kbTol*temp - Vbias
-       enF = Ei + 2.d0*freq + kbTol*temp
+       enI = - 2.d0*freq - kbTol*temp - Vbias
+       enF = 2.d0*freq + kbTol*temp
     else
-       enI = Ei - 2.d0*freq - kbTol*temp
-       enF = Ei + 2.d0*freq + kbTol*temp - Vbias
+       enI = - 2.d0*freq - kbTol*temp
+       enF = 2.d0*freq + kbTol*temp - Vbias
     endif
 
 !   Allocate the energy grid points and weights arrays.
@@ -918,8 +919,8 @@ CONTAINS
 !   ('aux = f(E-w) - f(E+w)')
     aux = 0.d0
     do k = 1,nAsymmPts
-       aux(k) = FermiDirac (En(k)+freq, EfLead, temp)                   &
-                - FermiDirac (En(k)-freq, EfLead, temp)
+       aux(k) = FermiDirac (En(k)+freq, 0.d0, temp)                     &
+                - FermiDirac (En(k)-freq, 0.d0, temp)
     enddo
 
 !   Compute the pre-factor (with Hilbert transform).
@@ -928,8 +929,8 @@ CONTAINS
     asymmPre = 0.d0
     do k = 1,nAsymmPts
        asymmPre = asymmPre + We(k) * aux(k)                             &
-                  * (FermiDirac (En(k), EfLead, temp)                   &
-                  - FermiDirac (En(k)-Vbias, EfLead, temp))
+                  * (FermiDirac (En(k), 0.d0, temp)                     &
+                  - FermiDirac (En(k)-Vbias, 0.d0, temp))
     enddo
     asymmPre = asymmPre / 2.d0
 
