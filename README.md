@@ -3,4 +3,3 @@
 __Inelastic Disorder__ electronic transport of devices with random defects and inelastic scattering.
 
 ![idisorder logo](/docs/images/idisorder.png "Inelastic Disorder")
-
